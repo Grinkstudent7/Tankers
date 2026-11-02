@@ -2536,7 +2536,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
         if ((state === 'playing' || state === 'starting' || state === 'paused') && !player.dead) {
             if (player.carriedItems > 0) drawCarry(player.x, player.y, player.baseAngle, player.carriedItems);
-            if (!(player.invuln > 0 && frameCount % 8 < 4)) drawTank(player.x, player.y, player.baseColor, player.turretColor, player.baseAngle, player.turretAngle, player.type, false, false, false);
+            if (!playerBlinkHidden(player)) drawPlayerTank(player);
             if (net.on) drawNameTag(player.x, player.y, prof.name, isPvp() ? '#4fc3f7' : SLOT_COL[net.slot || 0], player.lives);
         }
 
@@ -4412,6 +4412,23 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
 
     // --- dibujo de jugadores ---
+    // En los niveles del sandbox multijugador los jugadores nunca desaparecen
+    // durante los fotogramas de parpadeo de invulnerabilidad. El contador de
+    // invulnerabilidad sigue activo para conservar la protección contra daño.
+    function sandboxPlayersStayVisible() {
+        return !!(net.on && (sbCur || net.cu || (net.cfg && net.cfg.src === 'sb')));
+    }
+    function playerBlinkHidden(p) {
+        return !sandboxPlayersStayVisible() && p.invuln > 0 && frameCount % 8 < 4;
+    }
+    function drawPlayerTank(p) {
+        // Aísla la opacidad del canvas para que un efecto de otro objeto no
+        // pueda dejar transparente el tanque de un jugador.
+        ctx.save();
+        ctx.globalAlpha = 1;
+        drawTank(p.x, p.y, p.baseColor, p.turretColor, p.baseAngle, p.turretAngle, 'player', false, false, false);
+        ctx.restore();
+    }
     function othersList() {
         if (net.role === 'client') return Object.keys(net.pl).filter(k => +k !== net.slot).map(k => { const o = net.pl[k], r = net.roster.find(q => q.slot === +k) || {}; return { slot: +k, x: o.x, y: o.y, baseAngle: o.ba, turretAngle: o.ta, baseColor: r.bc || '#999999', turretColor: r.tc || '#555555', name: r.name || '?', hp: 1, maxHp: 1, lives: o.lv, dead: o.dead, invuln: o.inv ? 1 : 0, carriedItems: o.ci || 0 }; });
         return remotes;
@@ -4427,7 +4444,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (const o of othersList()) {
             if (o.dead || !inView(o.x, o.y, 80)) continue;
             if (o.carriedItems > 0) drawCarry(o.x, o.y, o.baseAngle, o.carriedItems);
-            if (!(o.invuln > 0 && frameCount % 8 < 4)) drawTank(o.x, o.y, o.baseColor, o.turretColor, o.baseAngle, o.turretAngle, 'player', false, false, false);
+            if (!playerBlinkHidden(o)) drawPlayerTank(o);
             drawNameTag(o.x, o.y, o.name, isPvp() ? (pvpTeam(o.slot) === myTeam() ? '#4fc3f7' : '#ff5252') : SLOT_COL[o.slot], o.lives);
         }
     }
