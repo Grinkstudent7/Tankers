@@ -108,7 +108,7 @@ canvas{cursor:crosshair}
 /* ===== v2: pulido, escalado de interfaz y versión móvil ===== */
 :root{--ui:1}
 *{-webkit-tap-highlight-color:transparent}
-html,body{overscroll-behavior:none}
+html,body{overscroll-behavior:none;touch-action:manipulation;-webkit-touch-callout:none;-webkit-text-size-adjust:100%}
 button:focus,.key-btn:focus,canvas:focus,#lobby :focus{outline:none}
 button:focus-visible{outline:3px solid #ff9800;outline-offset:2px}
 button{touch-action:manipulation}
@@ -192,6 +192,9 @@ p.desc{font-size:clamp(13px,2.4vh,18px);margin-bottom:clamp(8px,2vh,20px);max-wi
 #lobby .tabs{flex-wrap:wrap}
 #lobby button{max-width:100%}
 @media (max-height:560px){#overlay-desc{margin-bottom:6px}#overlay-extra{font-size:14px}.controls-grid{grid-template-columns:repeat(4,auto)!important;gap:4px 10px!important;margin-bottom:6px!important}.key-btn{min-width:56px;padding:3px 8px;font-size:13px}#pause-menu h1,#overlay h1{margin:0 0 2px}#pause-menu p{margin:0 0 6px!important;font-size:13px}#pause-menu button{padding:6px 14px;margin:3px}}
+#edstk{position:fixed;left:18px;bottom:28px;width:124px;height:124px;border-radius:50%;border:3px solid rgba(255,255,255,.7);background:rgba(20,28,32,.45);z-index:11;display:none;touch-action:none;user-select:none}
+body.editing #edstk{display:block}
+#edstk i{position:absolute;left:50%;top:50%;width:50px;height:50px;margin:-25px 0 0 -25px;border-radius:50%;background:rgba(255,255,255,.85);pointer-events:none}
 #edui{position:fixed;left:0;top:0;right:0;z-index:12;display:none;flex-direction:column;gap:4px;padding:6px;background:rgba(28,35,38,.94);color:#fff;font:600 14px 'Barlow','Segoe UI',sans-serif}
 #edui .edrow{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 #edui button,#edui select{font:inherit;padding:5px 9px;background:#37474f;color:#fff;border:2px solid #0f1416;border-radius:0;cursor:pointer;text-transform:none;letter-spacing:0;margin:0}
@@ -273,10 +276,27 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         <p style="font-size:13px;opacity:.8;margin:0 0 8px">🎮 Mando: stick izq. mover · stick der. apuntar · RT/A/RB disparar · LT/X/LB mina · Start pausa</p><button onclick="togglePause()">Guardar y continuar</button><button style="background:#5d4037" onclick="openBookOverlay()">📖 Libro</button><button class="red" onclick="quitMatch()">Salir al lobby</button>
     </div>
 
-    <div id="lobby"></div><div id="picker"></div><div id="bookwrap"></div><div id="pause-banner"></div><div id="toast"></div><div id="spec"></div><div id="edui"></div><div id="edmodal"></div>
+    <div id="edstk"><i></i></div><div id="lobby"></div><div id="picker"></div><div id="bookwrap"></div><div id="pause-banner"></div><div id="toast"></div><div id="spec"></div><div id="edui"></div><div id="edmodal"></div>
     <div id="touch"><div class="stick" id="stkL"><i></i></div><div class="stick" id="stkR"><i></i></div><button class="tbtn" id="t-mine">MINA</button><button class="tbtn" id="t-pause">II</button></div>
     <canvas id="game"></canvas>
 
+<script>
+/* Protecciones básicas: sin menú contextual, sin zoom táctil y atajos de inspección bloqueados (son disuasorios, no impiden de verdad ver el código). */
+(function () {
+    const stop = e => { e.preventDefault(); e.stopPropagation(); return false; };
+    document.addEventListener('contextmenu', stop, true);
+    window.addEventListener('keydown', e => {
+        const k = (e.key || '').toLowerCase(), c = e.ctrlKey || e.metaKey;
+        if (e.key === 'F12' || (c && e.shiftKey && 'ijcke'.includes(k) && k.length === 1) || (c && e.altKey && 'ijuc'.includes(k) && k.length === 1) || (c && k === 'u') || (c && k === 's' && e.shiftKey)) stop(e);
+    }, true);
+    for (const t of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(t, e => e.preventDefault(), { passive: false });
+    document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+    document.addEventListener('touchstart', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+    document.addEventListener('dblclick', e => { if (!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) e.preventDefault(); }, true);
+    document.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+    document.addEventListener('dragstart', e => e.preventDefault());
+})();
+</script>
 <script>
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d');
@@ -512,7 +532,13 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         { type: 'missileer', baseColor: '#fafafa', turretColor: '#cfd8dc', speed: 0.9, bullet: 'missile', rebounces: 0, cooldown: 330, maxBullets: 1 }, // 14 Misilero (misiles guiados)
         { type: 'venom', baseColor: '#1b5e20', turretColor: '#64dd17', speed: 0.9, bullet: 'acid', rebounces: 1, cooldown: 70, maxBullets: 1, venom: true, hp: 2 }, // 15 Venenoso (saliva ácida y charcos)
         { type: 'moving_calc', baseColor: '#ffeb3b', turretColor: '#fbc02d', speed: 1.0, bullet: 'normal', rebounces: 1, cooldown: 160 }, // 16 RESERVADO: en el editor del sandbox el 16 es el Jefe (nunca se usa como enemigo normal)
-        { type: 'necro', baseColor: '#3b1f4f', turretColor: '#69f0ae', speed: 1.6, bullet: 'normal', rebounces: 1, cooldown: 190, necro: true, hp: 2 } // 17 Nigromante (revive a los caídos)
+        { type: 'necro', baseColor: '#3b1f4f', turretColor: '#69f0ae', speed: 1.6, bullet: 'normal', rebounces: 1, cooldown: 190, necro: true, hp: 2 }, // 17 Nigromante (revive a los caídos)
+        { type: 'shield', baseColor: '#78909c', turretColor: '#37474f', speed: 1.0, bullet: 'normal', rebounces: 1, cooldown: 150, hp: 2, radius: 20, shield: true }, // 18 Escudero (escudo frontal)
+        { type: 'mortar', baseColor: '#c0ca33', turretColor: '#827717', speed: 0.5, bullet: 'none', rebounces: 0, cooldown: 260, hp: 2, radius: 20, mortar: true }, // 19 Mortero (obuses con aviso)
+        { type: 'splitter', baseColor: '#ffab40', turretColor: '#e65100', speed: 1.1, bullet: 'normal', rebounces: 1, cooldown: 170, hp: 2, split: true }, // 20 Fragmentador (se divide en 2)
+        { type: 'charger', baseColor: '#455a64', turretColor: '#ffd600', speed: 1.0, bullet: 'none', rebounces: 0, cooldown: 200, hp: 3, radius: 21, charger: true, chaser: true }, // 21 Embestidor (carga y se aturde)
+        { type: 'fury', baseColor: '#ff8a65', turretColor: '#bf360c', speed: 1.0, bullet: 'normal', rebounces: 1, cooldown: 150, hp: 3, radius: 20, rage: true }, // 22 Furia (se enfurece al herirla)
+        { type: 'shard', baseColor: '#ffcc80', turretColor: '#ef6c00', speed: 2.0, bullet: 'normal', rebounces: 0, cooldown: 210, hp: 1, radius: 14, shard: true } // 23 Esquirla (solo nace de un Fragmentador)
     ];
 
     const GAME_MODES = ['eliminate', 'survive', 'jewel', 'vip', 'keys', 'boss', 'escape_blind', 'carry', 'protect', 'gems', 'capture', 'demolition', 'minefield', 'escort', 'crates', 'haste'];
@@ -868,6 +894,11 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         if (level >= 23) available.push(ENEMY_TYPES[14]);
         if (level >= 11) available.push(ENEMY_TYPES[15]);
         if (level >= 14) available.push(ENEMY_TYPES[17]);
+        if (level >= 8) available.push(ENEMY_TYPES[18]);
+        if (level >= 10) available.push(ENEMY_TYPES[20]);
+        if (level >= 12) available.push(ENEMY_TYPES[22]);
+        if (level >= 13) available.push(ENEMY_TYPES[19]);
+        if (level >= 16) available.push(ENEMY_TYPES[21]);
         return available;
     }
 
@@ -1439,6 +1470,33 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         else restartPending = true;
     }
 
+    function shieldBlocks(t, b) { const sp = Math.hypot(b.vx, b.vy) || 1; return -(b.vx * Math.cos(t.baseAngle) + b.vy * Math.sin(t.baseAngle)) / sp > 0.45; }
+    function chargerUpdate(e) {
+        if (e.isAlly) return false;
+        if (e.chS === undefined) { e.chS = 0; e.chT = 0; e.chCd = 120 + Math.floor(Math.random() * 120); }
+        const tp = nearestPlayer(e);
+        if (e.chS === 0) {
+            if (e.chCd > 0) { e.chCd--; return false; }
+            if (!tp || (e.visT || 0) < 20) return false;
+            const d = Math.hypot(tp.x - e.x, tp.y - e.y);
+            if (d > 520 || d < 120 || !necroLos(e.x, e.y, tp.x, tp.y)) return false;
+            e.chS = 1; e.chT = 50; e.chA = Math.atan2(tp.y - e.y, tp.x - e.x);
+            floatingTexts.push({ text: '¡EMBISTE!', x: e.x, y: e.y - 40, life: 50, color: '#ffd600' }); return true;
+        }
+        if (e.chS === 1) { e.baseAngle = e.chA; e.turretAngle = e.chA; if (--e.chT <= 0) { e.chS = 2; e.chT = 45; } return true; }
+        if (e.chS === 2) {
+            const x0 = e.x, y0 = e.y; moveEntitySmooth(e, Math.cos(e.chA) * 7, Math.sin(e.chA) * 7);
+            e.baseAngle = e.chA; e.trackDist = (e.trackDist || 0) + 7; if (frameCount % 3 === 0) createParticles(e.x, e.y, '#ffd600', 2);
+            let hit = false;
+            for (const p of alivePlayers()) if (Math.hypot(p.x - e.x, p.y - e.y) < e.radius + p.radius) { hit = true; playerDamage(p); break; }
+            const al = enemies.find(q => q.isAlly); if (!hit && al && Math.hypot(al.x - e.x, al.y - e.y) < e.radius + al.radius) { hit = true; al.hp -= 2; createExplosion(al.x, al.y, '#ffffff', 15); if (al.hp <= 0) allyDeath(); }
+            const wall = Math.hypot(e.x - x0, e.y - y0) < 3;
+            if (hit || wall || --e.chT <= 0) { e.chS = 3; e.chT = 100; createExplosion(e.x, e.y, '#ffd600', 12); floatingTexts.push({ text: '💫', x: e.x, y: e.y - 38, life: 90, color: '#ffd600' }); }
+            return true;
+        }
+        if (--e.chT <= 0) { e.chS = 0; e.chCd = 200 + Math.floor(Math.random() * 100); }
+        return true;
+    }
     function killEnemy(id) {
         let idx = enemies.findIndex(e => e.id === id);
         if (idx === -1) return;
@@ -1457,6 +1515,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
         let wasVip = e.isVip; let wasBoss = e.isBoss;
         enemies.splice(idx, 1);
+        if (e.rage && !e.noScore) { mines.push({ x: e.x, y: e.y, timer: 50, owner: 'enemy', radius: 12, shell: true, by: e.id }); floatingTexts.push({ text: '¡ESTALLA!', x: e.x, y: e.y - 36, life: 50, color: '#ff3d00' }); }
+        if (e.split && !e.noScore) { for (const sg of [-1, 1]) { spawnAtOverride = { x: e.x + sg * 20, y: e.y - sg * 12 }; spawnEnemy(ENEMY_TYPES[23], false, null, null, false, true); } spawnAtOverride = null; floatingTexts.push({ text: '¡SE DIVIDE!', x: e.x, y: e.y - 36, life: 50, color: '#ffab40' }); }
 
         if (wasVip && currentMode === 'vip') enemies = enemies.filter(en => en.isAlly || (bossAlso && en.isBoss));
         if (wasBoss && currentMode === 'boss') enemies = enemies.filter(en => en.isAlly);
@@ -1576,7 +1636,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
             for (let j = mines.length - 1; j >= 0; j--) {
                 let m = mines[j];
-                if (Math.sqrt((b.x - m.x)**2 + (b.y - m.y)**2) < b.radius + m.radius) {
+                if (!m.shell && Math.sqrt((b.x - m.x)**2 + (b.y - m.y)**2) < b.radius + m.radius) {
                     explodeMine(m); mines.splice(j, 1);
                     mineFreed(m);
                     b.dead = true; updateUI(); break;
@@ -1622,7 +1682,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                         if(t.hp <= 0) allyDeath(); 
                     }
                     else {
-                        if(t.maxHp > 1) { t.hp--; createExplosion(b.x, b.y, '#ffeb3b', 15); if(t.hp <= 0) killEnemy(t.id); }
+                        if (t.shield && shieldBlocks(t, b)) { createParticles(b.x, b.y, '#eceff1', 8); if (frameCount % 3 === 0) floatingTexts.push({ text: '🛡', x: t.x, y: t.y - 34, life: 24, color: '#eceff1' }); }
+                        else if(t.maxHp > 1) { t.hp--; createExplosion(b.x, b.y, '#ffeb3b', 15); if(t.hp <= 0) killEnemy(t.id); }
                         else { killEnemy(t.id); }
                     }
                     break;
@@ -1636,7 +1697,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             let m = mines[i]; m.timer--;
             let triggered = false;
             for (let t of allTanksMines) {
-                if (Math.sqrt((t.x - m.x)**2 + (t.y - m.y)**2) < MINE_TRIGGER_DIST) {
+                if (!m.shell && Math.sqrt((t.x - m.x)**2 + (t.y - m.y)**2) < MINE_TRIGGER_DIST) {
                     if (m.owner === 'enemy' && (t.isPlayer || t.isAlly)) triggered = true;
                     if (m.owner === 'player' && ((!t.isPlayer && !t.isAlly && !(t.sq !== undefined && t.sq === m.tm)) || (isPvp() && t.isPlayer && m.tm !== undefined && m.tm !== teamOf(t)))) triggered = true;
                 }
@@ -1654,6 +1715,14 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             if (!e.isAlly) e.visT = seenByPlayers(e) ? (e.visT || 0) + 1 : 0;
             if (e.haste) { hasteUpdate(e); continue; }
             if (e.necro && necroChannel(e)) continue; // canalizando el ritual: quieto
+            if (e.rage) {
+                if (e.spd0 === undefined) { e.spd0 = e.speed; e.cd0 = e.cooldown; e.lastHp = e.hp; e.fz = 0; }
+                if (e.hp < e.lastHp) { e.fz = e.hp <= 1 ? 99999 : 150; e.lastShot = -999; floatingTexts.push({ text: e.hp <= 1 ? '¡FURIA TOTAL!' : '¡FRENESÍ!', x: e.x, y: e.y - 40, life: 60, color: '#ff3d00' }); createExplosion(e.x, e.y, '#ff6f00', 14); }
+                e.lastHp = e.hp;
+                if (e.fz > 0) { e.fz--; e.chaser = true; e.speed = e.spd0 * 2.1; e.cooldown = 55; e.fan = 3; }
+                else { e.chaser = false; e.speed = e.spd0 * 0.7; e.cooldown = e.cd0 + 40; e.fan = 1; }
+            }
+            if (e.charger && chargerUpdate(e)) continue;
 
             // SOLUCIÓN AL BUG DE CONGELACIÓN (Hibernación borrada)
             // Ya no usamos el 'continue' que los paralizaba si estaban lejos. Todos se mueven siempre.
@@ -1662,7 +1731,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             if(e.trackDist > 12) {
                 if (e.x > camera.x - 50 && e.x < camera.x + viewW + 50 &&
                     e.y > camera.y - 50 && e.y < camera.y + viewH + 50) {
-                    tracks.push({x: e.x, y: e.y, angle: e.baseAngle, life: 400});
+                    tracks.push({x: e.x, y: e.y, angle: e.baseAngle, life: 400, sc: (!e.isBoss && e.radius && e.radius !== 18) ? e.radius / 18 : undefined});
                 }
                 e.trackDist -= 12;
             }
@@ -1905,9 +1974,21 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
                 if (e.canShoot && !e.sqIdle && Math.abs(diff) < 0.05 && (frameCount - e.lastShot > fireDelay) && activeB < limit && !(e.venom && acid.some(a => a.o === e.id))) {
                     shoot(e, e.turretAngle);
+                    if (e.rage && e.fan === 3) { shoot(e, e.turretAngle - 0.3); shoot(e, e.turretAngle + 0.3); }
                 }
             } else if (e.kamikaze && targetForAim) { let tt = Math.atan2(targetForAim.y - e.y, targetForAim.x - e.x), df = tt - e.turretAngle; while (df < -Math.PI) df += Math.PI * 2; while (df > Math.PI) df -= Math.PI * 2; e.turretAngle += df * 0.3; } else { e.turretAngle = e.baseAngle; }
 
+            if (e.mortar && !e.isAlly && targetForAim) {
+                const mdx = targetForAim.x - e.x, mdy = targetForAim.y - e.y, md = Math.hypot(mdx, mdy);
+                e.turretAngle += (() => { let df = Math.atan2(mdy, mdx) - e.turretAngle; while (df < -Math.PI) df += Math.PI * 2; while (df > Math.PI) df -= Math.PI * 2; return df * 0.15; })();
+                if ((e.visT || 0) >= 20 && md > 140 && md < 950 && frameCount - e.lastShot > e.cooldown + (e.aiOffset || 0)) {
+                    e.lastShot = frameCount;
+                    const vx = Math.max(-4, Math.min(4, (targetForAim.x - (targetForAim.lastX === undefined ? targetForAim.x : targetForAim.lastX)))) * 28, vy = Math.max(-4, Math.min(4, (targetForAim.y - (targetForAim.lastY === undefined ? targetForAim.y : targetForAim.lastY)))) * 28;
+                    const sx = Math.max(BORDER_SIZE + 20, Math.min(MAP_WIDTH - BORDER_SIZE - 20, targetForAim.x + vx)), sy = Math.max(BORDER_SIZE + 20, Math.min(MAP_HEIGHT - BORDER_SIZE - 20, targetForAim.y + vy));
+                    mines.push({ x: sx, y: sy, timer: 80, owner: 'enemy', radius: 12, shell: true, by: e.id });
+                    createParticles(e.x + Math.cos(e.turretAngle) * 26, e.y + Math.sin(e.turretAngle) * 26, '#ffcc80', 8);
+                }
+            }
             if (e.mines && !e.isAlly && !player.dead && (frameCount - e.lastMine > (e.cooldown||180))) {
                 let pDist = Math.sqrt((e.x - player.x)**2 + (e.y - player.y)**2);
                 let isChased = false;
@@ -2351,10 +2432,12 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         }
     }
 
+    let ST_DRAW = 0;
     function drawTank(x, y, baseColor, turretColor, baseAngle, turretAngle, type, isBoss = false, isInvisible = false, isVip = false, hp = 1, maxHp = 1, isAlly = false, c = ctx) {
         if (isInvisible) return;
         c.save(); c.translate(x, y);
-        const haste = type === 'haste', kami = type === 'kamikaze', mis = type === 'missileer', ven = type === 'venom', nec = type === 'necro';
+        const haste = type === 'haste', kami = type === 'kamikaze', mis = type === 'missileer', ven = type === 'venom', nec = type === 'necro', STV = ST_DRAW;
+        const shd = type === 'shield', mor = type === 'mortar', spl = type === 'splitter', chg = type === 'charger', fur = type === 'fury';
         const trackW = isBoss ? 60 : 32, trackH = isBoss ? 14 : 8, offset = isBoss ? 24 : 16;
         c.save(); c.rotate(baseAngle);
         if (haste) { // pinchos por detrás
@@ -2366,6 +2449,23 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         c.fillStyle = baseColor; c.strokeStyle = haste ? '#ff1744' : '#222'; c.lineWidth = haste ? 3 : 2; c.beginPath();
         const r = isBoss ? 24 : 14; c.roundRect(-r, -r, r * 2, r * 2, 4); c.fill(); c.stroke();
         if (ven) { c.fillStyle = '#9ccc65'; c.strokeStyle = '#33691e'; c.lineWidth = 1; for (const q of [[-7, -6, 3], [6, 5, 2.5], [-5, 7, 2]]) { c.beginPath(); c.arc(q[0], q[1], q[2], 0, 6.283); c.fill(); c.stroke(); } }
+        if (shd) { c.fillStyle = '#b0bec5'; c.strokeStyle = '#263238'; c.lineWidth = 2; c.beginPath(); c.arc(0, 0, r + 8, -1.0, 1.0); c.arc(0, 0, r + 2, 1.0, -1.0, true); c.closePath(); c.fill(); c.stroke(); c.strokeStyle = '#eceff1'; c.lineWidth = 1; c.beginPath(); c.arc(0, 0, r + 5, -0.7, 0.7); c.stroke(); }
+        if (chg) { c.save(); c.beginPath(); c.roundRect(-r, -r, r * 2, r * 2, 4); c.clip(); c.fillStyle = '#ffd600'; for (let i = 0; i < 5; i++) { c.beginPath(); c.moveTo(-r + i * 7.2 - 3, r); c.lineTo(-r + i * 7.2 + 0.8, r); c.lineTo(-r + i * 7.2 + 11, -r); c.lineTo(-r + i * 7.2 + 7.2, -r); c.closePath(); c.fill(); } c.restore(); c.fillStyle = '#90a4ae'; c.strokeStyle = '#222'; c.lineWidth = 2; c.beginPath(); c.moveTo(r, -9); c.lineTo(r + 10, 0); c.lineTo(r, 9); c.closePath(); c.fill(); c.stroke(); }
+        if (mor) { c.strokeStyle = '#4e342e'; c.lineWidth = 3; c.beginPath(); c.moveTo(-r, -r); c.lineTo(-r - 5, -r - 4); c.moveTo(-r, r); c.lineTo(-r - 5, r + 4); c.moveTo(r, -r); c.lineTo(r + 4, -r - 4); c.moveTo(r, r); c.lineTo(r + 4, r + 4); c.stroke(); }
+        if (spl) { // dos mitades unidas por una grieta incandescente y esquirlas listas para salir
+            c.fillStyle = '#ff6d00'; c.fillRect(-r + 1, -1.8, r * 2 - 2, 3.6);
+            c.fillStyle = '#ffe0b2'; c.fillRect(-r + 1, -0.6, r * 2 - 2, 1.2);
+            c.strokeStyle = '#3e2723'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(-r, -3); c.lineTo(-8, 1); c.lineTo(-3, -3); c.lineTo(3, 2); c.lineTo(8, -2); c.lineTo(r, 3); c.stroke();
+            c.fillStyle = '#ffcc80'; c.strokeStyle = '#6d4c41'; c.lineWidth = 1.3;
+            for (const q of [[-r - 2, -9], [-r - 2, 9], [r - 4, -r - 1], [r - 4, r + 1]]) { c.beginPath(); c.moveTo(q[0], q[1] - 4.5); c.lineTo(q[0] + 3.4, q[1]); c.lineTo(q[0], q[1] + 4.5); c.lineTo(q[0] - 3.4, q[1]); c.closePath(); c.fill(); c.stroke(); }
+            c.fillStyle = '#4e342e'; for (const q of [[-9, -9], [9, -9], [-9, 9], [9, 9]]) { c.beginPath(); c.arc(q[0], q[1], 1.2, 0, 6.283); c.fill(); } }
+        if (fur) { // pinchos laterales, garras de guerra, colmillos y llamas de escape
+            const fz = STV === 2, fl = (fz ? 14 : 7) + Math.sin(frameCount * 0.5) * 2.5;
+            c.fillStyle = '#212121'; c.strokeStyle = '#000'; c.lineWidth = 1.2;
+            for (const s of [-1, 1]) for (let i = -1; i <= 1; i++) { c.beginPath(); c.moveTo(i * 8 - 3, s * r); c.lineTo(i * 8, s * (r + 7)); c.lineTo(i * 8 + 3, s * r); c.closePath(); c.fill(); c.stroke(); }
+            for (const o of [-6, 0, 6]) { c.fillStyle = fz ? '#ffab00' : '#ff6f00'; c.beginPath(); c.moveTo(-r, o - 2.5); c.lineTo(-r - fl - (o ? 0 : 5), o); c.lineTo(-r, o + 2.5); c.closePath(); c.fill(); }
+            c.strokeStyle = '#8c1c0a'; c.lineWidth = 2; c.beginPath(); for (const o of [-6, 0, 6]) { c.moveTo(-8 + o * 0.3, -11 + o * 0.2 + 6); c.lineTo(4 + o * 0.3, 9 + o * 0.2 - 6); } c.stroke();
+            c.fillStyle = '#fff'; c.strokeStyle = '#222'; c.lineWidth = 1; for (let i = -2; i <= 2; i++) { c.beginPath(); c.moveTo(r, i * 5.4 - 2.4); c.lineTo(r + 5, i * 5.4); c.lineTo(r, i * 5.4 + 2.4); c.closePath(); c.fill(); c.stroke(); } }
         if (nec) { // runa espectral en el casco
             c.strokeStyle = '#69f0ae'; c.globalAlpha = 0.85; c.lineWidth = 1.4; c.beginPath(); c.arc(0, 0, 9, 0, 6.283); c.stroke();
             c.beginPath(); for (let i = 0; i < 3; i++) { const a = i * 2.094 - 1.571; c.lineTo(Math.cos(a) * 9, Math.sin(a) * 9); } c.closePath(); c.stroke(); c.globalAlpha = 1;
@@ -2400,12 +2500,20 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 c.save(); c.rotate(-turretAngle); c.globalAlpha = 0.85 + Math.sin(frameCount * 0.15) * 0.15; c.fillStyle = '#69f0ae'; c.fillRect(-1.5, -5, 3, 10); c.fillRect(-5, -1.5, 10, 3); c.restore();
                 c.fillStyle = 'rgba(105,240,174,.9)'; c.beginPath(); c.arc(cL + 2, 0, 3.2 + Math.sin(frameCount * 0.3) * 0.8, 0, 6.283); c.fill();
             }
+            if (mor) { c.fillStyle = '#5d4037'; c.strokeStyle = '#222'; c.lineWidth = 2; c.fillRect(0, -7.5, 20, 15); c.strokeRect(0, -7.5, 20, 15); c.fillStyle = '#111'; c.beginPath(); c.ellipse(20, 0, 3.2, 6, 0, 0, 6.283); c.fill(); c.stroke(); c.fillStyle = '#ffab00'; c.fillRect(6, -7.5, 3, 15); }
+            if (fur) { c.fillStyle = '#212121'; c.strokeStyle = '#000'; c.lineWidth = 1; for (const s of [-1, 1]) { c.beginPath(); c.moveTo(-1, s * 7); c.quadraticCurveTo(-9, s * 12, -4, s * 19); c.quadraticCurveTo(-3, s * 12, 3, s * 9); c.closePath(); c.fill(); c.stroke(); }
+                c.fillStyle = STV === 2 ? '#ffeb3b' : '#ff1744'; c.beginPath(); c.moveTo(2, -6); c.lineTo(8, -3.5); c.lineTo(6, -1.5); c.lineTo(2, -3); c.closePath(); c.fill(); c.beginPath(); c.moveTo(2, 6); c.lineTo(8, 3.5); c.lineTo(6, 1.5); c.lineTo(2, 3); c.closePath(); c.fill(); }
+            if (spl) { c.strokeStyle = '#3e2723'; c.lineWidth = 1.6; c.beginPath(); c.moveTo(-9, -3); c.lineTo(-3, 1); c.lineTo(1, -4); c.lineTo(9, 2); c.stroke(); c.fillStyle = '#ff6d00'; c.fillRect(cL - 5, -3.4, 5, 2.4); c.fillRect(cL - 5, 1, 5, 2.4); }
             if (ven) { // gota de saliva ácida en la boca del cañón
                 c.fillStyle = '#76ff03'; c.strokeStyle = '#33691e'; c.lineWidth = 1.5; c.beginPath(); c.arc(cL + 1, 0, 4.5, 0, 6.283); c.fill(); c.stroke();
                 c.fillStyle = 'rgba(200,255,150,.9)'; c.beginPath(); c.arc(cL + 0.5, 4.5 + (frameCount % 24) / 24 * 3, 1.6, 0, 6.283); c.fill();
             }
         }
         c.restore();
+        if (type === 'player' && HAT_DRAW) { c.save(); c.rotate(turretAngle); drawHat2D(c, HAT_DRAW); c.restore(); }
+        if (fur && STV === 2) { c.save(); c.globalAlpha = 0.45 + 0.25 * Math.sin(frameCount * 0.4); c.strokeStyle = '#ff3d00'; c.lineWidth = 3.5; c.beginPath(); c.arc(0, 0, 27 + Math.sin(frameCount * 0.4) * 2, 0, 6.283); c.stroke(); c.globalAlpha = 0.18; c.fillStyle = '#ff3d00'; c.fill(); c.restore(); }
+        if (chg && STV === 3) { c.save(); c.rotate(baseAngle); c.globalAlpha = 0.35 + 0.35 * (Math.floor(frameCount / 4) % 2); c.fillStyle = '#ffd600'; c.beginPath(); c.moveTo(24, -14); c.lineTo(140, -22); c.lineTo(140, 22); c.lineTo(24, 14); c.closePath(); c.fill(); c.restore(); }
+        if (chg && STV === 4) { c.save(); c.fillStyle = '#ffd600'; c.font = '12px sans-serif'; c.textAlign = 'center'; for (let i = 0; i < 3; i++) { const a = frameCount * 0.12 + i * 2.094; c.fillText('★', Math.cos(a) * 22, -20 + Math.sin(a) * 6); } c.restore(); }
         if (nec) { c.save(); c.globalAlpha = 0.28 + Math.sin(frameCount * 0.12) * 0.1; c.strokeStyle = '#69f0ae'; c.lineWidth = 2; c.beginPath(); c.arc(0, 0, 25 + Math.sin(frameCount * 0.1) * 2, 0, 6.283); c.stroke(); c.restore(); }
         if (haste) { // calavera compacta, oscura y delineada en rojo
             c.save(); c.translate(0, -1); c.scale(0.76, 0.76);
@@ -2437,6 +2545,27 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         c.restore();
     }
 
+    function drawHat2D(c, id) {
+        c.save(); c.lineJoin = 'round'; c.lineWidth = 1.5; c.strokeStyle = '#222';
+        const ci = (x, y, r, f, st = true) => { c.fillStyle = f; c.beginPath(); c.arc(x, y, r, 0, 6.283); c.fill(); if (st) c.stroke(); };
+        const rc = (x, y, w, h, f) => { c.fillStyle = f; c.fillRect(x, y, w, h); c.strokeRect(x, y, w, h); };
+        const tri = (a, b, d, f) => { c.fillStyle = f; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.lineTo(d[0], d[1]); c.closePath(); c.fill(); c.stroke(); };
+        switch (id) {
+            case 1: rc(5, -6.5, 10, 13, '#b71c1c'); ci(0, 0, 9.5, '#e53935'); ci(0, 0, 2, '#b71c1c'); c.strokeStyle = 'rgba(255,255,255,.6)'; c.lineWidth = 1.2; c.beginPath(); c.arc(0, 0, 6.3, -1.2, 1.2); c.stroke(); break;
+            case 2: ci(0, 0, 11.5, '#e53935'); for (const q of [[4, -4, 2.3], [-4, -5, 1.9], [-5, 3, 2.4], [3, 5, 1.8], [0, 0, 1.6]]) ci(q[0], q[1], q[2], '#fff', false); break;
+            case 3: for (const s of [-1, 1]) { c.fillStyle = '#f5f0dc'; c.beginPath(); c.moveTo(-3, s * 7); c.quadraticCurveTo(2, s * 15, 11, s * 13); c.quadraticCurveTo(4, s * 10.5, 3, s * 5.5); c.closePath(); c.fill(); c.stroke(); } ci(0, 0, 8, '#6d4c41'); break;
+            case 4: for (const s of [-1, 1]) { tri([-3, s * 4], [-7, s * 13], [5, s * 9], '#9e9e9e'); tri([-2.4, s * 6.2], [-5, s * 11], [2.6, s * 8.8], '#f8bbd0'); } ci(0, 0, 7.8, '#616161'); break;
+            case 5: ci(0, 0, 10.5, '#78909c'); ci(0, 0, 6.6, '#90a4ae'); rc(-9, -1.4, 18, 2.8, '#c62828'); rc(7.2, -6, 2.6, 12, '#263238'); break;
+            case 6: c.fillStyle = '#8d6e63'; c.beginPath(); c.ellipse(0, 0, 13, 16, 0, 0, 6.283); c.fill(); c.stroke(); ci(0, 0, 7, '#a1887f'); c.strokeStyle = '#3e2723'; c.lineWidth = 2.2; c.beginPath(); c.arc(0, 0, 7, 0, 6.283); c.stroke(); c.lineWidth = 1.4; c.beginPath(); c.moveTo(-5, 0); c.lineTo(5, 0); c.stroke(); ci(7.4, 0, 1.5, '#ffd54f', false); break;
+            case 7: ci(0, 0, 12, '#212121'); ci(0, 0, 7.4, '#2b2b2b'); c.strokeStyle = '#d32f2f'; c.lineWidth = 2.6; c.beginPath(); c.arc(0, 0, 7.4, 0, 6.283); c.stroke(); ci(0, 0, 5, '#111', false); c.fillStyle = '#ffd600'; c.fillRect(6.2, -1.8, 2.6, 3.6); break;
+            case 8: ci(0, 0, 13.5, '#4527a0'); ci(0, 0, 8.4, '#5e35b1'); ci(-1.5, 0, 4.8, '#7e57c2'); for (const q of [[5, -5, 1.4], [-5, 4, 1.4], [2, 5.5, 1.1], [-4, -6, 1.1]]) ci(q[0], q[1], q[2], '#ffd600', false); break;
+            case 9: ci(0, 0, 9.5, '#ffd54f'); for (let i = 0; i < 5; i++) { const a = i * 1.2566; ci(Math.cos(a) * 9.5, Math.sin(a) * 9.5, 2.4, '#ffca28'); ci(Math.cos(a) * 9.5, Math.sin(a) * 9.5, 1, i % 2 ? '#42a5f5' : '#e53935', false); } ci(0, 0, 4.5, '#ff8f00'); ci(0, 0, 2.2, '#2979ff', false); break;
+            case 10: c.strokeStyle = '#ffe082'; c.lineWidth = 3.4; c.beginPath(); c.arc(0, 0, 10, 0, 6.283); c.stroke(); c.strokeStyle = 'rgba(255,255,255,.85)'; c.lineWidth = 1.2; c.beginPath(); c.arc(0, 0, 10, 0.4, 1.6); c.stroke(); break;
+            case 11: for (let k = 0; k < 3; k++) { c.save(); c.rotate(k * 2.0944); c.fillStyle = '#37474f'; c.beginPath(); c.moveTo(2, -8); c.lineTo(14, -5.5); c.lineTo(14, 5.5); c.lineTo(2, 8); c.closePath(); c.fill(); c.stroke(); c.restore(); } ci(0, 0, 6.8, '#263238'); c.strokeStyle = '#ffd600'; c.lineWidth = 1.4; c.beginPath(); c.arc(0, 0, 6.8, 0, 6.283); c.stroke(); ci(4, 0, 1.6, '#fff', false); break;
+            case 12: for (const s of [-1, 1]) { c.fillStyle = '#f5f0dc'; c.beginPath(); c.moveTo(0, s * 8); c.quadraticCurveTo(-4, s * 16, 6, s * 17); c.quadraticCurveTo(-1, s * 13, 3, s * 7); c.closePath(); c.fill(); c.stroke(); } ci(0, 0, 9.5, '#90a4ae'); rc(7, -1.2, 3.4, 2.4, '#546e7a'); ci(0, 0, 4, '#b0bec5', false); break;
+        }
+        c.restore();
+    }
     function inView(x, y, m) { return x > camera.x - m && x < camera.x + viewW + m && y > camera.y - m && y < camera.y + viewH + m; }
 
     function draw() {
@@ -2456,7 +2585,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
         ctx.fillStyle = prof.set.bg === 'dark' ? 'rgba(255,255,255,0.16)' : 'rgba(0,0,0,0.2)'; for (const tr of tracks) {
             if (!inView(tr.x, tr.y, 50)) continue;
-            ctx.save(); ctx.translate(tr.x, tr.y); ctx.rotate(tr.angle); ctx.globalAlpha = tr.life / 400;
+            ctx.save(); ctx.translate(tr.x, tr.y); ctx.rotate(tr.angle); if (tr.sc) ctx.scale(tr.sc, tr.sc); ctx.globalAlpha = tr.life / 400;
             ctx.fillRect(-10, -18, 20, 5); ctx.fillRect(-10, 13, 20, 5); ctx.restore();
         }
 
@@ -2498,6 +2627,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (const m of mines) {
             if (!inView(m.x, m.y, 100)) continue;
             ctx.save(); ctx.translate(m.x, m.y);
+            if (m.shell) { const R = MINE_RADIUS_EXPLOSION, pp = Math.max(0, Math.min(1, 1 - m.timer / 80)); ctx.fillStyle = 'rgba(255,23,68,' + (0.1 + 0.22 * pp) + ')'; ctx.beginPath(); ctx.arc(0, 0, R, 0, 6.283); ctx.fill(); ctx.strokeStyle = '#ff1744'; ctx.lineWidth = 3; ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, R * pp, 0, 6.283); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(8, 0); ctx.moveTo(0, -8); ctx.lineTo(0, 8); ctx.stroke(); ctx.restore(); continue; }
             ctx.fillStyle = '#9e9e9e'; ctx.beginPath(); ctx.arc(0, 0, m.radius, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#424242'; ctx.lineWidth = 2; ctx.stroke();
             ctx.fillStyle = (m.timer < MINE_TIMER / 3 && frameCount % 10 < 5) ? '#fff' : (m.owner === 'player' ? '#00e5ff' : '#f44336');
             ctx.beginPath(); ctx.arc(0, 0, m.radius / 2, 0, Math.PI * 2); ctx.fill(); ctx.restore();
@@ -2509,8 +2639,9 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             if (!inView(e.x, e.y, 80)) continue;
             const sc = (!e.isBoss && e.radius !== 18) ? e.radius / 18 : 1;
             ctx.save(); ctx.translate(e.x, e.y); ctx.scale(sc, sc); ctx.translate(-e.x, -e.y);
+            ST_DRAW = net.role === 'client' ? (e.st || 0) : (e.fz > 0 ? 2 : (e.chS === 1 ? 3 : (e.chS === 3 ? 4 : 0)));
             drawTank(e.x, e.y, e.baseColor, e.turretColor, e.baseAngle, e.turretAngle, e.type, e.isBoss, e.invisible, e.isVip, e.hp, e.maxHp, e.isAlly);
-            ctx.restore();
+            ST_DRAW = 0; ctx.restore();
             if (e.sq !== undefined) { // escudo del color del jugador/equipo (el tanque conserva su color original)
                 const col = tmCol(e.sq), R = e.radius + 8 + Math.sin(frameCount * 0.12) * 1.5;
                 ctx.save(); ctx.globalAlpha = 0.16; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(e.x, e.y, R, 0, 6.283); ctx.fill(); ctx.restore();
@@ -2583,7 +2714,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     };
     const LEGACY = { endless: 'Horda (antiguo)', bossrush: 'Jefes (antiguo)', party: 'Party' };
     const SKINS = [['Azul', '#2196f3', '#1565c0', 1], ['Oliva', '#689f38', '#33691e', 2], ['Arena', '#d7b46a', '#8d6e1f', 4], ['Carmesí', '#c2185b', '#880e4f', 6], ['Titanio', '#cfd8dc', '#546e7a', 9], ['Rojo', '#e53935', '#b71c1c', 1], ['Naranja', '#fb8c00', '#e65100', 1], ['Amarillo', '#fdd835', '#f9a825', 2], ['Turquesa', '#26c6da', '#00838f', 3], ['Violeta', '#8e24aa', '#4a148c', 3], ['Rosa', '#f06292', '#ad1457', 5], ['Negro', '#455a64', '#111111', 7], ['Dorado', '#ffd54f', '#ff8f00', 10]];
-    const HATS = [['Ninguno', 1], ['Gorra', 1], ['Seta', 2], ['Cuernos', 2], ['Orejas', 3], ['Casco', 3], ['Vaquero', 4], ['Chistera', 5], ['Mago', 6], ['Corona', 8]];
+    const HATS = [['Ninguno', 1], ['Gorra', 1], ['Seta', 2], ['Cuernos', 2], ['Orejas', 3], ['Casco', 3], ['Vaquero', 4], ['Chistera', 5], ['Mago', 6], ['Corona', 8], ['Halo', 1, 'a_kill500'], ['Tricornio', 1, 'a_daily10'], ['Vikingo', 1, 'a_miss100']];
+    const hatOk = i => !!HATS[i] && rankOf(prof.xp) >= HATS[i][1] && (!HATS[i][2] || !!(prof.ach && prof.ach[HATS[i][2]]));
     const UPS = { speed: ['Motor', 5, 'más velocidad'], reload: ['Recarga', 5, 'dispara más rápido'], armor: ['Blindaje', 3, '+1 vida inicial'], mines: ['Minas', 5, '+1 mina máxima'], bounce: ['Rebote', 2, '+1 rebote de bala'] };
     let gameMode = 'campaign', score = 0, combo = 0, comboTimer = 0, runKills = 0, timeLimit = 0, levelFrames = 0, hitsThisLevel = 0;
     let playerBounces = 1, shotDelay = 20, runActive = false, lobbyTab = 'play';
@@ -2602,7 +2734,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         PLAYER_SPEED = 2.5 + prof.up.speed * 0.2; shotDelay = 20 - prof.up.reload * 2;
         PLAYER_MAX_MINES = 5 + prof.up.mines; playerBounces = 1 + prof.up.bounce;
         if (rankOf(prof.xp) < SKINS[prof.skin][3]) prof.skin = 0;
-        player.baseColor = SKINS[prof.skin][1]; player.turretColor = SKINS[prof.skin][2];
+        player.baseColor = SKINS[prof.skin][1]; player.turretColor = SKINS[prof.skin][2]; player.hat = hatOk(prof.hat | 0) ? (prof.hat | 0) : 0;
     }
 
     function awardKill(e) {
@@ -2610,7 +2742,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         combo = comboTimer > 0 ? Math.min(5, combo + 1) : 1; comboTimer = 240;
         let base = e.isBoss ? 1000 : e.isVip ? 600 : 100 * (e.maxHp || 1) + (e.speed > 0 ? 50 : 0) + (e.mines ? 50 : 0) + (e.bullet === 'super' ? 50 : 0);
         if (e.noScore) base = 0;
-        const pts = base * combo; score += pts; runKills++; prof.stats.kills++;
+        const pts = base * combo; score += pts; runKills++; prof.stats.kills++; { const kt = prof.kt || (prof.kt = {}); kt[e.type] = (kt[e.type] || 0) + 1; }
         if (pts > 0) floatingTexts.push({ text: '+' + pts + (combo > 1 ? ' x' + combo : ''), x: e.x, y: e.y - 30, life: 60, color: '#ff6f00' });
         updateUI();
     }
@@ -2631,6 +2763,53 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         if (lv < UPS[k][1] && prof.coins >= cost) { prof.coins -= cost; prof.up[k]++; saveProf(); applyProfile(); renderLobby(); }
     }
 
+    // ===== Progreso: logros, racha diaria, recompensas de rango y bestiario =====
+    const ACH = [
+        { id: 'a_kill1', ic: '🎯', nm: 'Primera sangre', d: 'Destruye 1 tanque enemigo', g: 1, v: () => prof.stats.kills, c: 20, x: 20 },
+        { id: 'a_kill100', ic: '💥', nm: 'Cazador', d: '100 bajas', g: 100, v: () => prof.stats.kills, c: 60, x: 80 },
+        { id: 'a_kill500', ic: '☠️', nm: 'Exterminador', d: '500 bajas', g: 500, v: () => prof.stats.kills, c: 150, x: 200, hat: 'Halo' },
+        { id: 'a_kill2000', ic: '👑', nm: 'Leyenda de acero', d: '2000 bajas', g: 2000, v: () => prof.stats.kills, c: 400, x: 500 },
+        { id: 'a_miss5', ic: '🚩', nm: 'Recluta', d: 'Completa 5 misiones', g: 5, v: () => prof.stats.missions, c: 30, x: 40 },
+        { id: 'a_miss25', ic: '🎖️', nm: 'Veterano', d: 'Completa 25 misiones', g: 25, v: () => prof.stats.missions, c: 100, x: 120 },
+        { id: 'a_miss100', ic: '⭐', nm: 'Comandante', d: 'Completa 100 misiones', g: 100, v: () => prof.stats.missions, c: 300, x: 300, hat: 'Vikingo' },
+        { id: 'a_daily1', ic: '📅', nm: 'Rutina diaria', d: 'Completa 1 desafío diario', g: 1, v: () => prof.dailyTotal || 0, c: 30, x: 50 },
+        { id: 'a_daily10', ic: '🗓️', nm: 'Constante', d: 'Completa 10 desafíos diarios', g: 10, v: () => prof.dailyTotal || 0, c: 150, x: 200, hat: 'Tricornio' },
+        { id: 'a_daily30', ic: '🏆', nm: 'Fiel al deber', d: 'Completa 30 desafíos diarios', g: 30, v: () => prof.dailyTotal || 0, c: 400, x: 500 },
+        { id: 'a_streak3', ic: '🔥', nm: 'En racha', d: 'Racha de 3 días con desafíos', g: 3, v: () => (prof.streak && prof.streak.best) || 0, c: 60, x: 60 },
+        { id: 'a_streak7', ic: '🌟', nm: 'Semana perfecta', d: 'Racha de 7 días con desafíos', g: 7, v: () => (prof.streak && prof.streak.best) || 0, c: 200, x: 250 },
+        { id: 'a_up5', ic: '🔧', nm: 'Mecánico', d: 'Compra 5 mejoras en el garaje', g: 5, v: () => Object.values(prof.up).reduce((s, n) => s + n, 0), c: 50, x: 60 },
+        { id: 'a_up20', ic: '⚙️', nm: 'Tanque perfecto', d: 'Lleva todas las mejoras al máximo (20)', g: 20, v: () => Object.values(prof.up).reduce((s, n) => s + n, 0), c: 500, x: 600 },
+        { id: 'a_rank5', ic: '🥉', nm: 'Rango 5', d: 'Alcanza el rango 5', g: 5, v: () => rankOf(prof.xp), c: 80, x: 0 },
+        { id: 'a_rank10', ic: '🥇', nm: 'Rango 10', d: 'Alcanza el rango 10', g: 10, v: () => rankOf(prof.xp), c: 250, x: 0 },
+        { id: 'a_bestiary', ic: '📖', nm: 'Naturalista', d: 'Derrota 12 tipos de enemigo distintos', g: 12, v: () => Object.keys(prof.kt || {}).length, c: 120, x: 150 },
+        { id: 'a_games10', ic: '🪖', nm: 'Veterano de guerra', d: 'Juega 10 partidas', g: 10, v: () => prof.stats.games, c: 40, x: 60 }
+    ];
+    const achGot = id => !!(prof.ach && prof.ach[id]);
+    const achPending = () => { const n = ACH.filter(a => !achGot(a.id) && a.v() >= a.g).length; return n ? ' (' + n + ')' : ''; };
+    function claimAch(id) {
+        const a = ACH.find(q => q.id === id); if (!a || achGot(id) || a.v() < a.g) return;
+        (prof.ach || (prof.ach = {}))[id] = 1; prof.coins += a.c; prof.xp += a.x; saveProf();
+        toast('🏅 ' + a.nm + ': +' + a.c + ' monedas' + (a.x ? ' · +' + a.x + ' XP' : '') + (a.hat ? ' · ¡sombrero ' + a.hat + '!' : '')); renderLobby();
+    }
+    function achHTML() {
+        const s = prof.streak || { n: 0, best: 0 }, ok = ACH.filter(a => achGot(a.id)).length;
+        let h = `<p>Logros conseguidos: <b>${ok}/${ACH.length}</b> · Racha diaria: <b>🔥 ${s.n || 0}</b> (mejor ${s.best || 0}). Completa al menos un desafío al día: cada día seguido da +10 monedas (hasta +70). Al subir de rango recibes 20 × rango monedas.</p><div class="ups">`;
+        for (const a of ACH) {
+            const v = Math.min(a.g, a.v()), done = achGot(a.id), can = !done && v >= a.g;
+            h += `<div class="up"><div><b>${a.ic} ${a.nm}${done ? ' ✔' : ''}</b><small>${a.d} · ${v}/${a.g} · +${a.c} 🪙${a.x ? ' +' + a.x + ' XP' : ''}${a.hat ? ' · 🎩 ' + a.hat : ''}</small></div><div class="pips">${Math.floor(v / a.g * 100)}%</div><button ${can ? '' : 'disabled'} onclick="claimAch('${a.id}')">${done ? 'Cobrado' : (can ? 'Reclamar' : 'En curso')}</button></div>`;
+        }
+        return h + '</div>';
+    }
+    function rankRewards() {
+        const r = rankOf(prof.xp); if (prof.rk === undefined) { prof.rk = r; saveProf(); return; }
+        if (r > prof.rk) { let c = 0; for (let i = prof.rk + 1; i <= r; i++) c += 20 * i; prof.rk = r; prof.coins += c; saveProf(); toast('⭐ ¡Rango ' + r + '! +' + c + ' monedas'); }
+    }
+    function streakTick() {
+        const k = dayKey(), s = prof.streak || (prof.streak = { last: '', n: 0, best: 0 }); if (s.last === k) return 0;
+        const d = new Date(); d.setDate(d.getDate() - 1); const yk = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        s.n = s.last === yk ? s.n + 1 : 1; s.last = k; s.best = Math.max(s.best || 0, s.n);
+        return Math.min(s.n, 7) * 10;
+    }
     function openLobby(tab) {
         if (sbCur && sbCur.test && ed) { sbCur = null; resumeEditor(); return; }
         const wasEd = !!ed; sbCur = null; ed = null; document.body.classList.remove('editing'); document.getElementById('edui').style.display = 'none'; document.getElementById('edmodal').style.display = 'none'; if (wasEd) resizeCanvas();
@@ -2653,8 +2832,9 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
 
     function renderLobby() {
+        rankRewards();
         const r = rankOf(prof.xp), cur = 150 * (r - 1) * (r - 1), nxt = 150 * r * r;
-        const tabs = [['play', 'Misión'], ['daily', '📅 Diarios'], ['sandbox', '🛠 Sandbox'], ['party', 'Party'], ['friends', '👥 Amigos'], ['book', '📖 Libro'], ['garage', 'Garaje'], ['scores', 'Récords'], ['set', 'Ajustes']];
+        const tabs = [['play', 'Misión'], ['daily', '📅 Diarios'], ['sandbox', '🛠 Sandbox'], ['party', 'Party'], ['friends', '👥 Amigos'], ['book', '📖 Libro'], ['garage', 'Garaje'], ['ach', '🏅 Logros' + achPending()], ['scores', 'Récords'], ['set', 'Ajustes']];
         let h = `<div class="sheet"><div class="top"><div><h1>TANKERS</h1><div class="sub">Rango ${r} · ${esc(prof.name)}</div></div><div class="coins">${prof.coins}<small>monedas</small></div></div>
             <div class="xp"><i style="width:${Math.min(100, (prof.xp - cur) / (nxt - cur) * 100)}%"></i></div>
             <div class="tabs">${tabs.map(t => `<button class="${t[0] === lobbyTab ? 'on' : ''}" onclick="openLobby('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
@@ -2666,6 +2846,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         else if (lobbyTab === 'sandbox') { h += sandboxHTML(); }
         else if (lobbyTab === 'friends') { fPingAll(); h += friendsHTML(); } else if (lobbyTab === 'party') { if (net.role === 'host') fPingAll(); h += partyHTML(); }
         else if (lobbyTab === 'book') { h += '<p class="st">Todo lo que necesitas saber sobre cada enemigo. Usa las flechas para pasar de página.</p>' + bookHTML(); }
+        else if (lobbyTab === 'ach') { h += achHTML(); }
         else if (lobbyTab === 'set') { h += settingsHTML(); }
         else if (lobbyTab === 'garage') {
             h += '<div class="bay"><canvas id="garage-cv" width="460" height="400"></canvas><div class="ups">' + Object.keys(UPS).map(k => {
@@ -2675,8 +2856,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 const ok = r >= s[3];
                 return `<button class="skin ${i === prof.skin ? 'on' : ''}" ${ok ? '' : 'disabled'} onclick="prof.skin=${i};saveProf();applyProfile();renderLobby()"><span style="background:${s[1]};border-color:${s[2]}"></span>${s[0]}${ok ? '' : '<small>Rango ' + s[3] + '</small>'}</button>`;
             }).join('') + '</div><h3>Sombrero</h3><div class="skins">' + HATS.map((q, i) => {
-                const ok = r >= q[1];
-                return `<button class="skin ${i === (prof.hat || 0) ? 'on' : ''}" ${ok ? '' : 'disabled'} onclick="prof.hat=${i};saveProf();renderLobby()">${q[0]}${ok ? '' : '<small>Rango ' + q[1] + '</small>'}</button>`;
+                const ok = hatOk(i);
+                return `<button class="skin ${i === (prof.hat || 0) ? 'on' : ''}" ${ok ? '' : 'disabled'} onclick="prof.hat=${i};saveProf();renderLobby()">${q[0]}${ok ? '' : '<small>' + (q[2] ? 'Logro' : 'Rango ' + q[1]) + '</small>'}</button>`;
             }).join('') + '</div>';
         } else {
             h += prof.scores.length
@@ -2696,7 +2877,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         fortress: { n: 'Fortaleza (muros largos)', sp: 4, dest: 0, long: 0.95 },
         arena: { n: 'Arena del jefe', sp: 5, dest: 0.25, long: 0.5 }
     };
-    const ENEMY_NAMES = ['Centinela', 'Patrullero', 'Cañón Rojo', 'Comandante', 'Minador', 'Fantasma', 'Perforador', 'Repetidor', 'Cerebro', 'Asesino', 'Blindado', 'Francotirador', 'Suicida', 'Prisa', 'Misilero', 'Venenoso', '(Jefe)', 'Nigromante'];
+    const ENEMY_NAMES = ['Centinela', 'Patrullero', 'Cañón Rojo', 'Comandante', 'Minador', 'Fantasma', 'Perforador', 'Repetidor', 'Cerebro', 'Asesino', 'Blindado', 'Francotirador', 'Suicida', 'Prisa', 'Misilero', 'Venenoso', '(Jefe)', 'Nigromante', 'Escudero', 'Mortero', 'Fragmentador', 'Embestidor', 'Furia', 'Esquirla'];
     const DAILY_LV = [3, 6, 9, 11, 15], DAILY_LIVES = [3, 3, 3, 3, 2], DAILY_DIFF = [0, 1, 1, 2, 2], DAILY_RW = [40, 70, 110, 160, 250];
     // Cada día se elige una plantilla de cada nivel de dificultad (según la fecha)
     const DAILY_TIERS = [
@@ -2756,6 +2937,11 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             { nm: 'Lluvia de misiles', ic: '🚀', mode: 'survive', map: 'open', types: [14, 15, 8, 12] }
         ]
     ];
+    DAILY_TIERS[0].push({ nm: 'Primer escudo', ic: '🛡️', mode: 'eliminate', map: 'open', types: [18, 0, 1], cnt: 5 }, { nm: 'Piñata', ic: '🪅', mode: 'eliminate', map: 'classic', types: [20, 0, 1], cnt: 4 }, { nm: 'Llaves en la llanura', ic: '🔑', mode: 'keys', map: 'open', types: [0, 1, 20], cnt: 4 });
+    DAILY_TIERS[1].push({ nm: 'Tras el escudo', ic: '🛡️', mode: 'capture', map: 'classic', types: [18, 3, 1], cnt: 5 }, { nm: 'Morteros en las ruinas', ic: '💥', mode: 'eliminate', map: 'rubble', types: [19, 0, 1, 3], cnt: 6 }, { nm: 'Fiesta de esquirlas', ic: '🔑', mode: 'keys', map: 'maze', types: [20, 1, 3], cnt: 5 }, { nm: 'Convoy fragmentado', ic: '🚚', mode: 'escort', map: 'open', types: [20, 3, 12], cnt: 5 });
+    DAILY_TIERS[2].push({ nm: 'Carga de caballería', ic: '🐂', mode: 'eliminate', map: 'open', types: [21, 1, 3], cnt: 5 }, { nm: 'Fuego de mortero', ic: '💣', mode: 'demolition', map: 'fortress', types: [19, 10, 3], cnt: 5 }, { nm: 'Furia en el laberinto', ic: '😡', mode: 'keys', map: 'maze', types: [22, 3, 4], cnt: 5 }, { nm: 'Muro de escudos', ic: '👑', mode: 'vip', map: 'fortress', types: [18, 18, 10], cnt: 5 }, { nm: 'Cajas explosivas', ic: '🎁', mode: 'crates', map: 'rubble', types: [19, 20, 3], cnt: 5 });
+    DAILY_TIERS[3].push({ nm: 'Estampida', ic: '🐂', mode: 'survive', map: 'open', types: [21, 12, 3, 7] }, { nm: 'Guardián del bombardeo', ic: '🛡️', mode: 'protect', map: 'classic', types: [19, 12, 3] }, { nm: 'Escudos y obuses', ic: '🏰', mode: 'eliminate', map: 'fortress', types: [18, 19, 11, 6], cnt: 6 }, { nm: 'Frenesí', ic: '😡', mode: 'gems', map: 'maze', types: [22, 20, 8], cnt: 6, time: 210 }, { nm: 'Joya vigilada', ic: '💎', mode: 'jewel', map: 'fortress', types: [18, 21, 3], cnt: 5 });
+    DAILY_TIERS[4].push({ nm: 'Bombardeo total', ic: '💥', mode: 'eliminate', map: 'arena', types: [19, 19, 21, 10, 11], cnt: 9 }, { nm: 'La horda furiosa', ic: '😡', mode: 'survive', map: 'open', types: [22, 21, 20, 12] }, { nm: 'Tormenta de acero', ic: '🔷', mode: 'gems', map: 'fortress', types: [18, 22, 19, 8, 14], cnt: 6, time: 220 }, { nm: 'Rey de las esquirlas', ic: '👑', mode: 'boss', map: 'arena', types: [20, 22, 21] }, { nm: 'Pesadilla blindada', ic: '🛡️', mode: 'eliminate', map: 'rubble', types: [18, 18, 22, 21, 10], cnt: 9 }, { nm: 'Cazados por Prisa y Furia', ic: '💀', mode: 'haste', map: 'classic', types: [22, 18, 19], cnt: 7 });
     const dayKey = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
     function dailyList() {
         const key = dayKey(), rnd = mulberry(hashStr('tankers-daily-' + key));
@@ -2779,8 +2965,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const c = dailyCur, st = dailyState(); let coins = 0, extra = '';
         state = 'win';
         if (!st.done[c.idx]) {
-            st.done[c.idx] = 1; coins = c.reward; prof.coins += coins; prof.xp += c.reward * 2; prof.dailyTotal = (prof.dailyTotal || 0) + 1;
-            if (st.done.every(Boolean) && !st.bonus) { st.bonus = 1; coins += 250; prof.coins += 250; extra = '\n¡Los 5 desafíos de hoy completados! Bonus +250 monedas'; }
+            st.done[c.idx] = 1; coins = c.reward; prof.coins += coins; prof.xp += c.reward * 2; prof.dailyTotal = (prof.dailyTotal || 0) + 1; { const sb = streakTick(); if (sb) { coins += sb; prof.coins += sb; extra += '\nRacha de ' + prof.streak.n + ' días: +' + sb + ' monedas'; } }
+            if (st.done.every(Boolean) && !st.bonus) { st.bonus = 1; coins += 250; prof.coins += 250; extra += '\n¡Los 5 desafíos de hoy completados! Bonus +250 monedas'; }
         }
         prof.stats.missions++; saveProf(); updateUI();
         const nxt = st.done.findIndex(v => !v);
@@ -2831,7 +3017,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             if (!Array.isArray(arr)) return;
             for (const q of arr.slice(0, max)) {
                 if (!Array.isArray(q)) continue;
-                const t = withT ? cl(q[0], 0, 17) : 0, c = cl(q[withT ? 1 : 0], 1, s - 2), r = cl(q[withT ? 2 : 1], 1, s - 2), key = c + ',' + r;
+                const t = withT ? cl(q[0], 0, 23) : 0, c = cl(q[withT ? 1 : 0], 1, s - 2), r = cl(q[withT ? 2 : 1], 1, s - 2), key = c + ',' + r;
                 if (inSpawnZone(c, r) || g[r * s + c] || seen.has(key)) continue;
                 seen.add(key); dst.push(withT ? [t, c, r] : [c, r]);
             }
@@ -2936,6 +3122,15 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const e = ed, cw = canvas.width / dpr / e.z, ch = canvas.height / dpr / e.z, W = e.n * 40;
         e.cam.x = W < cw ? (W - cw) / 2 : Math.max(-60, Math.min(e.cam.x, W - cw + 60)); e.cam.y = W < ch ? (W - ch) / 2 : Math.max(-60, Math.min(e.cam.y, W - ch + 60));
     }
+    let edStick = { x: 0, y: 0 };
+    (function () {
+        const el = document.getElementById('edstk'), kn = el.firstElementChild; let pid = null;
+        const set = ev => { const r = el.getBoundingClientRect(), m = r.width / 2 * 0.62; let dx = ev.clientX - (r.left + r.width / 2), dy = ev.clientY - (r.top + r.height / 2); const d = Math.hypot(dx, dy) || 1, f = Math.min(1, d / m); dx = dx / d * f; dy = dy / d * f; edStick.x = dx; edStick.y = dy; kn.style.transform = 'translate(' + (dx * m) + 'px,' + (dy * m) + 'px)'; };
+        el.addEventListener('pointerdown', ev => { ev.preventDefault(); ev.stopPropagation(); pid = ev.pointerId; try { el.setPointerCapture(pid); } catch (x) {} set(ev); });
+        el.addEventListener('pointermove', ev => { if (ev.pointerId === pid) set(ev); });
+        const end = ev => { if (ev.pointerId === pid) { pid = null; edStick.x = edStick.y = 0; kn.style.transform = ''; } };
+        el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+    })();
     function edZoom(f, p) { const e = ed, wx = p.x / e.z + e.cam.x, wy = p.y / e.z + e.cam.y; e.z = Math.max(0.12, Math.min(2.5, e.z * f)); e.cam.x = wx - p.x / e.z; e.cam.y = wy - p.y / e.z; edClamp(); }
     function edZoomBtn(f) { edZoom(f, { x: canvas.width / dpr / 2, y: canvas.height / dpr / 2 }); }
     function edTool(t) { ed.tool = t; edBar(); }
@@ -2946,7 +3141,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             <div class="edrow">${e.tool === 'enemy' ? `<select onchange="ed.et=+this.value;edBar()">${ENEMY_NAMES.map((n, i) => i === 16 ? '' : `<option value="${i}" ${i === e.et ? 'selected' : ''}>${n}</option>`).join('')}</select>` : ''}
             <button onclick="edZoomBtn(1.25)">＋</button><button onclick="edZoomBtn(0.8)">－</button><button onclick="edFit()">⤢</button>
             <button onclick="edSettings()">⚙ Ajustes</button><button class="go" onclick="edTest()">▶ Probar</button><button onclick="edSave(true)">💾 Guardar</button><button onclick="edShare()">🔗 Compartir</button><button class="red" onclick="edExit()">✖ Salir</button>
-            <span class="edinfo">${esc(L.nm)} · 👾 ${L.e.length} · 🔷 ${L.a.length} · 💣 ${L.m.length}${L.f ? ' · 🏁' : ''}${L.mi && MISSIONS[L.mi] ? ' · ' + MISSIONS[L.mi][0] : ''}</span></div>`;
+            <span class="edinfo" title="WASD / flechas / joystick: moverte por el mapa">🕹️ WASD · ${esc(L.nm)} · 👾 ${L.e.length} · 🔷 ${L.a.length} · 💣 ${L.m.length}${L.f ? ' · 🏁' : ''}${L.mi && MISSIONS[L.mi] ? ' · ' + MISSIONS[L.mi][0] : ''}</span></div>`;
     }
     const edScreen = ev => { const r = canvas.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
     function edApply(p) {
@@ -2997,7 +3192,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     window.addEventListener('keyup', ev => { if (ed) ed.keys[ev.key.toLowerCase()] = false; });
     function drawEditor() {
         const e = ed, n = e.n, G = 40, z = e.z, k = dpr * z, cw = canvas.width / dpr / z, ch = canvas.height / dpr / z, K = e.keys, sp = 12 / z;
-        if (K.arrowleft || K.a) e.cam.x -= sp; if (K.arrowright || K.d) e.cam.x += sp; if (K.arrowup || K.w) e.cam.y -= sp; if (K.arrowdown || K.s) e.cam.y += sp; edClamp();
+        { const kx = ((K.arrowright || K.d || K[controls.right]) ? 1 : 0) - ((K.arrowleft || K.a || K[controls.left]) ? 1 : 0) + edStick.x, ky = ((K.arrowdown || K.s || K[controls.down]) ? 1 : 0) - ((K.arrowup || K.w || K[controls.up]) ? 1 : 0) + edStick.y, km = Math.hypot(kx, ky), kf = Math.min(1, km) / (km || 1); e.cam.x += kx * kf * sp * 1.2; e.cam.y += ky * kf * sp * 1.2; edClamp(); }
         ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#263238'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.setTransform(k, 0, 0, k, -e.cam.x * k, -e.cam.y * k); ctx.globalAlpha = 1;
         const W = n * G; ctx.fillStyle = '#e0e4e5'; ctx.fillRect(0, 0, W, W);
@@ -3123,19 +3318,29 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         { t: 9, n: 'Asesino', lv: 17, d: 'Negro, veloz, con bala súper sin rebotes y minas. Va directo a cazarte.', tip: 'Una sola bala te basta si él falla; juega a esquinas cerradas y dispara primero.' },
         { t: 13, n: 'Prisa', lv: 20, d: 'Tanque negro con contornos rojos, calavera en la torreta y pinchos por detrás. Es inmortal: ninguna bala ni mina le hace daño, atraviesa las paredes y te persigue sin descanso. Si te toca, mueres. Dispara balas normales con un rebote. Al cruzar un muro suelta humo negro a su alrededor, y calcula sus disparos (anticipa tu movimiento y los rebotes) para no fallar. Solo puede haber uno por nivel.', tip: 'No puedes matarlo: aprovecha que es más lento que tú, no te acorrales y cumple el objetivo antes de que te alcance. En Cazado por Prisa, recoge las 8 gemas rojas.' },
         { t: 14, n: 'Misilero', lv: 23, d: 'Tanque blanco que dispara misiles grises, lentos pero guiados: calculan el camino real por los pasillos hasta ti. Dispara con mucha calma y solo tiene un misil en el aire.', tip: 'No intentes huir de un misil: dispárale directamente para destruirlo, o hazlo chocar contra una pared tras un giro brusco.' },
+        { t: 18, n: 'Escudero', lv: 8, d: 'Tanque gris con una placa curva delante. Su escudo absorbe cualquier bala que le llegue de frente, así que mirarlo de cara no sirve de nada. Aguanta 2 impactos y avanza con calma.', tip: 'Rodéalo y dispara por la espalda o los costados, o déjale una mina en el camino: las minas ignoran el escudo.' },
+        { t: 20, n: 'Fragmentador', lv: 10, d: 'Blindaje agrietado de color ámbar. Cuando lo destruyes se parte en dos Esquirlas, pequeñas y muy rápidas. Aguanta 2 impactos.', tip: 'Dispárale cuando esté lejos de ti: así las esquirlas tardan más en alcanzarte. Una mina las barre a las dos.' },
+        { t: 22, n: 'Furia', lv: 12, d: 'Tanque naranja con cuernos, colmillos y llamas detrás. Acecha despacio, pero cada vez que lo hieres entra en frenesí durante 2,5 s: te persigue al doble de velocidad y dispara abanicos de 3 balas. Con 1 de vida se queda en furia total y, al morir, estalla con un aviso de 0,8 s. Aguanta 3 impactos.', tip: 'Aléjate cuando se encienda el aura roja, esquiva el abanico tras un muro y no lo remates a quemarropa: su explosión final también te alcanza.' },
+        { t: 19, n: 'Mortero', lv: 13, d: 'Artillería lenta de cañón grueso. No te dispara: lanza obuses que marcan un círculo rojo en el suelo y estallan 1,3 s después con el radio de una mina. Calcula hacia dónde te mueves.', tip: 'Cuando veas el círculo, sal de él. Los obuses no se pueden disparar; castiga al mortero cuando acabe de lanzar.' },
+        { t: 21, n: 'Embestidor', lv: 16, d: 'Tanque rayado de amarillo y negro con un ariete delante. Te persigue y, si te ve de lejos, se detiene un instante (un cono amarillo marca por dónde va a cargar) y arremete en línea recta. Si te toca, pierdes una vida; si choca con un muro, queda aturdido unos segundos. Aguanta 3 impactos.', tip: 'Esquiva hacia un lado justo cuando salga la advertencia «¡EMBISTE!» y castígalo mientras está aturdido.' },
+        { t: 23, n: 'Esquirla', lv: 0, d: 'Fragmento diminuto que nace al destruir un Fragmentador. Muy rápido y de un solo impacto, dispara con poca frecuencia y sin rebotes.', tip: 'No las persigas: déjalas venir y elimínalas una a una desde una esquina.' },
         { s: 'vip', n: 'VIP', lv: 0, d: 'Objetivo de la misión VIP, marcado con un escudo cian que late. Si su tanque es móvil, huye de ti por los pasillos y ya no se queda quieto; si es estático, te espera rodeado de guardaespaldas. La escolta lo orbita y dispara a tus balas cercanas.', tip: 'Ignora a los guardias si puedes: arrincona al VIP contra un muro o usa rebotes para alcanzarlo.' },
         { s: 'boss', n: 'Jefe', lv: 0, d: 'Tanque gigante con mucha vida, bala súper, un rebote extra y una cadencia un 40% más rápida que su versión normal. En el modo Jefes aparece en cada misión.', tip: 'Mantén distancia, esquiva con los muros y devuélvele daño con minas cuando te persiga.' },
         { s: 'ally', n: 'Aliado', lv: 0, d: 'Tanque blanco que te acompaña en las misiones Proteger (10 de vida) y Escolta. Dispara al enemigo más cercano. Si cae, pierdes una vida y se reinicia la misión.', tip: 'Elimina primero a quien le apunte. En Escolta avanza solo cuando estás cerca.' },
         { s: 'mine', n: 'Mina', lv: 0, d: 'Estalla tras 3 segundos o cuando un tanque rival pasa cerca. Su explosión destruye muros marrones y daña búnkeres. Se puede detonar con una bala.', tip: 'Las tuyas son cian y las enemigas rojas. En el campo minado son permanentes: dispárales desde lejos.' },
         { s: 'bunker', n: 'Búnker', lv: 0, d: 'Puerta blindada de hormigón de la misión Demolición. Solo recibe daño de tus balas y de tus minas; las balas enemigas rebotan en ella, y de vez en cuando suelta enemigos.', tip: 'Empieza por los más alejados de los enemigos y rómpelos con minas mientras te cubres.' }
     ];
+    BOOK.sort((a, b) => { const k = e => e.s ? 1000 : (e.t === 23 ? 10.5 : e.lv); return k(a) - k(b); }); // por orden de aparición: del nivel más temprano al más tardío
     let bookPage = 0, bookT = 0;
     const SPEEDTXT = v => v === 0 ? 'Estático' : v <= 0.8 ? 'Lento' : v <= 1.3 ? 'Velocidad media' : v <= 1.8 ? 'Rápido' : 'Muy rápido';
     function bookBadges(e) {
         if (e.t !== undefined) {
             const T = ENEMY_TYPES[e.t], b = [SPEEDTXT(T.speed), T.bullet === 'none' ? 'Sin disparo' : (T.bullet === 'super' ? 'Bala súper' : (T.bullet === 'missile' ? 'Misil guiado' : (T.bullet === 'acid' ? 'Saliva ácida' : 'Bala normal'))), T.bullet === 'none' ? 'Explota' : (T.bullet === 'missile' ? 'Sigue el camino' : 'Rebotes: ' + T.rebounces), (T.haste ? 'Vida: ∞' : 'Vida: ' + (T.hp || 1))];
             if (T.haste) b.push('Inmortal', 'Atraviesa paredes', 'Mata al tocar', 'Puntería calculada'); if (T.venom) b.push('Camino ácido'); if (T.necro) b.push('Revive a los caídos', 'Revive nigromantes y jefes', 'Huye de ti'); if (T.mines) b.push('Pone minas'); if (T.invisible) b.push('Invisible'); if (T.maxBullets) b.push('Ráfaga ×' + T.maxBullets);
-            b.push('Desde el nivel ' + e.lv); return b;
+            if (T.mortar) { b[1] = 'Obús con aviso'; b[2] = 'Área como una mina'; b.push('No se puede disparar al obús'); }
+            if (T.charger) { b[1] = 'Embestida'; b[2] = 'Aturdido al chocar'; b.push('Quita una vida al tocar'); }
+            if (T.shield) b.push('Escudo frontal'); if (T.split) b.push('Se divide en 2'); if (T.rage) b.push('Se enfurece al herirla');
+            b.push(T.shard ? 'Nace de un Fragmentador' : 'Desde el nivel ' + e.lv); b.push('Derrotados: ' + ((prof.kt || {})[T.type] || 0)); return b;
         }
         return { vip: ['Escudo cian', 'Vida: 1', 'Escoltado'], boss: ['Vida 7+', 'Bala súper', '+1 rebote'], ally: ['Vida 6-10', 'De tu bando'], mine: ['Radio 85', '3 s de mecha'], bunker: ['Vida 5-9', 'Solo tu fuego'] }[e.s];
     }
@@ -3354,15 +3559,18 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (let k = 0; k < u.reload; k++) cyl([13.5 + k * 3.2, 22, 0], 3.1, 1.6, 'x', '#00bcd4', T, 10);
         for (let k = 0; k < u.bounce; k++) for (const sg of [-1, 1]) box([32 + k * 5, 22, sg * 2.4], [1.6, 1.6, 5], '#00e5ff', { t: 1, y: sg * 0.6 });
         switch (prof.hat | 0) {
-            case 1: prism([0, 27.5, 0], 8, 3, '#e53935', T); box([8, 26.8, 0], [7, 1, 10], '#b71c1c', T); break;
-            case 2: prism([0, 27.5, 0], 3.2, 3, '#f5f0dc', T); prism([0, 30, 0], 8.5, 2.6, '#e53935', T); for (const q of [[3, 5], [-3, 4], [0, -5], [5, -2]]) box([q[0], 31.4, q[1]], [2, 0.8, 2], '#ffffff', T); break;
-            case 3: for (const sg of [-1, 1]) cone([0, 30, sg * 6], 2.4, 8, '#eeeeee', T); prism([0, 27, 0], 9.2, 2, '#6d4c41', T); break;
-            case 4: for (const sg of [-1, 1]) cone([-1, 29.5, sg * 6.5], 3, 7, '#9e9e9e', T); break;
-            case 5: prism([0, 28, 0], 9.5, 4, '#78909c', T); prism([0, 30.6, 0], 6.5, 2, '#90a4ae', T); box([9, 28, 0], [1.5, 2, 9], '#263238', T); break;
-            case 6: prism([0, 26.6, 0], 13, 1.2, '#6d4c41', T); prism([0, 29, 0], 6.5, 4, '#8d6e63', T); prism([0, 27.4, 0], 6.8, 1, '#3e2723', T); break;
-            case 7: prism([0, 26.6, 0], 10.5, 1.2, '#212121', T); prism([0, 31, 0], 7, 8, '#212121', T); prism([0, 28, 0], 7.2, 1.6, '#d32f2f', T); break;
-            case 8: prism([0, 26.6, 0], 12, 1.2, '#4527a0', T); cone([0, 32, 0], 7.5, 11, '#5e35b1', T); box([4, 29, 6], [1.4, 1.4, 1.4], '#ffd600', T); box([-3, 33, -3], [1.4, 1.4, 1.4], '#ffd600', T); break;
-            case 9: prism([0, 28, 0], 8, 4, '#ffd600', T); for (const q of [[6, 0], [-6, 0], [0, 6], [0, -6]]) cone([q[0], 31.5, q[1]], 2.2, 5, '#ffd600', T); box([0, 28, 8], [2, 2, 1], '#e53935', T); break;
+            case 1: prism([0, 28, 0], 8.6, 4, '#e53935', T); prism([0, 27.3, 0], 8.9, 1.2, '#fafafa', T); prism([0, 30.4, 0], 7.4, 1.2, '#e53935', T); prism([0, 31.3, 0], 1.4, 1, '#b71c1c', T); box([10.5, 27.1, 0], [8.5, 0.9, 11], '#b71c1c', T); break;
+            case 2: prism([0, 28, 0], 3.6, 3, '#f5f0dc', T); prism([0, 29.6, 0], 9.2, 0.8, '#efe6c8', T); prism([0, 31.2, 0], 11, 2.6, '#e53935', T); prism([0, 33, 0], 8, 1.6, '#e53935', T); for (const q of [[4, 6], [-5, 5], [-6, -3], [5, -5], [0, 0], [0, -8]]) box([q[0], 33.9, q[1]], [2.4, 0.7, 2.4], '#ffffff', T); break;
+            case 3: prism([0, 27.8, 0], 9, 2, '#6d4c41', T); prism([0, 29, 0], 9.4, 0.8, '#4e342e', T); for (const sg of [-1, 1]) { cone([0, 31, sg * 8.2], 2.9, 5, '#f5f0dc', T); cone([0, 34.2, sg * 10.4], 2.2, 4.4, '#f5f0dc', T); cone([0, 37, sg * 12.4], 1.5, 3.8, '#fff8e1', T); } break;
+            case 4: prism([0, 27.4, 0], 8.3, 1.6, '#616161', T); for (const sg of [-1, 1]) { cone([-1, 31.4, sg * 6.6], 4, 9, '#9e9e9e', T); box([1.7, 30, sg * 6.6], [0.6, 4.2, 1.8], '#f8bbd0', T); } break;
+            case 5: prism([0, 28, 0], 9.6, 4, '#78909c', T); prism([0, 30.6, 0], 7.2, 1.4, '#90a4ae', T); box([0, 32.2, 0], [13, 2.2, 1.8], '#c62828', T); box([9.2, 28.4, 0], [1.6, 1.8, 9.4], '#263238', T); for (const sg of [-1, 1]) box([2, 26.8, sg * 9], [7, 2.6, 1.4], '#607d8b', T); break;
+            case 6: prism([0, 26.9, 0], 13.4, 1, '#8d6e63', T); for (const sg of [-1, 1]) box([0, 27.9, sg * 11.6], [15, 1, 2.6], '#8d6e63', T); prism([0, 29.6, 0], 6.8, 4.4, '#a1887f', T); prism([0, 28, 0], 7.1, 1.2, '#3e2723', T); box([0, 32, 0], [9, 0.9, 2.2], '#6d4c41', T); box([6.9, 28, 0], [0.8, 1.6, 1.6], '#ffd54f', T); break;
+            case 7: prism([0, 26.9, 0], 11, 1, '#1a1a1a', T); prism([0, 31.6, 0], 7.2, 9.4, '#212121', T); prism([0, 28.6, 0], 7.5, 2, '#d32f2f', T); box([7.3, 28.6, 0], [1, 2, 2.6], '#ffd600', T); prism([0, 36.4, 0], 6.6, 0.7, '#2e2e2e', T); break;
+            case 8: prism([0, 26.9, 0], 13, 1, '#311b92', T); prism([0, 27.9, 0], 8.4, 1.4, '#ffd600', T); cone([0, 32, 0], 8.2, 8, '#512da8', T); cone([0.8, 37.4, -0.6], 5.3, 6.4, '#5e35b1', T); cone([2.2, 41.4, -1.6], 2.8, 5, '#7e57c2', T); for (const q of [[4, 31, 6.4], [-4, 33, -6], [6, 29.5, -3], [-6, 30, 4]]) box(q, [1.4, 1.4, 1.4], '#ffd600', T); break;
+            case 9: prism([0, 28, 0], 8.8, 3.2, '#ffca28', T); prism([0, 26.9, 0], 9.1, 0.8, '#ff8f00', T); for (let k = 0; k < 5; k++) { const a = k * 1.2566; cone([Math.cos(a) * 7.2, 32.3, Math.sin(a) * 7.2], 2.3, 5.6, '#ffd54f', T); box([Math.cos(a) * 7.2, 35.4, Math.sin(a) * 7.2], [1.5, 1.5, 1.5], k % 2 ? '#42a5f5' : '#e53935', T); } break;
+            case 10: for (let k = 0; k < 14; k++) { const a = k / 14 * 6.283; box([Math.cos(a) * 10, 34, Math.sin(a) * 10], [2.4, 0.9, 2.4], '#ffe082', T); box([Math.cos(a) * 8.6, 34.3, Math.sin(a) * 8.6], [1.2, 0.6, 1.2], '#fffde7', T); } for (let k = 0; k < 3; k++) { const a = k * 2.0944 + 0.5; box([Math.cos(a) * 10, 30.5, Math.sin(a) * 10], [0.6, 7, 0.6], '#fff59d', T); } break;
+            case 11: prism([0, 28, 0], 7.6, 3.6, '#263238', T); for (let k = 0; k < 3; k++) { const a = k * 2.0944; box([Math.cos(a) * 8.6, 28.8, -Math.sin(a) * 8.6], [3, 3.6, 13], '#37474f', { t: 1, y: a }); } prism([0, 29.9, 0], 7.8, 0.7, '#ffd600', T); box([7.8, 28.6, 0], [0.5, 2.2, 2.2], '#fafafa', T); cone([-4, 32, -5], 1.4, 6, '#e53935', T); break;
+            case 12: prism([0, 28.4, 0], 9.4, 4.4, '#90a4ae', T); prism([0, 27, 0], 9.7, 0.9, '#546e7a', T); prism([0, 31, 0], 7.2, 1.2, '#b0bec5', T); box([9.4, 28, 0], [1.2, 5, 2], '#607d8b', T); for (const sg of [-1, 1]) { cone([0, 31.5, sg * 10], 3, 5, '#f5f0dc', T); cone([0, 35.4, sg * 12], 2.2, 5, '#f5f0dc', T); cone([0, 39, sg * 13], 1.4, 4, '#fff8e1', T); } break;
         }
         GB.g.putImageData(GB.img, 0, 0);
         g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
@@ -3429,7 +3637,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
     function mkRemote(r) {
         const up = { speed: 0, reload: 0, mines: 0, bounce: 0, ...(r.up || {}) };
-        return { id: 'p' + r.slot, isPlayer: true, type: 'rp', slot: r.slot, name: r.name, radius: 18, baseColor: r.bc, turretColor: r.tc, bc: SLOT_COL[r.slot], speed: 2.5 + up.speed * 0.2, shotDelay: 20 - up.reload * 2, rebounces: 1 + up.bounce, maxMines: 5 + up.mines, minesLaid: 0, lastShotFrame: 0, bullet: 'normal', hp: 1, maxHp: 1, lives: 3, trackDist: 0, dead: false, respawnTimer: 0, invuln: 0, x: 0, y: 0, lastX: 0, lastY: 0, baseAngle: 0, turretAngle: 0, inp: { x: 0, y: 0 }, lastIn: 0, carriedItems: 0 };
+        return { id: 'p' + r.slot, isPlayer: true, type: 'rp', slot: r.slot, name: r.name, radius: 18, baseColor: r.bc, turretColor: r.tc, bc: SLOT_COL[r.slot], speed: 2.5 + up.speed * 0.2, shotDelay: 20 - up.reload * 2, rebounces: 1 + up.bounce, maxMines: 5 + up.mines, minesLaid: 0, lastShotFrame: 0, bullet: 'normal', hp: 1, maxHp: 1, lives: 3, trackDist: 0, dead: false, respawnTimer: 0, invuln: 0, x: 0, y: 0, lastX: 0, lastY: 0, baseAngle: 0, turretAngle: 0, inp: { x: 0, y: 0 }, lastIn: 0, carriedItems: 0, hat: r.hat | 0 };
     }
     function resetRemotes() { for (const r of remotes) { const p = spawnPos(r.slot); Object.assign(r, { x: p.x, y: p.y, lastX: p.x, lastY: p.y, hp: 1, dead: r.lives <= 0, invuln: 0, minesLaid: 0, carriedItems: 0, inp: { x: 0, y: 0 } }); } }
     function updateRemotes() {
@@ -3511,7 +3719,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     function squadCount(tm) { return enemies.filter(e => e.sq === tm).length + pendingSpawns.filter(p => p.enemy && p.enemy.sq === tm).length; }
     function spawnNeutral() {
-        const av = getAvailableEnemyTypes().filter(t => !t.haste && !t.kamikaze && !t.venom && !t.invisible);
+        const av = getAvailableEnemyTypes().filter(t => !t.haste && !t.kamikaze && !t.venom && !t.invisible && !t.mortar && !t.charger && !t.shard);
         spawnEnemy(av[Math.floor(Math.random() * av.length)] || ENEMY_TYPES[1], false, null, null, false, false);
     }
     // Un neutral derrotado se levanta como tropa del equipo que lo derribó
@@ -4057,7 +4265,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             try { q.conn.send(str); } catch (e) {} } } }
         else if (rtc.client && rtc.client.open) { try { rtc.client.send(str); } catch (e) {} }
     }
-    function myRoster() { return { slot: net.slot, name: prof.name, bc: SKINS[prof.skin][1], tc: SKINS[prof.skin][2], up: prof.up, rdy: net.role === 'host' }; }
+    function myRoster() { return { hat: hatOk(prof.hat | 0) ? (prof.hat | 0) : 0, slot: net.slot, name: prof.name, bc: SKINS[prof.skin][1], tc: SKINS[prof.skin][2], up: prof.up, rdy: net.role === 'host' }; }
     function stopHB() { if (net.hb) { clearInterval(net.hb); net.hb = null; } }
     // Durante una ronda no se expulsa a nadie por "silencio": una pestaña minimizada cuenta como jugador quieto
     const inRound = () => state === 'playing' || state === 'starting' || state === 'paused';
@@ -4176,14 +4384,14 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const nd = [];
         const e = enemies.map(en => {
             if (!net.sentDefs.has(en.nid)) { net.sentDefs.add(en.nid); nd.push([en.nid, en.baseColor, en.turretColor, en.type, en.isBoss ? 1 : 0, en.invisible ? 1 : 0, en.isVip ? 1 : 0, en.isAlly ? 1 : 0, en.radius, en.kamikaze ? 1 : 0, en.maxHp, r1(en.x), r1(en.y), en.sq === undefined ? -1 : en.sq]); }
-            return [en.nid, r1(en.x), r1(en.y), a2(en.baseAngle), a2(en.turretAngle), en.hp, en.role === 'def' ? 1 : 0, en.rvT > 0 ? Math.round(en.rvT * 100 / NECRO_CHANNEL) : 0];
+            return [en.nid, r1(en.x), r1(en.y), a2(en.baseAngle), a2(en.turretAngle), en.hp, en.role === 'def' ? 1 : (en.fz > 0 ? 2 : (en.chS === 1 ? 3 : (en.chS === 3 ? 4 : 0))), en.rvT > 0 ? Math.round(en.rvT * 100 / NECRO_CHANNEL) : 0];
         });
         if (net.fx.length > 40) net.fx.length = 40;
         net.sn = (net.sn || 0) + 1; const full = net.sn % 3 === 1; // minas, objetos, zonas y ácido cambian poco: 1 de cada 3 paquetes
         const m = { t: 's', fc: frameCount, p: [P(player), ...remotes.map(P)], e, b: bullets.filter(b => !b.dead).map(b => [r1(b.x), r1(b.y), a2(b.vx), a2(b.vy), b.radius, b.color, b.tm === undefined ? -1 : b.tm, b.mis ? 1 : 0, b.bid || 0]),
             h: [player.lives, score, gems, surviveTimer, timeLimit, combo, keysCollected, itemsDelivered, objDone ? 1 : 0, jewelTaken ? 1 : 0, pvs], fx: net.fx.splice(0) };
         if (full) {
-            m.m = mines.map(q => [r1(q.x), r1(q.y), q.owner === 'player' ? 1 : 0, Math.min(q.timer, 9999), q.perm ? 1 : 0]);
+            m.m = mines.map(q => [r1(q.x), r1(q.y), q.owner === 'player' ? 1 : 0, Math.min(q.timer, 9999), q.shell ? 2 : (q.perm ? 1 : 0)]);
             m.i = items.filter(i => !i.collected).map(i => [i.type, r1(i.x), r1(i.y), i.color]);
             m.q = pendingSpawns.map(q => [r1(q.x), r1(q.y), q.tm === undefined ? -1 : q.tm]);
             m.ez = ezOut(); m.zn = zonesOut(); m.tg = targets.map(t => [t.x, t.y, t.hp, t.maxHp, t.tm === undefined ? -1 : t.tm]);
@@ -4234,7 +4442,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     function mpWinUI(bonus, secs, clean, src, nm, rw, ix) {
         let coins = Math.floor(bonus / 40) + 10, extra = '';
-        if (src === 'daily') { const st = dailyState(); if (ix >= 0 && !st.done[ix]) { st.done[ix] = 1; coins += rw; prof.xp += rw * 2; prof.dailyTotal = (prof.dailyTotal || 0) + 1; extra = '\nDesafío del día completado: +' + rw + ' monedas extra'; } else extra = '\nDesafío ya cobrado hoy: sin recompensa extra'; }
+        if (src === 'daily') { const st = dailyState(); if (ix >= 0 && !st.done[ix]) { st.done[ix] = 1; coins += rw + streakTick(); prof.xp += rw * 2; prof.dailyTotal = (prof.dailyTotal || 0) + 1; extra = '\nDesafío del día completado: +' + rw + ' monedas extra'; } else extra = '\nDesafío ya cobrado hoy: sin recompensa extra'; }
         prof.stats.missions++; prof.trophies = (prof.trophies || 0) + 3; prof.coins += coins; prof.xp += Math.floor(bonus / 2) + 25; saveProf(); updateUI();
         showOverlay('menu-win', src === 'daily' ? '¡DESAFÍO COMPLETADO!' : (src === 'sb' ? '¡NIVEL COMPLETADO!' : '¡MISIÓN COMPLETADA!'), '', (nm ? nm + '\n' : '') + `Tiempo: ${secs} s · Puntos del equipo: ${score}\nBonus: +${bonus}` + (clean ? ' (+500 sin daño)' : '') + `\nTrofeos +3 · +${coins} monedas` + extra, '', null);
         document.getElementById('menu-btn').style.display = 'none'; renderRdy();
@@ -4258,7 +4466,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function mpForceNext() { if (net.role === 'host' && state === 'win') startNewLevel(false); }
 
     function hostHandle(slot, m) {
-        if (m.t === 'prof') { net.roster = net.roster.filter(r => r.slot !== slot); net.roster.push({ slot, name: String(m.name || 'Piloto').slice(0, 12), bc: m.bc, tc: m.tc, up: m.up || {}, rdy: false }); net.roster.sort((a, b) => a.slot - b.slot); netLobby(); return; }
+        if (m.t === 'prof') { net.roster = net.roster.filter(r => r.slot !== slot); net.roster.push({ slot, name: String(m.name || 'Piloto').slice(0, 12), bc: m.bc, tc: m.tc, up: m.up || {}, hat: Math.max(0, Math.min(HATS.length - 1, m.hat | 0)), rdy: false }); net.roster.sort((a, b) => a.slot - b.slot); netLobby(); return; }
         if (m.t === '_out') {
             net.roster = net.roster.filter(r => r.slot !== slot); remotes = remotes.filter(r => r.slot !== slot); delete net.pausedBy[slot]; delete net.rdy[slot];
             if (net.on) applyPause(); if (state === 'win') { mpSync(); mpCheckAll(); } netLobby(); return;
@@ -4321,7 +4529,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 }
                 if (d.nd) for (const a of d.nd) net.em.set(a[0], { nid: a[0], id: 'n' + a[0], baseColor: a[1], turretColor: a[2], type: a[3], isBoss: !!a[4], invisible: !!a[5], isVip: !!a[6], isAlly: !!a[7], radius: a[8], kamikaze: !!a[9], sq: a[13] >= 0 ? a[13] : undefined, maxHp: a[10], hp: a[10], x: a[11], y: a[12], tx: a[11], ty: a[12], hx: a[11], hy: a[12], vx: 0, vy: 0, age: 0, baseAngle: 0, turretAngle: 0, tba: 0, tta: 0 });
                 const seen = new Set();
-                for (const a of d.e) { const o = net.em.get(a[0]); if (!o) continue; seen.add(a[0]); upd(o, a[1], a[2], a[3], a[4]); o.hp = a[5]; o.role = a[6] ? 'def' : 'atk'; o.rv = a[7] || 0; }
+                for (const a of d.e) { const o = net.em.get(a[0]); if (!o) continue; seen.add(a[0]); upd(o, a[1], a[2], a[3], a[4]); o.hp = a[5]; o.role = a[6] === 1 ? 'def' : 'atk'; o.st = a[6] || 0; o.rv = a[7] || 0; }
                 for (const id of [...net.em.keys()]) if (!seen.has(id)) net.em.delete(id);
                 enemies = [...net.em.values()];
                 // Balas con identificador: se corrigen poco a poco en vez de saltar en cada paquete
@@ -4338,7 +4546,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 bullets = nb;
                 [, score, gems, surviveTimer, timeLimit, combo, keysCollected, itemsDelivered] = d.h; if (net.pl[net.slot] && net.pl[net.slot].lv !== undefined) player.lives = net.pl[net.slot].lv; objDone = !!d.h[8]; jewelTaken = !!d.h[9]; if (d.h[10]) pvs = d.h[10];
                 if (d.m) {
-                    mines = d.m.map(a => ({ x: a[0], y: a[1], owner: a[2] ? 'player' : 'enemy', timer: a[3], radius: 12, perm: !!a[4] }));
+                    mines = d.m.map(a => ({ x: a[0], y: a[1], owner: a[2] ? 'player' : 'enemy', timer: a[3], radius: 12, perm: a[4] === 1, shell: a[4] === 2 }));
                     items = d.i.map(a => ({ type: a[0], x: a[1], y: a[2], color: a[3], collected: false }));
                     pendingSpawns = d.q.map(a => ({ x: a[0], y: a[1], tm: a[2] >= 0 ? a[2] : undefined }));
                     escapeZone = { x: d.ez[0], y: d.ez[1], active: !!d.ez[2], hidden: !!d.ez[3], color: d.ez[4] };
@@ -4385,7 +4593,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             const d = Math.hypot(o.x - o._lx, o.y - o._ly); o._lx = o.x; o._ly = o.y;
             if (d > 40) { o._td = 0; return; }
             o._td += d;
-            if (o._td > 12) { o._td -= 12; if (inView(o.x, o.y, 50)) tracks.push({ x: o.x, y: o.y, angle: ang || 0, life: 400 }); }
+            if (o._td > 12) { o._td -= 12; if (inView(o.x, o.y, 50)) tracks.push({ x: o.x, y: o.y, angle: ang || 0, life: 400, sc: (!o.isBoss && o.radius && o.radius !== 18) ? o.radius / 18 : undefined }); }
         };
         if (!player.dead) clientTrack(player, player.baseAngle);
         for (const k in net.pl) { const o = net.pl[k]; if (+k !== net.slot && !o.dead) clientTrack(o, o.ba); }
@@ -4419,18 +4627,21 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         return !!(net.on && (sbCur || net.cu || (net.cfg && net.cfg.src === 'sb')));
     }
     function playerBlinkHidden(p) {
-        return !sandboxPlayersStayVisible() && p.invuln > 0 && frameCount % 8 < 4;
+        return false; // nunca se oculta a nadie: la invulnerabilidad se muestra con transparencia pulsante
     }
+    let HAT_DRAW = 0;
     function drawPlayerTank(p) {
         // Aísla la opacidad del canvas para que un efecto de otro objeto no
         // pueda dejar transparente el tanque de un jugador.
         ctx.save();
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = p.invuln > 0 ? 0.62 + 0.2 * Math.sin(frameCount * 0.5) : 1;
+        HAT_DRAW = p.hat | 0;
         drawTank(p.x, p.y, p.baseColor, p.turretColor, p.baseAngle, p.turretAngle, 'player', false, false, false);
+        HAT_DRAW = 0;
         ctx.restore();
     }
     function othersList() {
-        if (net.role === 'client') return Object.keys(net.pl).filter(k => +k !== net.slot).map(k => { const o = net.pl[k], r = net.roster.find(q => q.slot === +k) || {}; return { slot: +k, x: o.x, y: o.y, baseAngle: o.ba, turretAngle: o.ta, baseColor: r.bc || '#999999', turretColor: r.tc || '#555555', name: r.name || '?', hp: 1, maxHp: 1, lives: o.lv, dead: o.dead, invuln: o.inv ? 1 : 0, carriedItems: o.ci || 0 }; });
+        if (net.role === 'client') return Object.keys(net.pl).filter(k => +k !== net.slot).map(k => { const o = net.pl[k], r = net.roster.find(q => q.slot === +k) || {}; return { slot: +k, x: o.x, y: o.y, baseAngle: o.ba, turretAngle: o.ta, baseColor: r.bc || '#999999', turretColor: r.tc || '#555555', name: r.name || '?', hat: r.hat | 0, hp: 1, maxHp: 1, lives: o.lv, dead: o.dead, invuln: o.inv ? 1 : 0, carriedItems: o.ci || 0 }; });
         return remotes;
     }
     function drawNameTag(x, y, name, col, lives) {
@@ -4444,7 +4655,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (const o of othersList()) {
             if (o.dead || !inView(o.x, o.y, 80)) continue;
             if (o.carriedItems > 0) drawCarry(o.x, o.y, o.baseAngle, o.carriedItems);
-            if (!playerBlinkHidden(o)) drawPlayerTank(o);
+            ctx.save(); ctx.globalAlpha = 0.55; ctx.strokeStyle = isPvp() ? (pvpTeam(o.slot) === myTeam() ? '#4fc3f7' : '#ff5252') : SLOT_COL[o.slot]; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(o.x, o.y, 27, 0, 6.283); ctx.stroke(); ctx.restore();
+            drawPlayerTank(o);
             drawNameTag(o.x, o.y, o.name, isPvp() ? (pvpTeam(o.slot) === myTeam() ? '#4fc3f7' : '#ff5252') : SLOT_COL[o.slot], o.lives);
         }
     }
