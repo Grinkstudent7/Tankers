@@ -339,7 +339,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     const BORDER_SIZE = 40;
     let PLAYER_SPEED = 2.5;
     const BULLET_SPEED = 5.5;
-    const MINE_TIMER = 180;
+    const MINE_TIMER = 225; // +0,75 s
+    const SHOCK_T = 44, SHOCK_R = 250;
     const MINE_TRIGGER_DIST = 55;
     const MINE_RADIUS_EXPLOSION = 85;
     let PLAYER_MAX_MINES = 5;
@@ -560,11 +561,12 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         { type: 'moving_calc', baseColor: '#ffeb3b', turretColor: '#fbc02d', speed: 1.0, bullet: 'normal', rebounces: 1, cooldown: 160 }, // 16 RESERVADO: en el editor del sandbox el 16 es el Jefe (nunca se usa como enemigo normal)
         { type: 'necro', baseColor: '#3b1f4f', turretColor: '#69f0ae', speed: 1.6, bullet: 'normal', rebounces: 1, cooldown: 190, necro: true, hp: 2 }, // 17 Nigromante (revive a los caídos)
         { type: 'shield', baseColor: '#78909c', turretColor: '#37474f', speed: 1.0, bullet: 'normal', rebounces: 1, cooldown: 150, hp: 2, radius: 20, shield: true }, // 18 Escudero (escudo frontal)
-        { type: 'mortar', baseColor: '#c0ca33', turretColor: '#827717', speed: 0.5, bullet: 'none', rebounces: 0, cooldown: 260, hp: 2, radius: 20, mortar: true }, // 19 Mortero (obuses con aviso)
-        { type: 'splitter', baseColor: '#ffab40', turretColor: '#e65100', speed: 1.1, bullet: 'normal', rebounces: 1, cooldown: 170, hp: 2, split: true }, // 20 Fragmentador (se divide en 2)
+        { type: 'mortar', baseColor: '#c0ca33', turretColor: '#827717', speed: 0, bullet: 'none', rebounces: 0, cooldown: 230, hp: 2, radius: 20, mortar: true }, // 19 Mortero (obuses con aviso)
+        { type: 'splitter', baseColor: '#ffab40', turretColor: '#e65100', speed: 1.1, bullet: 'normal', rebounces: 1, cooldown: 170, hp: 1, split: true }, // 20 Fragmentador (se divide en 2)
         { type: 'charger', baseColor: '#455a64', turretColor: '#ffd600', speed: 1.25, bullet: 'none', rebounces: 0, cooldown: 200, hp: 3, radius: 21, charger: true, chaser: true }, // 21 Embestidor (carga y se aturde)
         { type: 'fury', baseColor: '#ff8a65', turretColor: '#bf360c', speed: 1.0, bullet: 'normal', rebounces: 1, cooldown: 150, hp: 3, radius: 20, rage: true }, // 22 Furia (se enfurece al herirla)
-        { type: 'shard', baseColor: '#ffcc80', turretColor: '#ef6c00', speed: 2.0, bullet: 'normal', rebounces: 0, cooldown: 210, hp: 1, radius: 14, shard: true } // 23 Esquirla (solo nace de un Fragmentador)
+        { type: 'shard', baseColor: '#ffcc80', turretColor: '#ef6c00', speed: 2.0, bullet: 'normal', rebounces: 0, cooldown: 210, hp: 1, radius: 14, shard: true }, // 23 Esquirla (solo nace de un Fragmentador)
+        { type: 'tesla', baseColor: '#37474f', turretColor: '#00b8d4', speed: 0, bullet: 'none', rebounces: 0, cooldown: 230, hp: 2, tesla: true } // 24 Tesla (estática, ondas de choque)
     ];
 
     const GAME_MODES = ['eliminate', 'survive', 'jewel', 'vip', 'keys', 'boss', 'escape_blind', 'carry', 'protect', 'gems', 'capture', 'demolition', 'minefield', 'escort', 'crates', 'haste'];
@@ -917,8 +919,9 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         if (level >= 5) available.push(ENEMY_TYPES[12]);
         if (level >= 7) available.push(ENEMY_TYPES[10]);
         if (level >= 9) available.push(ENEMY_TYPES[11]);
-        if (level >= 20 && !hasteOut()) available.push(ENEMY_TYPES[13]);
-        if (level >= 23) available.push(ENEMY_TYPES[14]);
+        if (level >= 23 && !hasteOut()) available.push(ENEMY_TYPES[13]);
+        if (level >= 20) available.push(ENEMY_TYPES[14]);
+        if (level >= 18) available.push(ENEMY_TYPES[24]);
         if (level >= 11) available.push(ENEMY_TYPES[15]);
         if (level >= 14) available.push(ENEMY_TYPES[17]);
         if (level >= 8) available.push(ENEMY_TYPES[18]);
@@ -979,12 +982,16 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         return { type: 'ally', baseColor: '#ffffff', turretColor: '#e0e0e0', speed: speed, bullet: 'normal', rebounces: 1, cooldown: 200, isAlly: true, x: x, y: y, lastX: x, lastY: y, radius: 18, hp: hp, maxHp: hp, id: 'ally', lastShot: 0, lastMine: 0, baseAngle: 0, turretAngle: 0, targetTurretAngle: 0, targetX: x, targetY: y, path: [], bodyguard: false, canShoot: false, stuckFrames: 0, trackDist: 0, pathCooldown: 0, aiOffset: 0 };
     }
     function makeBossType() {
-        let av = getAvailableEnemyTypes().filter(t => !t.invisible && !t.kamikaze && !t.haste && !t.venom && !t.necro);
+        let av = getAvailableEnemyTypes().filter(t => !t.invisible && !t.kamikaze && !t.haste && !t.venom && !t.necro && !t.shield && !t.mortar && !t.splitter && !t.charger && !t.rage && !t.shard && !t.tesla);
         if (currentMode === 'survive' || currentMode === 'protect') av = av.filter(t => t.speed > 0);
         if (av.length === 0) av = [ENEMY_TYPES[1]];
         const base = av[Math.floor(Math.random() * av.length)];
         const hp = (effMode() === 'bosses' ? 6 + Math.min(level, 12) : 7) + 2 * (playersCount() - 1);
-        return { ...base, isBoss: true, radius: 35, hp: hp, maxHp: hp, speed: base.speed > 0 ? base.speed * 0.9 : 0.8, bullet: 'super', rebounces: base.rebounces + 1, cooldown: base.cooldown * 0.6, trackDist: 0 };
+        // habilidades imitadas de los enemigos recientes: S escudo, M mortero, F fragmentación, C embestida, R furia, T tesla
+        const pool = ['S', 'M', 'F', 'C', 'R', 'T'], nAb = sbCur ? 2 : Math.min(3, 1 + (level >= 6 ? 1 : 0) + (level >= 14 ? 1 : 0));
+        for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+        const A = pool.slice(0, nAb).join('');
+        return { ...base, isBoss: true, radius: 35, hp: hp, maxHp: hp, speed: base.speed > 0 ? base.speed * 0.9 : 0.8, bullet: 'super', rebounces: base.rebounces + 1, cooldown: base.cooldown * 0.6, trackDist: 0, abs: A, shield: A.includes('S'), charger: A.includes('C'), tesla: A.includes('T'), tCd: 420 };
     }
     function spreadPoints(n, minD, avoid) {
         const pts = [];
@@ -1042,7 +1049,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         lastReset = !!reset;
         if (reset) {
             level = dailyCur ? dailyCur.level : (sbCur ? 8 : (net.on ? DIFFS[curDiff()].lvl : 1)); missionNo = 0; applyProfile(); player.lives = dailyCur ? dailyCur.lives : (sbCur ? sbCur.lv.l : (net.on ? 3 : 3 + prof.up.armor)); for (const r of remotes) r.lives = player.lives; net.pts = [0, 0, 0, 0];
-            floatingTexts = []; score = 0; combo = 0; comboTimer = 0; runKills = 0; runActive = !net.on && !dailyCur && !sbCur;
+            floatingTexts = []; score = 0; combo = 0; comboTimer = 0; runKills = 0; runRevives = 0; runActive = !net.on && !dailyCur && !sbCur;
         } else if (!keepLevel) {
             level++;
             if (isPvp()) { for (const q of [player, ...remotes]) q.lives = 3; }
@@ -1120,7 +1127,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             spawnN(numEnemies);
         }
         else if (currentMode === 'demolition') {
-            placeBunkers(4); objText = "💣 DESTRUYE LOS " + targets.length + " BÚNKERES"; spawnN(numEnemies);
+            if (sbCur && (sbCur.lv.b || []).length) sbPlaceBunkers(sbCur.lv, false); else placeBunkers(4); objText = "💣 DESTRUYE LOS " + targets.length + " BÚNKERES"; spawnN(numEnemies);
             if (!targets.length) { currentMode = 'eliminate'; objText = "⚔️ ELIMINAR A TODOS (no cabían búnkeres)"; for (let i = 0; i < numEnemies; i++) spawnEnemy(null, false, null, null, false, false); }
         }
         else if (currentMode === 'minefield') {
@@ -1191,7 +1198,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             case 'p_supply': t = '📦 ' + (pvs[myTeam()] || 0) + '/' + SUP_GOAL + ' · RIVAL ' + pvOthers(); break;
             case 'p_hunt': t = '🎯 ' + (pvs[myTeam()] || 0) + '/' + HUNT_GOAL + ' · RIVAL ' + pvOthers(); break;
             case 'p_prisa': t = '☠️ SOBREVIVE A PRISA'; break;
-            case 'custom': { const L = sbCur ? sbCur.lv : (net.cu ? { k: net.cu[0], e: { length: net.cu[1] }, u: net.cu[2], f: net.cu[3] } : { k: 0, e: [], u: 0, f: null }), ps = []; if (L.k && L.e.length) ps.push('⚔ ' + (enemies.filter(e => !e.isAlly && !e.haste).length + pendingSpawns.length)); if (gemGoal) ps.push('🔷 ' + gems + '/' + gemGoal); if (L.u) ps.push('⏱ ' + Math.max(0, Math.ceil(surviveTimer / 60)) + ' s'); if (L.f) ps.push('🏁 META'); t = ps.join(' · '); break; }
+            case 'custom': { const L = sbCur ? sbCur.lv : (net.cu ? { k: net.cu[0], e: { length: net.cu[1] }, u: net.cu[2], f: net.cu[3] } : { k: 0, e: [], u: 0, f: null }), ps = []; if (L.k && L.e.length) ps.push('⚔ ' + (enemies.filter(e => !e.isAlly && !e.haste).length + pendingSpawns.length)); if (gemGoal) ps.push('🔷 ' + gems + '/' + gemGoal); if (L.u) ps.push('⏱ ' + Math.max(0, Math.ceil(surviveTimer / 60)) + ' s'); if (L.f) ps.push('🏁 META'); if (targets.some(t => t.spawner)) ps.push('🏚 ' + targets.filter(t => t.spawner).length); t = ps.join(' · '); break; }
         }
         if (bossAlso) t += objDone ? ' · ¡MATA AL JEFE!' : ' · +JEFE';
         $('ui-enemies').innerText = t;
@@ -1497,59 +1504,202 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         else restartPending = true;
     }
 
-    function shieldBlocks(t, b) { const sp = Math.hypot(b.vx, b.vy) || 1; return -(b.vx * Math.cos(t.baseAngle) + b.vy * Math.sin(t.baseAngle)) / sp > 0.45; }
+    function shieldBlocks(t, b) { const sp = Math.hypot(b.vx, b.vy) || 1, fa = t.isBoss ? t.turretAngle : t.baseAngle; return -(b.vx * Math.cos(fa) + b.vy * Math.sin(fa)) / sp > 0.45; }
+    // Estado visible de cada enemigo para dibujarlo igual en todos los clientes
+    function enemySt(e) {
+        if (net.role === 'client') return e.st || 0;
+        return e.tcT > 0 ? 8 : (e.fz > 0 ? 2 : (e.chS === 1 ? 3 : (e.chS === 3 ? 4 : (e.chS === 2 ? 5 : (e.shout > 0 ? 7 : (e.buffT > 120 ? 6 : (e.buffT > 0 ? 9 : 0)))))));
+    }
+    // ---- Comandante: grita a un aliado cercano y lo acelera ----
+    function endBuff(e) { if (e.wasStatic) { e.speed = 0; e.wasStatic = false; } e.bm = 1; floatingTexts.push({ text: '⏱ ¡Fin del efecto!', x: e.x, y: e.y - 42, life: 80, color: '#00e5ff' }); createParticles(e.x, e.y, '#00e5ff', 12); }
+    function commanderUpdate(e) {
+        if (e.isAlly || e.sq !== undefined) return;
+        if (e.shout > 0) e.shout--;
+        if (e.cmCd === undefined) e.cmCd = 120 + Math.floor(Math.random() * 120);
+        if (--e.cmCd > 0) return;
+        if ((e.visT || 0) < 20) { e.cmCd = 40; return; }
+        const c = enemies.filter(q => q !== e && !q.isAlly && !q.isBoss && !q.haste && !q.kamikaze && q.type !== 'commander' && !(q.buffT > 0) && q.sq === undefined && Math.hypot(q.x - e.x, q.y - e.y) < 420);
+        if (!c.length) { e.cmCd = 60; return; }
+        const t = c[Math.floor(Math.random() * c.length)];
+        if (t.speed === 0) { t.wasStatic = true; t.speed = 1.0; t.buffT = 1200; } else { t.bm = 2; t.buffT = 720; }
+        e.shout = 50; e.cmCd = 600 + Math.floor(Math.random() * 240);
+        floatingTexts.push({ text: '📣 ¡MUÉVETE!', x: e.x, y: e.y - 42, life: 70, color: '#00e5ff' });
+        floatingTexts.push({ text: t.wasStatic ? '🏃 ¡A moverse! (20 s)' : '⚡ ×2 (12 s)', x: t.x, y: t.y - 42, life: 80, color: '#00e5ff' });
+    }
+    // ---- Tesla: onda de choque que los muros bloquean ----
+    function teslaShock(e) { mines.push({ x: e.x, y: e.y, timer: SHOCK_T, owner: 'enemy', radius: 12, shock: true, by: e.id, hit: new Set() }); createExplosion(e.x, e.y, '#00e5ff', 18); }
+    function shockStep(m) {
+        const r = (1 - m.timer / SHOCK_T) * SHOCK_R;
+        for (const p of alivePlayers()) { if (m.hit.has(p)) continue; const d = Math.hypot(p.x - m.x, p.y - m.y); if (Math.abs(d - r) < 16 + p.radius * 0.5 && necroLos(m.x, m.y, p.x, p.y)) { m.hit.add(p); playerDamage(p); } }
+        const al = enemies.find(q => q.isAlly); if (al && !m.hit.has(al)) { const d = Math.hypot(al.x - m.x, al.y - m.y); if (Math.abs(d - r) < 22 && necroLos(m.x, m.y, al.x, al.y)) { m.hit.add(al); al.hp -= 1; createExplosion(al.x, al.y, '#00e5ff', 10); if (al.hp <= 0) allyDeath(); } }
+    }
+    function teslaUpdate(e) {
+        if (e.isAlly) return;
+        if (e.tcT === undefined) { e.tcT = 0; e.tcd = 120 + Math.floor(Math.random() * 90); }
+        if (e.tcT > 0) { if (--e.tcT === 0) { teslaShock(e); e.tcd = e.tCd || e.cooldown; } return; }
+        if (e.tcd > 0) { e.tcd--; return; }
+        const tp = nearestPlayer(e);
+        if (tp && (e.visT || 0) >= 20 && Math.hypot(tp.x - e.x, tp.y - e.y) < 520) { e.tcT = 30; floatingTexts.push({ text: '⚡', x: e.x, y: e.y - 38, life: 30, color: '#00e5ff' }); }
+    }
+    // ---- Jefes: habilidades de los enemigos recientes (S escudo, M mortero, F fragmentación, C embestida, R furia, T tesla) ----
+    function bossAbilities(e) {
+        const A = e.abs || '', tp = nearestPlayer(e);
+        if (A.includes('F')) {
+            const th = Math.floor(e.hp / e.maxHp * 4); if (e.fragLv === undefined) e.fragLv = th;
+            if (th < e.fragLv && e.hp > 0) { e.fragLv = th; for (const sg of [-1, 1]) { spawnAtOverride = { x: e.x + sg * 55, y: e.y - sg * 20 }; spawnEnemy(ENEMY_TYPES[23], false, null, null, false, true); } spawnAtOverride = null; floatingTexts.push({ text: '¡FRAGMENTACIÓN!', x: e.x, y: e.y - 60, life: 60, color: '#ffab40' }); }
+        }
+        if (A.includes('R') && !e.enr && e.hp <= e.maxHp / 2) { e.enr = true; e.rage = true; e.spd0 = e.speed; e.cd0 = e.cooldown; e.lastHp = e.hp; e.fz = 99999; floatingTexts.push({ text: '¡FURIA!', x: e.x, y: e.y - 60, life: 70, color: '#ff3d00' }); createExplosion(e.x, e.y, '#ff6f00', 30); }
+        if (A.includes('M') && tp && (e.visT || 0) >= 20) {
+            if (e.bM === undefined) e.bM = 200;
+            if (--e.bM <= 0) {
+                e.bM = 330; const vx = Math.max(-4, Math.min(4, tp.x - (tp.lastX === undefined ? tp.x : tp.lastX))) * 28, vy = Math.max(-4, Math.min(4, tp.y - (tp.lastY === undefined ? tp.y : tp.lastY))) * 28;
+                for (const o of [[0, 0], [110, 0], [-110, 0], [0, 110], [0, -110]].slice(0, 3 + (e.hp <= e.maxHp / 2 ? 2 : 0))) {
+                    const sx = Math.max(BORDER_SIZE + 20, Math.min(MAP_WIDTH - BORDER_SIZE - 20, tp.x + vx + o[0])), sy = Math.max(BORDER_SIZE + 20, Math.min(MAP_HEIGHT - BORDER_SIZE - 20, tp.y + vy + o[1]));
+                    mines.push({ x: sx, y: sy, timer: 80, owner: 'enemy', radius: 12, shell: true, by: e.id });
+                }
+            }
+        }
+    }
+    // ---- Cerebro: minas estratégicas (pasillos estrechos y rutas de huida) ----
+    function isChoke(x, y) {
+        const c = Math.floor(x / GRID_SIZE), r = Math.floor(y / GRID_SIZE), fr = (cc, rr) => cc >= 0 && rr >= 0 && cc < gridCols && rr < gridRows && !wallGrid[rr][cc];
+        const n = fr(c, r - 1), s = fr(c, r + 1), w = fr(c - 1, r), ea = fr(c + 1, r), k = n + s + w + ea;
+        return (k === 2 && ((n && s) || (w && ea))) || k === 3;
+    }
+    function brainMines(e) {
+        if (e.isAlly || frameCount - e.lastMine <= (e.cooldown || 100) + 60) return;
+        const tp = nearestPlayer(e); if (!tp) return;
+        const dP = Math.hypot(e.x - tp.x, e.y - tp.y); if (dP < 120 || dP > 700) return;
+        const act = mines.filter(m => m.owner === 'enemy' && !m.shell && !m.shock && !m.perm); if (act.length >= 6 + Math.min(level, 8)) return;
+        if (act.some(m => Math.hypot(m.x - e.x, m.y - e.y) < 160)) return;
+        const pvx = tp.x - (tp.lastX === undefined ? tp.x : tp.lastX), pvy = tp.y - (tp.lastY === undefined ? tp.y : tp.lastY);
+        const chased = dP < 380 && (pvx * (e.x - tp.x) + pvy * (e.y - tp.y)) > 0;
+        if ((isChoke(e.x, e.y) && dP < 560) || chased) { mines.push({ x: e.x, y: e.y, timer: MINE_TIMER, owner: 'enemy', radius: 12 }); e.lastMine = frameCount; }
+    }
+    // ---- Asesino: mina un muro rompible para abrirse un atajo ----
+    function assassinUpdate(e) {
+        if (e.isAlly) return false;
+        if (e.asS === undefined) { e.asS = 0; e.asCd = 150 + Math.floor(Math.random() * 120); e.asT = 0; }
+        const tp = nearestPlayer(e);
+        if (e.asS === 0) {
+            if (e.asCd > 0) { e.asCd--; return false; }
+            if (!tp || (e.visT || 0) < 20) return false;
+            const dx = tp.x - e.x, dy = tp.y - e.y, d = Math.hypot(dx, dy);
+            if (d > 720 || d < 110) { e.asCd = 40; return false; }
+            const a = Math.atan2(dy, dx); let wall = null, px = 0, py = 0;
+            for (let s = 20; s < d; s += 12) { px = e.x + Math.cos(a) * s; py = e.y + Math.sin(a) * s; const w = wallHit({ x: px, y: py, radius: 5 }); if (w) { wall = w; break; } }
+            if (!wall || !wall.destructible || wall.tm !== undefined || wall.target) { e.asCd = 60; return false; }
+            const pth = findPath(e.x, e.y, tp.x, tp.y, e.radius, 3000), plen = pth ? pth.length * GRID_SIZE : 9999;
+            if (plen < d * 1.5 + 100) { e.asCd = 90; return false; } // si el rodeo es corto, no merece la pena
+            const back = e.radius + 18; e.asX = px - Math.cos(a) * back; e.asY = py - Math.sin(a) * back; e.asA = a; e.asS = 1; e.asT = 150; return true;
+        }
+        if (e.asS === 1) {
+            const ang = Math.atan2(e.asY - e.y, e.asX - e.x), dd = Math.hypot(e.asX - e.x, e.asY - e.y); e.baseAngle = ang; e.turretAngle = ang;
+            const x0 = e.x, y0 = e.y; if (dd > 6) moveEntitySmooth(e, Math.cos(ang) * Math.min(2.4, dd), Math.sin(ang) * Math.min(2.4, dd));
+            if (dd <= 8 || Math.hypot(e.x - x0, e.y - y0) < 0.3 || --e.asT <= 0) { if (dd < 80) { mines.push({ x: e.x, y: e.y, timer: MINE_TIMER, owner: 'enemy', radius: 12 }); floatingTexts.push({ text: '💣 atajo', x: e.x, y: e.y - 36, life: 50, color: '#bdbdbd' }); } e.asS = 2; e.asT = 75; }
+            return true;
+        }
+        const ang = e.asA + Math.PI; moveEntitySmooth(e, Math.cos(ang) * 2.6, Math.sin(ang) * 2.6); e.baseAngle = ang;
+        if (--e.asT <= 0) { e.asS = 0; e.asCd = 500 + Math.floor(Math.random() * 200); }
+        return true;
+    }
+    // ---- Embestidor: embestidas en línea recta (esquivables) planificadas como una ruta de tramos rectos ----
+    function chargePlan(e, tp) {
+        const G = GRID_SIZE, a0 = Math.atan2(tp.y - e.y, tp.x - e.x), d = Math.hypot(tp.x - e.x, tp.y - e.y), rr = e.radius - 5;
+        const smash = w => w.destructible && w.tm === undefined && !w.target;
+        let clear = true;
+        for (let s = 14; s < d; s += 10) { const w = wallHit({ x: e.x + Math.cos(a0) * s, y: e.y + Math.sin(a0) * s, radius: rr }); if (w && !smash(w)) { clear = false; break; } }
+        if (clear && d < 760) return { a: a0, len: d + 50 };
+        const rows = gridRows, cols = gridCols, need = e.radius + 1;
+        const cost = (r, c) => {
+            const w = wallGrid[r][c]; if (w) return smash(w) ? 2.5 : Infinity;
+            if (navGrid[r][c] >= need || navFit[r][c] >= need) return 1;
+            for (const q of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nr = r + q[0], nc = c + q[1]; if (nr >= 0 && nc >= 0 && nr < rows && nc < cols) { const nw = wallGrid[nr][nc]; if (nw && smash(nw)) return 1.6; } }
+            return Infinity;
+        };
+        const sr = Math.max(0, Math.min(rows - 1, Math.floor(e.y / G))), sc = Math.max(0, Math.min(cols - 1, Math.floor(e.x / G))), gr = Math.max(0, Math.min(rows - 1, Math.floor(tp.y / G))), gc = Math.max(0, Math.min(cols - 1, Math.floor(tp.x / G)));
+        const dist = new Float32Array(rows * cols).fill(Infinity), prev = new Int32Array(rows * cols).fill(-1), done = new Uint8Array(rows * cols), hp = [];
+        const hpush = (k, v) => { hp.push([k, v]); let i = hp.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (hp[p][0] <= hp[i][0]) break; [hp[p], hp[i]] = [hp[i], hp[p]]; i = p; } };
+        const hpop = () => { const top = hp[0], last = hp.pop(); if (hp.length) { hp[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < hp.length && hp[l][0] < hp[m][0]) m = l; if (r < hp.length && hp[r][0] < hp[m][0]) m = r; if (m === i) break; [hp[m], hp[i]] = [hp[i], hp[m]]; i = m; } } return top; };
+        const s0 = sr * cols + sc, g0 = gr * cols + gc; dist[s0] = 0; hpush(0, s0); let it = 0, found = false;
+        while (hp.length && it++ < 9000) {
+            const [dk, cur] = hpop(); if (done[cur]) continue; done[cur] = 1; if (cur === g0) { found = true; break; }
+            const r = (cur / cols) | 0, c = cur % cols;
+            for (const q of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                const nr = r + q[0], nc = c + q[1]; if (nr < 0 || nc < 0 || nr >= rows || nc >= cols) continue;
+                const ni = nr * cols + nc; if (done[ni]) continue; let cs = cost(nr, nc); if (ni === g0 && cs === Infinity) cs = 1; if (cs === Infinity) continue;
+                const nd = dk + cs; if (nd < dist[ni]) { dist[ni] = nd; prev[ni] = cur; hpush(nd, ni); }
+            }
+        }
+        if (!found) return null;
+        const cells = []; for (let c = g0; c !== -1; c = prev[c]) cells.push(c); cells.reverse();
+        if (cells.length < 2) return { a: a0, len: Math.max(G, d) };
+        const dr = ((cells[1] / cols) | 0) - ((cells[0] / cols) | 0), dc = (cells[1] % cols) - (cells[0] % cols); let k = 1;
+        while (k + 1 < cells.length && ((cells[k + 1] / cols) | 0) - ((cells[k] / cols) | 0) === dr && (cells[k + 1] % cols) - (cells[k] % cols) === dc) k++;
+        const a = Math.atan2(dr, dc), ex = ((cells[k] % cols) + 0.5) * G, ey = (((cells[k] / cols) | 0) + 0.5) * G;
+        return { a, len: Math.max(G, Math.min(520, (ex - e.x) * Math.cos(a) + (ey - e.y) * Math.sin(a))) };
+    }
     function chargerUpdate(e) {
         if (e.isAlly) return false;
         if (e.chS === undefined) { e.chS = 0; e.chT = 0; e.chCd = 80 + Math.floor(Math.random() * 60); e.chChain = 0; e.chStuck = 0; }
-        const tp = nearestPlayer(e);
-        const angDiff = (a, b2) => { let d = b2 - a; while (d < -Math.PI) d += Math.PI * 2; while (d > Math.PI) d -= Math.PI * 2; return d; };
-        // rumbo de carga: recto si ve al objetivo; si no, sigue el camino real del laberinto (hacia el 2.º waypoint)
-        const heading = () => {
-            if (!tp) return e.baseAngle;
-            if (Math.hypot(tp.x - e.x, tp.y - e.y) < 640 && necroLos(e.x, e.y, tp.x, tp.y)) return Math.atan2(tp.y - e.y, tp.x - e.x);
-            const pth = findPath(e.x, e.y, tp.x, tp.y, e.radius, 4000);
-            if (!pth || !pth.length) return null;
-            const w = pth[Math.min(1, pth.length - 1)]; return Math.atan2(w.y - e.y, w.x - e.x);
-        };
+        const tp = nearestPlayer(e), mul = e.isBoss ? 2 : 1;
         if (e.chS === 0) {
             if (e.chCd > 0) { e.chCd--; return false; }
             if (!tp || (e.visT || 0) < 20) return false;
             const d = Math.hypot(tp.x - e.x, tp.y - e.y);
             if (d > 900 || d < 90) { e.chCd = 30; return false; }
-            const h = heading(); if (h === null) { e.chCd = 45; return false; }
-            e.chS = 1; e.chT = 34; e.chA = h; e.chChain = 0;
+            const pl = chargePlan(e, tp); if (!pl) { e.chCd = 45; return false; }
+            e.chS = 1; e.chT = 34; e.chA = pl.a; e.chLen = pl.len; e.chChain = 0;
             floatingTexts.push({ text: '¡EMBISTE!', x: e.x, y: e.y - 40, life: 50, color: '#ffd600' }); return true;
         }
-        if (e.chS === 1) { e.baseAngle = e.chA; e.turretAngle = e.chA; if (--e.chT <= 0) { e.chS = 2; e.chT = 80; e.chStuck = 0; } return true; }
+        if (e.chS === 1) { e.baseAngle = e.chA; e.turretAngle = e.chA; if (--e.chT <= 0) { e.chS = 2; e.chT = 90; e.chStuck = 0; e.chTrav = 0; } return true; }
         if (e.chS === 2) {
-            // el rumbo se corrige cada pocos fotogramas: dobla esquinas y adapta la carga a pasillos y mapas caóticos
-            if (tp && (frameCount + (e.aiOffset || 0)) % 8 === 0) { const h = heading(); if (h !== null) e.chDes = h; }
-            if (e.chDes !== undefined) { const df = angDiff(e.chA, e.chDes); e.chA += Math.max(-0.2, Math.min(0.2, df)); }
+            // línea recta, sin corregir el rumbo: se esquiva apartándose de su trayectoria
             const cs = Math.cos(e.chA), sn = Math.sin(e.chA);
-            // rompe cajas y muros rompibles que encuentre de frente sin frenarse
             const pr = { x: e.x + cs * (e.radius + 8), y: e.y + sn * (e.radius + 8), radius: 7 }; const wl = wallHit(pr);
-            if (wl && wl.destructible && wl.tm === undefined) { createExplosion(wl.x + wl.width / 2, wl.y + wl.height / 2, '#bcaaa4', 15); removeWall(wl); netWallDel([wl]); if (wl.crate) crateBroken(wl); }
+            if (wl && wl.destructible && wl.tm === undefined && !wl.target) { createExplosion(wl.x + wl.width / 2, wl.y + wl.height / 2, '#bcaaa4', 15); removeWall(wl); netWallDel([wl]); if (wl.crate) crateBroken(wl); }
             const x0 = e.x, y0 = e.y; moveEntitySmooth(e, cs * 8.5, sn * 8.5);
+            const mv = Math.hypot(e.x - x0, e.y - y0); e.chTrav += mv;
             e.baseAngle = e.chA; e.turretAngle = e.chA; e.trackDist = (e.trackDist || 0) + 8.5; if (frameCount % 3 === 0) createParticles(e.x, e.y, '#ffd600', 2);
             let hit = false;
             for (const p of alivePlayers()) if (Math.hypot(p.x - e.x, p.y - e.y) < e.radius + p.radius) { hit = true; playerDamage(p); break; }
             const al = enemies.find(q => q.isAlly); if (!hit && al && Math.hypot(al.x - e.x, al.y - e.y) < e.radius + al.radius) { hit = true; al.hp -= 2; createExplosion(al.x, al.y, '#ffffff', 15); if (al.hp <= 0) allyDeath(); }
-            e.chStuck = Math.hypot(e.x - x0, e.y - y0) < 3 ? e.chStuck + 1 : 0;
+            e.chStuck = mv < 3 ? e.chStuck + 1 : 0;
             if (hit || e.chStuck >= 3) { e.chS = 3; e.chT = hit ? 60 : 80; createExplosion(e.x, e.y, '#ffd600', 12); floatingTexts.push({ text: '💫', x: e.x, y: e.y - 38, life: 80, color: '#ffd600' }); return true; }
-            if (--e.chT <= 0) {
-                // si no ha chocado, encadena otra embestida (hasta 3 seguidas) antes de quedar aturdido
-                if (tp && e.chChain < 2) { const h = heading(); if (h !== null) { e.chChain++; e.chS = 1; e.chT = 14; e.chA = h; e.chDes = undefined; return true; } }
+            if (e.chTrav >= e.chLen - 4 || --e.chT <= 0) {
+                // llegó al final del tramo: recalcula la ruta y encadena otra embestida recta (hasta 4)
+                if (tp && e.chChain < 4) { const pl = chargePlan(e, tp); if (pl) { e.chChain++; e.chS = 1; e.chT = 22; e.chA = pl.a; e.chLen = pl.len; return true; } }
                 e.chS = 3; e.chT = 60;
             }
             return true;
         }
-        if (--e.chT <= 0) { e.chS = 0; e.chCd = 110 + Math.floor(Math.random() * 70); e.chChain = 0; }
+        if (--e.chT <= 0) { e.chS = 0; e.chCd = (110 + Math.floor(Math.random() * 70)) * mul; e.chChain = 0; }
         return true;
+    }
+    // ---- Revivir con monedas (solo un jugador) ----
+    let runRevives = 0, reviveSkip = false;
+    const reviveCost = () => 50 * Math.pow(2, runRevives);
+    function revivePlayer() {
+        const cost = reviveCost(); if (prof.coins < cost) return;
+        prof.coins -= cost; runRevives++; prof.stats.revives = (prof.stats.revives || 0) + 1; saveProf();
+        document.getElementById('overlay').style.display = 'none'; document.getElementById('overlay-extra').innerHTML = '';
+        player.lives = 2; player.dead = false; player.invuln = 240; player.respawnTimer = 0; if (player.x < 0) { player.x = PLAYER_SPAWN_X; player.y = PLAYER_SPAWN_Y; }
+        state = 'playing'; updateUI(); toast('❤️ ¡Has revivido! −' + cost + ' monedas');
+    }
+    function giveUpRevive() { document.getElementById('overlay-extra').innerHTML = ''; reviveSkip = true; state = 'playing'; endGame(); reviveSkip = false; }
+    function endGame(reason) {
+        if (state === 'gameover' || state === 'menu') return;
+        if (!net.on && !reason && !reviveSkip && player.lives <= 0 && prof.coins >= reviveCost()) {
+            state = 'gameover'; const cost = reviveCost();
+            showOverlay('menu-lose', 'SIN VIDAS', '#ff5252', `Tienes ${prof.coins} monedas. Revivir cuesta ${cost} y vuelves con 2 vidas.\\nCada vez que te quedes sin vidas en esta partida costará el doble.`, `❤️ Revivir (${cost} 🪙)`, revivePlayer, false);
+            document.getElementById('overlay-extra').innerHTML = '<button class="red" onclick="giveUpRevive()">Rendirse</button>'; return;
+        }
+        endGameBase(reason);
     }
     function killEnemy(id) {
         let idx = enemies.findIndex(e => e.id === id);
         if (idx === -1) return;
-        let e = enemies[idx]; if (e.sq === undefined) awardKill(e); createExplosion(e.x, e.y, e.baseColor, e.isBoss ? 50 : 25); if (isPvp()) pvpEnemyDown(e);
+        let e = enemies[idx]; if (e.sq === undefined) awardKill(e); if (e.isBoss) prof.stats.bosses = (prof.stats.bosses || 0) + 1; createExplosion(e.x, e.y, e.baseColor, e.isBoss ? 50 : 25); if (isPvp()) pvpEnemyDown(e);
         { const dm = { x: e.x, y: e.y, life: 600 }; if (!e.haste && !e.kamikaze && !e.isAlly && !e.isVip) { dm.ty = e.type; dm.life = e.isBoss ? 2600 : 1600; if (e.isBoss) dm.boss = e; } deadMarks.push(dm); }
 
         if (currentMode === 'keys' && keysSpawned < 3 && !e.noScore) {
@@ -1565,7 +1715,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         let wasVip = e.isVip; let wasBoss = e.isBoss;
         enemies.splice(idx, 1);
         if (e.rage && !e.noScore) { mines.push({ x: e.x, y: e.y, timer: 50, owner: 'enemy', radius: 12, shell: true, by: e.id }); floatingTexts.push({ text: '¡ESTALLA!', x: e.x, y: e.y - 36, life: 50, color: '#ff3d00' }); }
-        if (e.split && !e.noScore) { for (const sg of [-1, 1]) { spawnAtOverride = { x: e.x + sg * 20, y: e.y - sg * 12 }; spawnEnemy(ENEMY_TYPES[23], false, null, null, false, true); } spawnAtOverride = null; floatingTexts.push({ text: '¡FRAGMENTACIÓN!', x: e.x, y: e.y - 36, life: 50, color: '#ffab40' }); }
+        if (e.split && !e.noScore) { for (let k3 = 0; k3 < 3; k3++) { const an3 = k3 * 2.094 + 0.5; spawnAtOverride = { x: e.x + Math.cos(an3) * 26, y: e.y + Math.sin(an3) * 26 }; spawnEnemy(ENEMY_TYPES[23], false, null, null, false, true); } spawnAtOverride = null; floatingTexts.push({ text: '¡FRAGMENTACIÓN!', x: e.x, y: e.y - 36, life: 50, color: '#ffab40' }); }
 
         if (wasVip && currentMode === 'vip') enemies = enemies.filter(en => en.isAlly || (bossAlso && en.isBoss));
         if (wasBoss && currentMode === 'boss') enemies = enemies.filter(en => en.isAlly);
@@ -1685,7 +1835,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
             for (let j = mines.length - 1; j >= 0; j--) {
                 let m = mines[j];
-                if (!m.shell && Math.sqrt((b.x - m.x)**2 + (b.y - m.y)**2) < b.radius + m.radius) {
+                if (!m.shell && !m.shock && Math.sqrt((b.x - m.x)**2 + (b.y - m.y)**2) < b.radius + m.radius) {
                     explodeMine(m); mines.splice(j, 1);
                     mineFreed(m);
                     b.dead = true; updateUI(); break;
@@ -1744,6 +1894,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         let allTanksMines = activeTanks();
         for (let i = mines.length - 1; i >= 0; i--) {
             let m = mines[i]; m.timer--;
+            if (m.shock) { shockStep(m); if (m.timer <= 0) mines.splice(i, 1); continue; }
             let triggered = false;
             for (let t of allTanksMines) {
                 if (!m.shell && Math.sqrt((t.x - m.x)**2 + (t.y - m.y)**2) < MINE_TRIGGER_DIST) {
@@ -1766,12 +1917,17 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             if (e.necro && necroChannel(e)) continue; // canalizando el ritual: quieto
             if (e.rage) {
                 if (e.spd0 === undefined) { e.spd0 = e.speed; e.cd0 = e.cooldown; e.lastHp = e.hp; e.fz = 0; }
-                if (e.hp < e.lastHp) { e.fz = e.hp <= 1 ? 99999 : 150; e.lastShot = -999; floatingTexts.push({ text: e.hp <= 1 ? '¡FURIA TOTAL!' : '¡FRENESÍ!', x: e.x, y: e.y - 40, life: 60, color: '#ff3d00' }); createExplosion(e.x, e.y, '#ff6f00', 14); }
+                if (e.hp < e.lastHp) { e.fz = (e.isBoss || e.hp <= 1) ? 99999 : 150; e.lastShot = -999; floatingTexts.push({ text: e.hp <= 1 ? '¡FURIA TOTAL!' : '¡FRENESÍ!', x: e.x, y: e.y - 40, life: 60, color: '#ff3d00' }); createExplosion(e.x, e.y, '#ff6f00', 14); }
                 e.lastHp = e.hp;
                 if (e.fz > 0) { e.fz--; e.chaser = true; e.speed = e.spd0 * 2.1; e.cooldown = 55; e.fan = 3; }
                 else { e.chaser = false; e.speed = e.spd0 * 0.7; e.cooldown = e.cd0 + 40; e.fan = 1; }
             }
+            if (e.buffT > 0 && --e.buffT === 0) endBuff(e);
             if (e.charger && chargerUpdate(e)) continue;
+            if (e.type === 'commander') commanderUpdate(e);
+            if (e.tesla) teslaUpdate(e);
+            if (e.isBoss && e.abs) bossAbilities(e);
+            if (e.type === 'assassin' && assassinUpdate(e)) continue;
 
             // SOLUCIÓN AL BUG DE CONGELACIÓN (Hibernación borrada)
             // Ya no usamos el 'continue' que los paralizaba si estaban lejos. Todos se mueven siempre.
@@ -1891,7 +2047,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
                 let moveAngle = Math.atan2(e.targetY - e.y, e.targetX - e.x);
                 let isMovingToWaypoint = distToWaypoint > 5; 
-                const spdMax = e.speed * ((e.necro && e.rvGo === frameCount) ? NECRO_RUSH : 1);
+                const spdMax = e.speed * (e.bm || 1) * ((e.necro && e.rvGo === frameCount) ? NECRO_RUSH : 1);
                 let currentSpeed = isMovingToWaypoint ? spdMax : 0;
 
                 let repulsionX = 0; let repulsionY = 0;
@@ -2038,7 +2194,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                     createParticles(e.x + Math.cos(e.turretAngle) * 26, e.y + Math.sin(e.turretAngle) * 26, '#ffcc80', 8);
                 }
             }
-            if (e.mines && !e.isAlly && !player.dead && (frameCount - e.lastMine > (e.cooldown||180))) {
+            if (e.type === 'brainiac') brainMines(e);
+            if (e.mines && e.type !== 'brainiac' && e.type !== 'assassin' && !e.isAlly && !player.dead && (frameCount - e.lastMine > (e.cooldown||180))) {
                 let pDist = Math.sqrt((e.x - player.x)**2 + (e.y - player.y)**2);
                 let isChased = false;
                 let pVx = player.x - player.lastX; let pVy = player.y - player.lastY;
@@ -2080,7 +2237,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function damageBunker(w, n, byTm) {
         w.hp -= n; const cx = w.x + w.width / 2, cy = w.y + w.height / 2; createExplosion(cx, cy, '#ffb300', 8);
         if (w.hp <= 0) {
-            createExplosion(cx, cy, '#ff5722', 40); if (w.tm === undefined) { score += 200; floatingTexts.push({ text: '+200', x: cx, y: cy - 30, life: 60, color: '#ff6f00' }); }
+            createExplosion(cx, cy, '#ff5722', 40); if (w.tm === undefined) { prof.stats.bunkers = (prof.stats.bunkers || 0) + 1; score += 200; floatingTexts.push({ text: '+200', x: cx, y: cy - 30, life: 60, color: '#ff6f00' }); }
             removeWall(w); targets = targets.filter(t => t !== w); netWallDel([w]); if (w.tm !== undefined) pvpBaseFall(w, byTm);
         }
         updateUI();
@@ -2255,11 +2412,11 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (const b of targets) {
             if (b.spawnT === undefined) b.spawnT = 240 + Math.floor(Math.random() * 360);
             if (--b.spawnT > 0) continue;
-            b.spawnT = 600;
+            b.spawnT = b.spawner ? 480 : 600;
             if (enemies.filter(e => !e.isAlly).length + pendingSpawns.length >= limit) continue;
             const cx = b.x + b.width / 2, cy = b.y + b.height / 2, p = findFreeSpawn(true, cx, cy);
             if (Math.hypot(p.x - cx, p.y - cy) > 320) continue;
-            spawnEnemy(null, false, null, null, false, false);
+            spawnEnemy(sbPoolPick(), false, null, null, false, false);
             const ps = pendingSpawns[pendingSpawns.length - 1], ft = floatingTexts[floatingTexts.length - 1];
             if (ps) { ps.x = p.x; ps.y = p.y; ps.enemy.x = p.x; ps.enemy.y = p.y; ps.enemy.lastX = p.x; ps.enemy.lastY = p.y; ps.enemy.targetX = p.x; ps.enemy.targetY = p.y; }
             if (ft && ps) { ft.x = p.x; ft.y = p.y - 40; }
@@ -2270,8 +2427,9 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         if (currentMode === 'gems') gemTick();
         if (timeLimit > 0) { timeLimit--; if (timeLimit <= 0) { endGame('¡Se acabó el tiempo!'); return; } if (timeLimit % 60 === 0) updateUI(); }
         const P = alivePlayers();
+        if (currentMode !== 'demolition' && !objDone && targets.some(t => t.spawner)) bunkerSpawns();
         switch (currentMode) {
-            case 'eliminate': if (!objDone && !pendingSpawns.length && enemies.every(e => e.isAlly || e.haste)) objectiveDone(); break;
+            case 'eliminate': if (!objDone && !pendingSpawns.length && !targets.some(t => t.spawner) && enemies.every(e => e.isAlly || e.haste)) objectiveDone(); break;
             case 'survive': case 'protect': {
                 if (!objDone) { surviveTimer--; if (surviveTimer <= 0) objectiveDone(); }
                 if (frameCount % 15 === 0) updateUI();
@@ -2332,6 +2490,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                     if (gems < gemGoal) ok = false;
                 }
                 if (L.k && L.e.length && (pendingSpawns.length || enemies.some(e => !e.isAlly && !e.haste))) ok = false;
+                if (targets.some(t => t.spawner)) ok = false;
                 if (!objDone && ok && (!L.f || P.some(p => near(p, escapeZone, 85)))) objectiveDone();
                 break;
             }
@@ -2356,7 +2515,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 if (m.owner === 'enemy' && targetIsEnemy) continue;
                 if (t.isPlayer) { pvpHitTm = m.tm; playerDamage(t); pvpHitTm = undefined; }
                 else if (t.isAlly) { t.hp = m.kamikaze ? 0 : t.hp - 2; if(t.hp<=0) allyDeath(); }
-                else { convTm = m.tm; if(t.maxHp > 1) { t.hp -= 2; if(t.hp<=0) killEnemy(t.id); } else { killEnemy(t.id); } convTm = undefined; }
+                else { convTm = m.tm; if(t.maxHp > 1 && !t.charger) { t.hp -= 2; if(t.hp<=0) killEnemy(t.id); } else { killEnemy(t.id); } convTm = undefined; }
             }
         }
         const R = MINE_RADIUS_EXPLOSION + 20, gone = [];
@@ -2394,7 +2553,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         showOverlay('menu-win', '¡MISIÓN COMPLETADA!', '', txt, effMode() === 'continuous' ? 'Siguiente misión' : `Siguiente nivel (${level + 1})`, () => startNewLevel(false));
     }
 
-    function endGame(reason) {
+    function endGameBase(reason) {
         if (state === 'gameover' || state === 'menu') return; if (net.on) { netEnd(false, reason); return; }
         state = 'gameover';
         if (dailyCur) { const dc = dailyCur; showOverlay('menu-lose', 'DESAFÍO FALLIDO', '#ff5252', (reason ? reason + '\n' : '') + dc.nm + ' · ' + score + ' puntos', 'Reintentar', () => startDaily(dc.idx), true); return; }
@@ -2476,17 +2635,19 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (const t of targets) {
             if (t.x + t.width < camera.x || t.x > camera.x + viewW || t.y + t.height < camera.y || t.y > camera.y + viewH) continue;
             drawBunkerArt(ctx, t.x, t.y, 80, Math.max(0, t.hp) / t.maxHp);
+            if (t.spawner) { ctx.strokeStyle = '#ff1744'; ctx.lineWidth = 4; ctx.setLineDash([9, 6]); ctx.strokeRect(t.x - 2, t.y - 2, 84, 84); ctx.setLineDash([]); ctx.font = '22px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText('👾', t.x + 40, t.y + 48); }
             if (t.tm !== undefined) { ctx.strokeStyle = tmCol(t.tm); ctx.lineWidth = 5; ctx.strokeRect(t.x - 2, t.y - 2, 84, 84); }
             ctx.fillStyle = '#263238'; ctx.fillRect(t.x + 8, t.y - 12, 64, 7); ctx.fillStyle = t.tm !== undefined ? tmCol(t.tm) : '#66bb6a'; ctx.fillRect(t.x + 8, t.y - 12, 64 * Math.max(0, t.hp) / t.maxHp, 7);
         }
     }
 
-    let ST_DRAW = 0;
+    let ST_DRAW = 0, AB_DRAW = '';
     function drawTank(x, y, baseColor, turretColor, baseAngle, turretAngle, type, isBoss = false, isInvisible = false, isVip = false, hp = 1, maxHp = 1, isAlly = false, c = ctx) {
         if (isInvisible) return;
         c.save(); c.translate(x, y);
-        const haste = type === 'haste', kami = type === 'kamikaze', mis = type === 'missileer', ven = type === 'venom', nec = type === 'necro', STV = ST_DRAW;
-        const shd = type === 'shield', mor = type === 'mortar', spl = type === 'splitter', chg = type === 'charger', fur = type === 'fury';
+        const haste = type === 'haste', kami = type === 'kamikaze', mis = type === 'missileer', ven = type === 'venom', nec = type === 'necro', STV = ST_DRAW, AB = isBoss ? AB_DRAW : '';
+        const shd = type === 'shield' || AB.includes('S'), mor = type === 'mortar' || AB.includes('M'), spl = type === 'splitter' || AB.includes('F'), chg = type === 'charger' || AB.includes('C'), fur = type === 'fury' || AB.includes('R');
+        const tes = type === 'tesla', com = type === 'commander', bra = type === 'brainiac', bT = AB.includes('T');
         const trackW = isBoss ? 60 : 32, trackH = isBoss ? 14 : 8, offset = isBoss ? 24 : 16;
         c.save(); c.rotate(baseAngle);
         if (haste) { // pinchos por detrás
@@ -2498,6 +2659,14 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         c.fillStyle = baseColor; c.strokeStyle = haste ? '#ff1744' : '#222'; c.lineWidth = haste ? 3 : 2; c.beginPath();
         const r = isBoss ? 24 : 14; c.roundRect(-r, -r, r * 2, r * 2, 4); c.fill(); c.stroke();
         if (ven) { c.fillStyle = '#9ccc65'; c.strokeStyle = '#33691e'; c.lineWidth = 1; for (const q of [[-7, -6, 3], [6, 5, 2.5], [-5, 7, 2]]) { c.beginPath(); c.arc(q[0], q[1], q[2], 0, 6.283); c.fill(); c.stroke(); } }
+        if (com) { // galones dorados y charreteras de mando
+            c.strokeStyle = '#ffd54f'; c.lineWidth = 2.4; for (const o of [-10, -5]) { c.beginPath(); c.moveTo(o, -6); c.lineTo(o + 5, 0); c.lineTo(o, 6); c.stroke(); }
+            c.fillStyle = '#ffd54f'; c.strokeStyle = '#222'; c.lineWidth = 1; c.fillRect(3, -r - 1, 9, 3.4); c.strokeRect(3, -r - 1, 9, 3.4); c.fillRect(3, r - 2.4, 9, 3.4); c.strokeRect(3, r - 2.4, 9, 3.4); }
+        if (bra) { // circuitos
+            c.strokeStyle = '#00e5ff'; c.lineWidth = 1.3; c.beginPath(); c.moveTo(-r + 2, -8); c.lineTo(-4, -8); c.lineTo(0, -12); c.lineTo(r - 3, -12); c.moveTo(-r + 2, 8); c.lineTo(-6, 8); c.lineTo(-2, 12); c.lineTo(r - 3, 12); c.moveTo(-r + 2, 0); c.lineTo(-9, 0); c.stroke();
+            c.fillStyle = '#00e5ff'; for (const q of [[-4, -8], [0, -12], [-6, 8], [-2, 12], [-9, 0]]) { c.beginPath(); c.arc(q[0], q[1], 1.5, 0, 6.283); c.fill(); } }
+        if (tes) { c.fillStyle = '#78909c'; c.strokeStyle = '#222'; c.lineWidth = 1; for (const q of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { c.fillRect(q[0] * (r - 3) - 2.5, q[1] * (r - 3) - 2.5, 5, 5); c.strokeRect(q[0] * (r - 3) - 2.5, q[1] * (r - 3) - 2.5, 5, 5); } c.strokeStyle = '#c77b30'; c.lineWidth = 2; c.beginPath(); c.arc(0, 0, r - 1, 0, 6.283); c.stroke(); }
+        if (bT) { c.fillStyle = 'rgba(0,229,255,.9)'; c.strokeStyle = '#006064'; c.lineWidth = 1; for (const q of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { c.beginPath(); c.arc(q[0] * (r - 2), q[1] * (r - 2), 3.4, 0, 6.283); c.fill(); c.stroke(); } }
         if (shd) { c.fillStyle = '#b0bec5'; c.strokeStyle = '#263238'; c.lineWidth = 2; c.beginPath(); c.arc(0, 0, r + 8, -1.0, 1.0); c.arc(0, 0, r + 2, 1.0, -1.0, true); c.closePath(); c.fill(); c.stroke(); c.strokeStyle = '#eceff1'; c.lineWidth = 1; c.beginPath(); c.arc(0, 0, r + 5, -0.7, 0.7); c.stroke(); }
         if (chg) { c.save(); c.beginPath(); c.roundRect(-r, -r, r * 2, r * 2, 4); c.clip(); c.fillStyle = '#ffd600'; for (let i = 0; i < 5; i++) { c.beginPath(); c.moveTo(-r + i * 7.2 - 3, r); c.lineTo(-r + i * 7.2 + 0.8, r); c.lineTo(-r + i * 7.2 + 11, -r); c.lineTo(-r + i * 7.2 + 7.2, -r); c.closePath(); c.fill(); } c.restore(); c.fillStyle = '#90a4ae'; c.strokeStyle = '#222'; c.lineWidth = 2; c.beginPath(); c.moveTo(r, -9); c.lineTo(r + 10, 0); c.lineTo(r, 9); c.closePath(); c.fill(); c.stroke(); }
         if (mor) { c.strokeStyle = '#4e342e'; c.lineWidth = 3; c.beginPath(); c.moveTo(-r, -r); c.lineTo(-r - 5, -r - 4); c.moveTo(-r, r); c.lineTo(-r - 5, r + 4); c.moveTo(r, -r); c.lineTo(r + 4, -r - 4); c.moveTo(r, r); c.lineTo(r + 4, r + 4); c.stroke(); }
@@ -2533,6 +2702,14 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             c.beginPath(); c.arc(0, 0, 11, 0, 6.283); c.fill(); c.stroke();
             c.strokeStyle = 'rgba(255,255,255,.18)'; c.lineWidth = 1;
             c.beginPath(); c.arc(-1.5, -1.5, 7.5, Math.PI * 1.08, Math.PI * 1.78); c.stroke();
+        } else if (tes) { // bobina Tesla: anillos de cobre, orbe y chispas
+            c.fillStyle = '#37474f'; c.strokeStyle = '#222'; c.lineWidth = 2; c.beginPath(); c.arc(0, 0, 12, 0, 6.283); c.fill(); c.stroke();
+            c.strokeStyle = '#c77b30'; c.lineWidth = 3; for (const rr of [10, 7.2, 4.6]) { c.beginPath(); c.arc(0, 0, rr, 0, 6.283); c.stroke(); }
+            const pu = 0.5 + 0.5 * Math.sin(frameCount * 0.2), ch = STV === 8;
+            c.fillStyle = 'rgba(0,229,255,' + (ch ? 0.55 : 0.25 + 0.12 * pu) + ')'; c.beginPath(); c.arc(0, 0, ch ? 12 + 3 * pu : 8, 0, 6.283); c.fill();
+            c.fillStyle = ch ? '#ffffff' : '#b2ebf2'; c.beginPath(); c.arc(0, 0, 3.4, 0, 6.283); c.fill();
+            c.strokeStyle = ch ? '#e0ffff' : 'rgba(128,222,234,.8)'; c.lineWidth = ch ? 2 : 1.2; const nA = ch ? 7 : 3;
+            for (let i = 0; i < nA; i++) { const a = frameCount * 0.07 * (i % 2 ? 1 : -1) + i * 6.283 / nA + (ch ? Math.sin(frameCount * 0.9 + i) * 0.3 : 0), len = (ch ? 21 : 14) + Math.sin(frameCount * 0.6 + i * 2) * 3; c.beginPath(); c.moveTo(Math.cos(a) * 6, Math.sin(a) * 6); c.lineTo(Math.cos(a + 0.18) * len * 0.6, Math.sin(a + 0.18) * len * 0.6); c.lineTo(Math.cos(a - 0.1) * len * 0.8, Math.sin(a - 0.1) * len * 0.8); c.lineTo(Math.cos(a) * len, Math.sin(a) * len); c.stroke(); }
         } else {
             const cL = isBoss ? 35 : 22, cW = isBoss ? 10 : (mis ? 9 : 6);
             if (mis) c.fillStyle = '#9e9e9e';
@@ -2544,6 +2721,13 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 c.closePath(); c.fill(); c.stroke();
             }
             c.fillStyle = turretColor; c.strokeStyle = haste ? '#ff1744' : '#222'; c.lineWidth = haste ? 2.5 : 2; c.beginPath(); c.arc(0, 0, isBoss ? 16 : 10, 0, Math.PI * 2); c.fill(); c.stroke();
+            if (com) { // gorra con estrella y megáfono
+                c.fillStyle = '#b0bec5'; c.strokeStyle = '#222'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(-2, 6); c.lineTo(10, 9); c.lineTo(10, 17); c.lineTo(-2, 12); c.closePath(); c.fill(); c.stroke(); c.fillStyle = '#ff5252'; c.fillRect(8, 9.5, 2.4, 7);
+                c.save(); c.rotate(-turretAngle); c.fillStyle = '#ffd54f'; c.strokeStyle = '#6d4c00'; c.lineWidth = 1; c.beginPath(); for (let i = 0; i < 10; i++) { const rr = i % 2 ? 2.2 : 5.2, an = -Math.PI / 2 + i * Math.PI / 5; c.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); } c.closePath(); c.fill(); c.stroke(); c.restore(); }
+            if (bra) { // cerebro con circunvoluciones, aura y antenas
+                c.save(); c.globalAlpha = 0.22 + 0.14 * Math.sin(frameCount * 0.15); c.fillStyle = '#ce93d8'; c.beginPath(); c.arc(0, 0, 13.5, 0, 6.283); c.fill(); c.restore();
+                c.strokeStyle = '#f48fb1'; c.lineWidth = 1.6; c.beginPath(); c.arc(-2.4, 0, 5.6, 1.2, 5.1); c.moveTo(0, -8); c.quadraticCurveTo(3.5, -3, 0, 0); c.quadraticCurveTo(-3.5, 3, 0, 8); c.stroke();
+                c.strokeStyle = '#b39ddb'; c.lineWidth = 1.4; c.beginPath(); c.moveTo(-8, -5); c.lineTo(-16, -11); c.moveTo(-8, 5); c.lineTo(-16, 11); c.stroke(); c.fillStyle = '#00e5ff'; c.beginPath(); c.arc(-16, -11, 2, 0, 6.283); c.fill(); c.beginPath(); c.arc(-16, 11, 2, 0, 6.283); c.fill(); }
             if (nec) { // capucha oscura con cruz de médico verde y una llama espectral en la boca del cañón
                 c.fillStyle = '#1a0b2e'; c.beginPath(); c.arc(0, 0, 7.6, 0, 6.283); c.fill();
                 c.save(); c.rotate(-turretAngle); c.globalAlpha = 0.85 + Math.sin(frameCount * 0.15) * 0.15; c.fillStyle = '#69f0ae'; c.fillRect(-1.5, -5, 3, 10); c.fillRect(-5, -1.5, 10, 3); c.restore();
@@ -2560,6 +2744,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         }
         c.restore();
         if (type === 'player' && HAT_DRAW) { c.save(); c.rotate(turretAngle); drawHat2D(c, HAT_DRAW); c.restore(); }
+        if (STV === 6 || (STV === 9 && Math.floor(frameCount / 6) % 2 === 0)) { c.save(); c.strokeStyle = 'rgba(0,229,255,.9)'; c.lineWidth = 3; c.setLineDash([6, 5]); c.lineDashOffset = -frameCount; c.beginPath(); c.arc(0, 0, 25, 0, 6.283); c.stroke(); c.setLineDash([]); c.fillStyle = 'rgba(0,229,255,.14)'; c.fill(); c.restore(); }
+        if (com && STV === 7) { c.save(); c.rotate(turretAngle); c.strokeStyle = 'rgba(0,229,255,.9)'; c.lineWidth = 2.5; for (let i = 0; i < 3; i++) { c.globalAlpha = 1 - i * 0.28; c.beginPath(); c.arc(0, 8, 24 + i * 9 + (frameCount % 12), -0.5, 0.5); c.stroke(); } c.restore(); }
         if (fur && STV === 2) { c.save(); c.globalAlpha = 0.45 + 0.25 * Math.sin(frameCount * 0.4); c.strokeStyle = '#ff3d00'; c.lineWidth = 3.5; c.beginPath(); c.arc(0, 0, 27 + Math.sin(frameCount * 0.4) * 2, 0, 6.283); c.stroke(); c.globalAlpha = 0.18; c.fillStyle = '#ff3d00'; c.fill(); c.restore(); }
         if (chg && STV === 3) { c.save(); c.rotate(baseAngle); c.globalAlpha = 0.35 + 0.35 * (Math.floor(frameCount / 4) % 2); c.fillStyle = '#ffd600'; c.beginPath(); c.moveTo(24, -14); c.lineTo(140, -22); c.lineTo(140, 22); c.lineTo(24, 14); c.closePath(); c.fill(); c.restore(); }
         if (chg && STV === 5) { c.save(); c.rotate(baseAngle); c.strokeStyle = 'rgba(255,214,0,.8)'; c.lineWidth = 3; for (const o of [-12, -4, 4, 12]) { c.beginPath(); c.moveTo(-22, o); c.lineTo(-22 - 22 - Math.abs(o), o); c.stroke(); } c.strokeStyle = 'rgba(255,255,255,.7)'; c.lineWidth = 2; c.beginPath(); c.arc(0, 0, 25, -0.9, 0.9); c.stroke(); c.restore(); }
@@ -2677,6 +2863,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (const m of mines) {
             if (!inView(m.x, m.y, 100)) continue;
             ctx.save(); ctx.translate(m.x, m.y);
+            if (m.shock) { const pp = Math.max(0, Math.min(1, 1 - m.timer / SHOCK_T)), R = pp * SHOCK_R; ctx.strokeStyle = 'rgba(0,229,255,' + (0.95 - 0.55 * pp) + ')'; ctx.lineWidth = 7 - 3 * pp; ctx.beginPath(); ctx.arc(0, 0, R, 0, 6.283); ctx.stroke(); ctx.strokeStyle = 'rgba(224,255,255,' + (0.8 - 0.5 * pp) + ')'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, Math.max(0, R - 9), 0, 6.283); ctx.stroke(); ctx.restore(); continue; }
             if (m.shell) { const R = MINE_RADIUS_EXPLOSION, pp = Math.max(0, Math.min(1, 1 - m.timer / 80)); ctx.fillStyle = 'rgba(255,23,68,' + (0.1 + 0.22 * pp) + ')'; ctx.beginPath(); ctx.arc(0, 0, R, 0, 6.283); ctx.fill(); ctx.strokeStyle = '#ff1744'; ctx.lineWidth = 3; ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, R * pp, 0, 6.283); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(8, 0); ctx.moveTo(0, -8); ctx.lineTo(0, 8); ctx.stroke(); ctx.restore(); continue; }
             ctx.fillStyle = '#9e9e9e'; ctx.beginPath(); ctx.arc(0, 0, m.radius, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#424242'; ctx.lineWidth = 2; ctx.stroke();
             ctx.fillStyle = (m.timer < MINE_TIMER / 3 && frameCount % 10 < 5) ? '#fff' : (m.owner === 'player' ? '#00e5ff' : '#f44336');
@@ -2689,9 +2876,9 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             if (!inView(e.x, e.y, 80)) continue;
             const sc = (!e.isBoss && e.radius !== 18) ? e.radius / 18 : 1;
             ctx.save(); ctx.translate(e.x, e.y); ctx.scale(sc, sc); ctx.translate(-e.x, -e.y);
-            ST_DRAW = net.role === 'client' ? (e.st || 0) : (e.fz > 0 ? 2 : (e.chS === 1 ? 3 : (e.chS === 3 ? 4 : (e.chS === 2 ? 5 : 0))));
+            ST_DRAW = enemySt(e); AB_DRAW = e.abs || '';
             drawTank(e.x, e.y, e.baseColor, e.turretColor, e.baseAngle, e.turretAngle, e.type, e.isBoss, e.invisible, e.isVip, e.hp, e.maxHp, e.isAlly);
-            ST_DRAW = 0; ctx.restore();
+            ST_DRAW = 0; AB_DRAW = ''; ctx.restore();
             if (e.sq !== undefined) { // escudo del color del jugador/equipo (el tanque conserva su color original)
                 const col = tmCol(e.sq), R = e.radius + 8 + Math.sin(frameCount * 0.12) * 1.5;
                 ctx.save(); ctx.globalAlpha = 0.16; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(e.x, e.y, R, 0, 6.283); ctx.fill(); ctx.restore();
@@ -2832,7 +3019,24 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         { id: 'a_rank5', ic: '🥉', nm: 'Rango 5', d: 'Alcanza el rango 5', g: 5, v: () => rankOf(prof.xp), c: 80, x: 0 },
         { id: 'a_rank10', ic: '🥇', nm: 'Rango 10', d: 'Alcanza el rango 10', g: 10, v: () => rankOf(prof.xp), c: 250, x: 0 },
         { id: 'a_bestiary', ic: '📖', nm: 'Naturalista', d: 'Derrota 12 tipos de enemigo distintos', g: 12, v: () => Object.keys(prof.kt || {}).length, c: 120, x: 150 },
-        { id: 'a_games10', ic: '🪖', nm: 'Veterano de guerra', d: 'Juega 10 partidas', g: 10, v: () => prof.stats.games, c: 40, x: 60 }
+        { id: 'a_games10', ic: '🪖', nm: 'Veterano de guerra', d: 'Juega 10 partidas', g: 10, v: () => prof.stats.games, c: 40, x: 60 },
+        { id: 'a_games50', ic: '🎮', nm: 'Curtido en mil batallas', d: 'Juega 50 partidas', g: 50, v: () => prof.stats.games, c: 120, x: 150 },
+        { id: 'a_games200', ic: '🧭', nm: 'Alma de tanquista', d: 'Juega 200 partidas', g: 200, v: () => prof.stats.games, c: 300, x: 400 },
+        { id: 'a_kill5000', ic: '🌋', nm: 'Fuerza de la naturaleza', d: '5000 bajas', g: 5000, v: () => prof.stats.kills, c: 800, x: 1000 },
+        { id: 'a_miss200', ic: '🏅', nm: 'General de campaña', d: 'Completa 200 misiones', g: 200, v: () => prof.stats.missions, c: 600, x: 700 },
+        { id: 'a_daily60', ic: '📆', nm: 'Un año sin faltar (casi)', d: 'Completa 60 desafíos diarios', g: 60, v: () => prof.dailyTotal || 0, c: 700, x: 800 },
+        { id: 'a_streak14', ic: '🔥', nm: 'Dos semanas en llamas', d: 'Racha de 14 días con desafíos', g: 14, v: () => (prof.streak && prof.streak.best) || 0, c: 400, x: 450 },
+        { id: 'a_rank15', ic: '🎗️', nm: 'Rango 15', d: 'Alcanza el rango 15', g: 15, v: () => rankOf(prof.xp), c: 400, x: 0 },
+        { id: 'a_rank20', ic: '💎', nm: 'Rango 20', d: 'Alcanza el rango 20', g: 20, v: () => rankOf(prof.xp), c: 600, x: 0 },
+        { id: 'a_boss5', ic: '👹', nm: 'Cazajefes', d: 'Derrota a 5 jefes', g: 5, v: () => prof.stats.bosses || 0, c: 150, x: 200 },
+        { id: 'a_bunker10', ic: '🏚️', nm: 'Demoledor', d: 'Destruye 10 búnkeres', g: 10, v: () => prof.stats.bunkers || 0, c: 120, x: 150 },
+        { id: 'a_revive1', ic: '❤️', nm: 'Segunda oportunidad', d: 'Revive con monedas 1 vez', g: 1, v: () => prof.stats.revives || 0, c: 30, x: 40 },
+        { id: 'a_kt_shield', ic: '🛡️', nm: 'Rompe-escudos', d: 'Derrota 15 Escuderos', g: 15, v: () => (prof.kt || {}).shield || 0, c: 80, x: 100 },
+        { id: 'a_kt_split', ic: '🧩', nm: 'Aplastafragmentos', d: 'Derrota 20 Fragmentadores', g: 20, v: () => (prof.kt || {}).splitter || 0, c: 90, x: 110 },
+        { id: 'a_kt_fury', ic: '😡', nm: 'Domador de furias', d: 'Derrota 10 Furias', g: 10, v: () => (prof.kt || {}).fury || 0, c: 100, x: 120 },
+        { id: 'a_kt_charger', ic: '🐂', nm: 'Torero', d: 'Derrota 10 Embestidores', g: 10, v: () => (prof.kt || {}).charger || 0, c: 100, x: 120 },
+        { id: 'a_kt_tesla', ic: '⚡', nm: 'Pararrayos', d: 'Derrota 10 Teslas', g: 10, v: () => (prof.kt || {}).tesla || 0, c: 120, x: 150 },
+        { id: 'a_kt_cmd', ic: '📣', nm: 'Silenciador', d: 'Derrota 25 Comandantes', g: 25, v: () => (prof.kt || {}).commander || 0, c: 90, x: 110 }
     ];
     const achGot = id => !!(prof.ach && prof.ach[id]);
     const achPending = () => { const n = ACH.filter(a => !achGot(a.id) && a.v() >= a.g).length; return n ? ' (' + n + ')' : ''; };
@@ -2927,7 +3131,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         fortress: { n: 'Fortaleza (muros largos)', sp: 4, dest: 0, long: 0.95 },
         arena: { n: 'Arena del jefe', sp: 5, dest: 0.25, long: 0.5 }
     };
-    const ENEMY_NAMES = ['Centinela', 'Patrullero', 'Cañón Rojo', 'Comandante', 'Minador', 'Fantasma', 'Perforador', 'Repetidor', 'Cerebro', 'Asesino', 'Blindado', 'Francotirador', 'Suicida', 'Prisa', 'Misilero', 'Venenoso', '(Jefe)', 'Nigromante', 'Escudero', 'Mortero', 'Fragmentador', 'Embestidor', 'Furia', 'Esquirla'];
+    const ENEMY_NAMES = ['Centinela', 'Patrullero', 'Cañón Rojo', 'Comandante', 'Minador', 'Fantasma', 'Perforador', 'Repetidor', 'Cerebro', 'Asesino', 'Blindado', 'Francotirador', 'Suicida', 'Prisa', 'Misilero', 'Venenoso', '(Jefe)', 'Nigromante', 'Escudero', 'Mortero', 'Fragmentador', 'Embestidor', 'Furia', 'Esquirla', 'Tesla'];
     const DAILY_LV = [3, 6, 9, 11, 15], DAILY_LIVES = [3, 3, 3, 3, 2], DAILY_DIFF = [0, 1, 1, 2, 2], DAILY_RW = [40, 70, 110, 160, 250];
     // Cada día se elige una plantilla de cada nivel de dificultad (según la fecha)
     const DAILY_TIERS = [
@@ -2992,6 +3196,11 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     DAILY_TIERS[2].push({ nm: 'Carga de caballería', ic: '🐂', mode: 'eliminate', map: 'open', types: [21, 1, 3], cnt: 5 }, { nm: 'Fuego de mortero', ic: '💣', mode: 'demolition', map: 'fortress', types: [19, 10, 3], cnt: 5 }, { nm: 'Furia en el laberinto', ic: '😡', mode: 'keys', map: 'maze', types: [22, 3, 4], cnt: 5 }, { nm: 'Muro de escudos', ic: '👑', mode: 'vip', map: 'fortress', types: [18, 18, 10], cnt: 5 }, { nm: 'Cajas explosivas', ic: '🎁', mode: 'crates', map: 'rubble', types: [19, 20, 3], cnt: 5 });
     DAILY_TIERS[3].push({ nm: 'Estampida', ic: '🐂', mode: 'survive', map: 'open', types: [21, 12, 3, 7] }, { nm: 'Guardián del bombardeo', ic: '🛡️', mode: 'protect', map: 'classic', types: [19, 12, 3] }, { nm: 'Escudos y obuses', ic: '🏰', mode: 'eliminate', map: 'fortress', types: [18, 19, 11, 6], cnt: 6 }, { nm: 'Frenesí', ic: '😡', mode: 'gems', map: 'maze', types: [22, 20, 8], cnt: 6, time: 210 }, { nm: 'Joya vigilada', ic: '💎', mode: 'jewel', map: 'fortress', types: [18, 21, 3], cnt: 5 });
     DAILY_TIERS[4].push({ nm: 'Bombardeo total', ic: '💥', mode: 'eliminate', map: 'arena', types: [19, 19, 21, 10, 11], cnt: 9 }, { nm: 'La horda furiosa', ic: '😡', mode: 'survive', map: 'open', types: [22, 21, 20, 12] }, { nm: 'Tormenta de acero', ic: '🔷', mode: 'gems', map: 'fortress', types: [18, 22, 19, 8, 14], cnt: 6, time: 220 }, { nm: 'Rey de las esquirlas', ic: '👑', mode: 'boss', map: 'arena', types: [20, 22, 21] }, { nm: 'Pesadilla blindada', ic: '🛡️', mode: 'eliminate', map: 'rubble', types: [18, 18, 22, 21, 10], cnt: 9 }, { nm: 'Cazados por Prisa y Furia', ic: '💀', mode: 'haste', map: 'classic', types: [22, 18, 19], cnt: 7 });
+    DAILY_TIERS[0].push({ nm: 'Voz de mando', ic: '📣', mode: 'eliminate', map: 'classic', types: [3, 0, 1], cnt: 5 }, { nm: 'Primeras minas', ic: '💣', mode: 'eliminate', map: 'open', types: [4, 1, 0], cnt: 4 });
+    DAILY_TIERS[1].push({ nm: 'El general', ic: '🎖️', mode: 'eliminate', map: 'maze', types: [3, 3, 10], cnt: 6 }, { nm: 'Búnker con goteras', ic: '🏚️', mode: 'demolition', map: 'classic', types: [1, 3, 4], cnt: 4 }, { nm: 'Pasillos estrechos', ic: '🚧', mode: 'keys', map: 'maze', types: [1, 4, 12], cnt: 5 });
+    DAILY_TIERS[2].push({ nm: 'Estrategas', ic: '🧠', mode: 'eliminate', map: 'fortress', types: [8, 4, 7], cnt: 5 }, { nm: 'Atajos mortales', ic: '🥷', mode: 'capture', map: 'rubble', types: [9, 11, 3], cnt: 5 }, { nm: 'Rayo en el patio', ic: '⚡', mode: 'eliminate', map: 'open', types: [24, 1, 3], cnt: 5 });
+    DAILY_TIERS[3].push({ nm: 'Tormenta eléctrica', ic: '⚡', mode: 'gems', map: 'fortress', types: [24, 24, 3, 10], cnt: 6, time: 220 }, { nm: 'Cerebros y asesinos', ic: '🕸️', mode: 'eliminate', map: 'maze', types: [8, 9, 10], cnt: 6 }, { nm: 'Misiles y comandantes', ic: '🚀', mode: 'protect', map: 'classic', types: [14, 3, 3] });
+    DAILY_TIERS[4].push({ nm: 'Bobina maestra', ic: '⚡', mode: 'boss', map: 'arena', types: [24, 19, 18] }, { nm: 'Guerra relámpago', ic: '🌩️', mode: 'survive', map: 'open', types: [24, 22, 21, 8] }, { nm: 'Telaraña', ic: '🕷️', mode: 'eliminate', map: 'maze', types: [8, 9, 24, 19], cnt: 8 }, { nm: 'Jefe orquesta', ic: '🎻', mode: 'boss', map: 'fortress', types: [3, 8, 9] });
     const dayKey = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
     function dailyList() {
         const key = dayKey(), rnd = mulberry(hashStr('tankers-daily-' + key));
@@ -3038,7 +3247,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
 
     // ===== Sandbox: editor de niveles, compartir por código o enlace y jugar tus propios desafíos =====
-    const SB_SIZES = { 40: 'Pequeño', 60: 'Medio', 80: 'Grande' }, SB_MAX = { e: 60, a: 40, m: 150 }, SB_LIMIT = 40;
+    const SB_SIZES = { 40: 'Pequeño', 60: 'Medio', 80: 'Grande' }, SB_MAX = { e: 60, a: 40, m: 150, b: 10 }, SB_LIMIT = 40;
     const sbList = () => prof.sb || (prof.sb = []);
     const inSpawnZone = (c, r) => c <= 5 && r <= 5;
     const $id = id => document.getElementById(id);
@@ -3052,7 +3261,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     const miName = k => (k && MISSIONS[k]) ? MISSIONS[k][0] + ' ' + MISSIONS[k][1] : '🛠 Personalizada';
     const miOptsHTML = sel => `<option value="custom" ${(!sel || sel === 'custom') ? 'selected' : ''}>🛠 Personalizada (según lo que coloques)</option>` + Object.keys(MISSIONS).map(k => `<option value="${k}" ${sel === k ? 'selected' : ''}>${MISSIONS[k][0]} ${MISSIONS[k][1]}</option>`).join('');
     function sbSetMi(i, v) { const L = sbList()[i]; if (L && (v === 'custom' || MISSIONS[v])) { L.mi = v; saveProf(); renderLobby(); } }
-    function sbNew(s) { return { id: newId(), nm: 'Mi nivel ' + (sbList().length + 1), s, g: rleEnc(new Uint8Array(s * s)), e: [], a: [], m: [], f: null, l: 3, t: 0, u: 0, d: 1, k: 1, mi: 'custom' }; }
+    function sbNew(s) { return { id: newId(), nm: 'Mi nivel ' + (sbList().length + 1), s, g: rleEnc(new Uint8Array(s * s)), e: [], a: [], m: [], b: [], f: null, l: 3, t: 0, u: 0, d: 1, k: 1, mi: 'custom' }; }
     // Valida y limpia un nivel (también los que llegan de códigos ajenos)
     function sbSanitize(o) {
         if (!o || typeof o !== 'object') return null;
@@ -3067,17 +3276,24 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             if (!Array.isArray(arr)) return;
             for (const q of arr.slice(0, max)) {
                 if (!Array.isArray(q)) continue;
-                const t = withT ? cl(q[0], 0, 23) : 0, c = cl(q[withT ? 1 : 0], 1, s - 2), r = cl(q[withT ? 2 : 1], 1, s - 2), key = c + ',' + r;
+                const t = withT ? cl(q[0], 0, 24) : 0, c = cl(q[withT ? 1 : 0], 1, s - 2), r = cl(q[withT ? 2 : 1], 1, s - 2), key = c + ',' + r;
                 if (inSpawnZone(c, r) || g[r * s + c] || seen.has(key)) continue;
                 seen.add(key); dst.push(withT ? [t, c, r] : [c, r]);
             }
         };
         add(out.e, o.e, SB_MAX.e, true); add(out.a, o.a, SB_MAX.a, false); add(out.m, o.m, SB_MAX.m, false);
         if (Array.isArray(o.f)) { const c = cl(o.f[0], 1, s - 2), r = cl(o.f[1], 1, s - 2); if (!inSpawnZone(c, r) && !g[r * s + c] && !seen.has(c + ',' + r)) out.f = [c, r]; }
+        out.b = [];
+        if (Array.isArray(o.b)) for (const q of o.b.slice(0, SB_MAX.b)) {
+            if (!Array.isArray(q)) continue; const c = cl(q[0], 1, s - 3), r = cl(q[1], 1, s - 3), cells = [[c, r], [c + 1, r], [c, r + 1], [c + 1, r + 1]];
+            if (cells.some(p => inSpawnZone(p[0], p[1]) || seen.has(p[0] + ',' + p[1]))) continue;
+            for (const p of cells) { seen.add(p[0] + ',' + p[1]); g[p[1] * s + p[0]] = 0; } out.b.push([c, r]);
+        }
+        out.g = rleEnc(g);
         return out;
     }
     function sbExport(L) {
-        const o = { v: 1, nm: L.nm, s: L.s, g: L.g, e: L.e, a: L.a, m: L.m, f: L.f, l: L.l, t: L.t, u: L.u, d: L.d, k: L.k, mi: L.mi || 'custom' };
+        const o = { v: 1, nm: L.nm, s: L.s, g: L.g, e: L.e, a: L.a, m: L.m, b: L.b || [], f: L.f, l: L.l, t: L.t, u: L.u, d: L.d, k: L.k, mi: L.mi || 'custom' };
         return 'TK1-' + btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
     function sbParse(text) {
@@ -3089,7 +3305,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     // Comprueba que el nivel tenga objetivo y que todo sea alcanzable (los muros rompibles cuentan como pasables)
     function sbCheck(L) {
-        const mis = !!(L.mi && L.mi !== 'custom'); if (!mis && !((L.k && L.e.some(q => q[0] !== 13)) || L.a.length || L.u > 0 || L.f)) return 'Añade un objetivo: enemigos que eliminar, gemas 🔷, una meta 🏁 o tiempo de supervivencia (Ajustes).';
+        const mis = !!(L.mi && L.mi !== 'custom'); if (!mis && !((L.k && L.e.some(q => q[0] !== 13)) || L.a.length || L.u > 0 || L.f || (L.b && L.b.length))) return 'Añade un objetivo: enemigos que eliminar, gemas 🔷, una meta 🏁 o tiempo de supervivencia (Ajustes).';
         const n = L.s, g = rleDec(L.g, n), seen = new Uint8Array(n * n), q = [3 * n + 3]; seen[q[0]] = 1;
         for (let h = 0; h < q.length; h++) {
             const i = q[h], r = (i / n) | 0, c = i % n;
@@ -3117,8 +3333,13 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         buildNavGrid();
     }
     // Con una misión de campaña elegida: se respetan los enemigos y minas colocados en el editor; el resto lo pone la misión
+    function sbPlaceBunkers(L, spawner) {
+        for (const q of (L.b || [])) { const b = { x: q[0] * GRID_SIZE, y: q[1] * GRID_SIZE, width: GRID_SIZE * 2, height: GRID_SIZE * 2, destructible: false, target: true, hp: 6, maxHp: 6, spawner: spawner }; walls.push(b); paintWall(b, b); refreshNav(b.x, b.y, b.width, b.height); targets.push(b); }
+    }
+    function sbPoolPick() { if (!sbCur) return null; const ids = (sbCur.lv.e || []).map(q => q[0]).filter(t => t !== 16 && t !== 13 && t !== 23 && ENEMY_TYPES[t]); return ids.length ? ENEMY_TYPES[ids[Math.floor(Math.random() * ids.length)]] : null; }
     function sbPlaceUnits(L) {
         const cx = c => c * 40 + 20;
+        if (currentMode !== 'demolition') sbPlaceBunkers(L, true);
         for (const q of L.e) {
             spawnAtOverride = { x: cx(q[1]), y: cx(q[2]) };
             if (q[0] === 16) spawnEnemy(makeBossType(), false, null, null, true, true); else spawnEnemy(ENEMY_TYPES[q[0]], false, null, null, false, true);
@@ -3128,6 +3349,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     function sbSetup(L) {
         const cx = c => c * 40 + 20;
+        sbPlaceBunkers(L, true);
         for (const q of L.e) {
             spawnAtOverride = { x: cx(q[1]), y: cx(q[2]) };
             if (q[0] === 16) spawnEnemy(makeBossType(), false, null, null, true, true); else spawnEnemy(ENEMY_TYPES[q[0]], false, null, null, false, true);
@@ -3139,7 +3361,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         if (L.f) { escapeZone.x = cx(L.f[0]); escapeZone.y = cx(L.f[1]); escapeZone.active = true; escapeZone.color = '#00ff00'; }
         surviveTimer = L.u * 60;
         const ps = [];
-        if (L.k && L.e.length) ps.push('⚔️ ELIMINA A TODOS'); if (L.a.length) ps.push('🔷 REÚNE ' + L.a.length + ' GEMAS'); if (L.u) ps.push('⏱️ SOBREVIVE ' + L.u + ' s'); if (L.f) ps.push('🏁 LLEGA A LA META');
+        if (L.k && L.e.length) ps.push('⚔️ ELIMINA A TODOS'); if (L.a.length) ps.push('🔷 REÚNE ' + L.a.length + ' GEMAS'); if (L.u) ps.push('⏱️ SOBREVIVE ' + L.u + ' s'); if (L.f) ps.push('🏁 LLEGA A LA META'); if ((L.b || []).length) ps.push('🏚 DESTRUYE ' + L.b.length + ' BÚNKERES');
         return ps.join(' · ') || '🛠 NIVEL PERSONALIZADO';
     }
     function startSandbox(L, test) {
@@ -3187,23 +3409,23 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function edCol() { ed.col = !ed.col; edBar(); }
     function edBar() {
         const e = ed, L = e.L;
-        if (e.col) { $id('edui').innerHTML = `<div class="edrow"><button onclick="edCol()">☰ Menú</button><button class="go" onclick="edTest()">▶ Probar</button><button onclick="edSave(true)">💾</button><button class="red" onclick="edExit()">✖</button><span class="edinfo">${({ wall: '🧱', dwall: '🟫', erase: '🧽', enemy: '👾', boss: '👹', gem: '🔷', mine: '💣', goal: '🏁', pan: '✋' })[e.tool] || ''}</span></div>`; return; }
-        const T = [['wall', '🧱', 'Muro'], ['dwall', '🟫', 'Rompible'], ['erase', '🧽', 'Borrar'], ['enemy', '👾', 'Enemigo'], ['boss', '👹', 'Jefe'], ['gem', '🔷', 'Gema'], ['mine', '💣', 'Mina'], ['goal', '🏁', 'Meta'], ['pan', '✋', 'Mover']];
+        if (e.col) { $id('edui').innerHTML = `<div class="edrow"><button onclick="edCol()">☰ Menú</button><button class="go" onclick="edTest()">▶ Probar</button><button onclick="edSave(true)">💾</button><button class="red" onclick="edExit()">✖</button><span class="edinfo">${({ wall: '🧱', dwall: '🟫', erase: '🧽', enemy: '👾', boss: '👹', gem: '🔷', mine: '💣', goal: '🏁', bunker: '🏰', pan: '✋' })[e.tool] || ''}</span></div>`; return; }
+        const T = [['wall', '🧱', 'Muro'], ['dwall', '🟫', 'Rompible'], ['erase', '🧽', 'Borrar'], ['enemy', '👾', 'Enemigo'], ['boss', '👹', 'Jefe'], ['gem', '🔷', 'Gema'], ['mine', '💣', 'Mina'], ['goal', '🏁', 'Meta'], ['bunker', '🏰', 'Búnker'], ['pan', '✋', 'Mover']];
         $id('edui').innerHTML = `<div class="edrow">${T.map(t => `<button class="${e.tool === t[0] ? 'on' : ''}" onclick="edTool('${t[0]}')" title="${t[2]}">${t[1]}<small>${t[2]}</small></button>`).join('')}<button onclick="edCol()" title="Ocultar menú">▲</button></div>
             <div class="edrow">${e.tool === 'enemy' ? `<select onchange="ed.et=+this.value;edBar()">${ENEMY_NAMES.map((n, i) => i === 16 ? '' : `<option value="${i}" ${i === e.et ? 'selected' : ''}>${n}</option>`).join('')}</select>` : ''}
             <button onclick="edZoomBtn(1.25)">＋</button><button onclick="edZoomBtn(0.8)">－</button><button onclick="edFit()">⤢</button>
             <button onclick="edSettings()">⚙ Ajustes</button><button class="go" onclick="edTest()">▶ Probar</button><button onclick="edSave(true)">💾 Guardar</button><button onclick="edShare()">🔗 Compartir</button><button class="red" onclick="edExit()">✖ Salir</button>
-            <span class="edinfo" title="WASD / flechas / joystick: moverte por el mapa">🕹️ WASD · ${esc(L.nm)} · 👾 ${L.e.length} · 🔷 ${L.a.length} · 💣 ${L.m.length}${L.f ? ' · 🏁' : ''}${L.mi && MISSIONS[L.mi] ? ' · ' + MISSIONS[L.mi][0] : ''}</span></div>`;
+            <span class="edinfo" title="WASD / flechas / joystick: moverte por el mapa">🕹️ WASD · ${esc(L.nm)} · 👾 ${L.e.length} · 🔷 ${L.a.length} · 💣 ${L.m.length}${(L.b || []).length ? ' · 🏰 ' + L.b.length : ''}${L.f ? ' · 🏁' : ''}${L.mi && MISSIONS[L.mi] ? ' · ' + MISSIONS[L.mi][0] : ''}</span></div>`;
     }
     const edScreen = ev => { const r = canvas.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
     function edApply(p) {
         const e = ed, n = e.n, L = e.L, t = e.tool, c = Math.floor((p.x / e.z + e.cam.x) / 40), r = Math.floor((p.y / e.z + e.cam.y) / 40);
         if (c < 1 || r < 1 || c > n - 2 || r > n - 2) return;
         const key = c + ',' + r; if (e.drag) { if (e.drag.last === key) return; e.drag.last = key; }
-        const single = t === 'enemy' || t === 'boss' || t === 'goal';
+        const single = t === 'enemy' || t === 'boss' || t === 'goal' || t === 'bunker';
         if (single && e.drag && e.drag.did) return; if (e.drag) e.drag.did = true;
         const i = r * n + c;
-        const clearEnt = () => { L.e = L.e.filter(q => !(q[1] === c && q[2] === r)); L.a = L.a.filter(q => !(q[0] === c && q[1] === r)); L.m = L.m.filter(q => !(q[0] === c && q[1] === r)); if (L.f && L.f[0] === c && L.f[1] === r) L.f = null; };
+        const clearEnt = () => { L.e = L.e.filter(q => !(q[1] === c && q[2] === r)); L.a = L.a.filter(q => !(q[0] === c && q[1] === r)); L.m = L.m.filter(q => !(q[0] === c && q[1] === r)); if (L.f && L.f[0] === c && L.f[1] === r) L.f = null; L.b = (L.b || []).filter(q => !(c >= q[0] && c <= q[0] + 1 && r >= q[1] && r <= q[1] + 1)); };
         if (t === 'erase') { e.grid[i] = 0; clearEnt(); }
         else if (inSpawnZone(c, r)) { if (!e.drag || !e.drag.warned) toast('Esa zona (arriba a la izquierda) es la salida de tu tanque'); if (e.drag) e.drag.warned = true; return; }
         else if (t === 'wall' || t === 'dwall') { clearEnt(); e.grid[i] = t === 'wall' ? 1 : 2; }
@@ -3215,9 +3437,17 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             else if (t === 'gem') { if (!room(L.a.length, SB_MAX.a)) return; L.a.push([c, r]); }
             else if (t === 'mine') { if (!room(L.m.length, SB_MAX.m)) return; L.m.push([c, r]); }
             else if (t === 'goal') L.f = [c, r];
+            else if (t === 'bunker') {
+                const cells = [[c, r], [c + 1, r], [c, r + 1], [c + 1, r + 1]];
+                if (c + 1 > n - 2 || r + 1 > n - 2) { toast('No cabe aquí: el búnker ocupa 2×2'); return; }
+                if (cells.some(q => inSpawnZone(q[0], q[1]))) { toast('Esa zona es la salida de tu tanque'); return; }
+                L.b = L.b || []; if (L.b.length >= SB_MAX.b && !L.b.some(q => q[0] === c && q[1] === r)) { toast('Límite alcanzado'); return; }
+                for (const q of cells) { e.grid[q[1] * n + q[0]] = 0; L.e = L.e.filter(z => !(z[1] === q[0] && z[2] === q[1])); L.a = L.a.filter(z => !(z[0] === q[0] && z[1] === q[1])); L.m = L.m.filter(z => !(z[0] === q[0] && z[1] === q[1])); if (L.f && L.f[0] === q[0] && L.f[1] === q[1]) L.f = null; }
+                L.b = L.b.filter(q => !(Math.abs(q[0] - c) < 2 && Math.abs(q[1] - r) < 2)); L.b.push([c, r]);
+            }
         }
         e.dirty = true;
-        const now = L.e.length + '|' + L.a.length + '|' + L.m.length + '|' + (L.f ? 1 : 0);
+        const now = L.e.length + '|' + L.a.length + '|' + L.m.length + '|' + (L.f ? 1 : 0) + '|' + (L.b || []).length;
         if (e.cnt !== now) { e.cnt = now; edBar(); }
     }
     canvas.addEventListener('pointerdown', ev => {
@@ -3238,7 +3468,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     window.addEventListener('keydown', ev => {
         if (state !== 'edit' || !ed || /INPUT|SELECT|TEXTAREA/.test(ev.target.tagName)) return;
         const k = ev.key.toLowerCase(); ed.keys[k] = true; if (k === ' ' || k.startsWith('arrow')) ev.preventDefault();
-        const map = { '1': 'wall', '2': 'dwall', '3': 'erase', '4': 'enemy', '5': 'boss', '6': 'gem', '7': 'mine', '8': 'goal', '9': 'pan' };
+        const map = { '1': 'wall', '2': 'dwall', '3': 'erase', '4': 'enemy', '5': 'boss', '6': 'gem', '7': 'mine', '8': 'goal', '9': 'pan', '0': 'bunker' };
         if (map[k]) edTool(map[k]);
     });
     window.addEventListener('keyup', ev => { if (ed) ed.keys[ev.key.toLowerCase()] = false; });
@@ -3260,6 +3490,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         ctx.fillStyle = '#1565c0'; ctx.font = "bold 18px 'Segoe UI'"; ctx.textAlign = 'center'; ctx.fillText('SALIDA', 3.5 * G, 5.6 * G);
         drawTank(PLAYER_SPAWN_X, PLAYER_SPAWN_Y, player.baseColor, player.turretColor, 0, 0, 'player', false, false, false);
         for (const m of e.L.m) { const x = m[0] * G + 20, y = m[1] * G + 20; ctx.fillStyle = '#37474f'; ctx.beginPath(); ctx.arc(x, y, 12, 0, 6.283); ctx.fill(); ctx.fillStyle = '#e53935'; ctx.beginPath(); ctx.arc(x, y, 5, 0, 6.283); ctx.fill(); }
+        for (const q of (e.L.b || [])) { drawBunkerArt(ctx, q[0] * G, q[1] * G, 80, 1); ctx.font = '22px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText('👾', q[0] * G + 40, q[1] * G + 48); }
         for (const a of e.L.a) { const x = a[0] * G + 20, y = a[1] * G + 20; ctx.fillStyle = '#ff1744'; ctx.strokeStyle = '#b71c1c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y - 13); ctx.lineTo(x + 11, y); ctx.lineTo(x, y + 13); ctx.lineTo(x - 11, y); ctx.closePath(); ctx.fill(); ctx.stroke(); }
         if (e.L.f) { const x = e.L.f[0] * G + 20, y = e.L.f[1] * G + 20; ctx.fillStyle = 'rgba(0,255,100,.3)'; ctx.beginPath(); ctx.arc(x, y, 60, 0, 6.283); ctx.fill(); ctx.strokeStyle = '#00c853'; ctx.lineWidth = 3; ctx.stroke(); ctx.font = '34px sans-serif'; ctx.fillStyle = '#1b5e20'; ctx.fillText('🏁', x, y + 12); }
         for (const q of e.L.e) {
@@ -3268,7 +3499,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             else { const T = ENEMY_TYPES[q[0]]; drawTank(x, y, T.baseColor, T.turretColor, 0, 0, T.type, false, false, false, 1, 1, false); }
         }
         const hc = Math.floor((e.mx / z + e.cam.x) / G), hr = Math.floor((e.my / z + e.cam.y) / G);
-        if (hc >= 1 && hr >= 1 && hc <= n - 2 && hr <= n - 2 && e.tool !== 'pan') { ctx.strokeStyle = '#ff6f00'; ctx.lineWidth = 3 / z; ctx.strokeRect(hc * G, hr * G, G, G); }
+        if (hc >= 1 && hr >= 1 && hc <= n - 2 && hr <= n - 2 && e.tool !== 'pan') { ctx.strokeStyle = '#ff6f00'; ctx.lineWidth = 3 / z; const hs = e.tool === 'bunker' ? 2 : 1; ctx.strokeRect(hc * G, hr * G, G * hs, G * hs); }
     }
     function modal(html, noClose) { const m = $id('edmodal'); m.innerHTML = '<div class="edbox">' + html + (noClose ? '' : '<div class="edrow"><button onclick="modalClose()">Cerrar</button></div>') + '</div>'; m.style.display = 'flex'; const box = m.firstElementChild, rows = []; while (box.lastElementChild && box.lastElementChild.classList.contains('edrow')) rows.unshift(box.removeChild(box.lastElementChild)); if (rows.length) { const w = document.createElement('div'); w.className = 'edact'; for (const r of rows) w.appendChild(r); box.appendChild(w); } }
     function modalClose() { $id('edmodal').style.display = 'none'; }
@@ -3355,7 +3586,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     const BOOK = [
         { t: 0, n: 'Centinela', lv: 1, d: 'Torreta fija de entrenamiento. No se mueve, pero calcula los rebotes de sus balas en las paredes para alcanzarte. Dispara despacio.', tip: 'Acércate por un ángulo que no pueda calcular y revienta su posición con una bala directa. Cuidado con el rebote.' },
         { t: 1, n: 'Patrullero', lv: 2, d: 'Recorre el mapa a paso tranquilo. Ve venir tus balas y se aparta de su trayectoria. Dispara con 1 rebote.', tip: 'Acorrálalo contra un muro o deja una mina en su camino: las esquiva peor que los disparos.' },
-        { t: 3, n: 'Comandante', lv: 4, d: 'Tanque veloz y agresivo que te busca por los pasillos. Sus balas normales rebotan una vez.', tip: 'No te quedes quieto: usa los muros como escudo y dispárale cuando gire la esquina.' },
+        { t: 3, n: 'Comandante', lv: 4, d: 'Tanque veloz y agresivo con gorra de mando (estrella dorada), galones y megáfono. Cada 10 s grita a un aliado cercano: si se mueve, corre el doble de rápido durante 12 s; si es estático, se echa a andar como un Patrullero durante 20 s. Un aro cian rodea al enemigo reforzado, parpadea al acabarse el efecto y avisa con «¡Fin del efecto!».', tip: 'Elimínalo primero: sin sus gritos el resto vuelve a su ritmo. Cuando veas el aro cian, asume que ese enemigo irá mucho más rápido.' },
         { t: 4, n: 'Minador', lv: 4, d: 'Va dejando minas cuando lo persigues o pasa junto a muros. No hace rebotar sus balas, así que su arma es el terreno.', tip: 'No lo sigas en línea recta. Dispara a las minas desde lejos: explotan sin dañarte.' },
         { t: 12, n: 'Suicida', lv: 5, d: 'No dispara. Corre hacia ti sin parar y explota al acercarse con el mismo radio que una mina. Se reconoce por la mecha encendida en la nuca y porque su cabeza gira hacia lo que persigue. Aguanta 2 impactos.', tip: 'Destrúyelo a distancia. Si se te acerca, retrocede por un pasillo y dispárale de frente.' },
         { t: 6, n: 'Perforador', lv: 6, d: 'Lento y pesado, con bala súper rápida pero sin rebotes: solo te dispara si tiene visión directa.', tip: 'Mantente tras un muro y asómate solo para disparar. Es muy lento para rodearte.' },
@@ -3366,18 +3597,19 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         { t: 15, n: 'Venenoso', lv: 11, d: 'Tanque verde tóxico que escupe saliva ácida. Su bala deja un camino de charcos verdes con burbujas que queman a quien los pise (a ti y a tu aliado) y que se evaporan con el tiempo. No te apunta a ti: lanza el ácido a los pasillos estrechos de tu ruta para cortarte el paso. No vuelve a disparar hasta que el camino ácido de su último disparo ha desaparecido. Aguanta 2 impactos.', tip: 'No pises los charcos: aprovecha su pausa entre disparos para acercarte. Tu aliado los esquiva, así que no le cortes el paso ni le bloquees los pasillos.' },
         { t: 5, n: 'Fantasma', lv: 13, d: 'Invisible: solo delatan su posición las huellas en el suelo y sus balas. En el juego no se dibuja; aquí lo ves en transparencia.', tip: 'Sigue las huellas recientes y lanza minas en los pasillos por donde pasa.' },
         { t: 17, n: 'Nigromante', lv: 14, d: 'Hechicero de túnica violeta con una cruz de médico verde en la capucha y un aura espectral. Te acecha a distancia, escondido tras los muros y sin disparar, mientras peleas con otros enemigos. Cuando matas a uno se cuela hasta su X y canaliza un ritual de 2 s para levantarlo de nuevo (hasta 5 veces). Si te acercas mucho huye y se defiende a tiros; si te plantas junto al ritual lo interrumpes. Los resucitados no dan puntos, pero se pueden volver a levantar. También resucita a otros nigromantes y a jefes (un jefe exige un ritual de 4 s, gasta 2 usos y vuelve con la mitad de vida). No revive Prisa, suicidas ni VIPs. Aguanta 2 impactos.', tip: 'Si se acumulan X sin que nadie las pise, hay un nigromante cerca: rodea los muros y cázalo primero. Mientras viva, el nivel no se acaba.' },
-        { t: 8, n: 'Cerebro', lv: 15, d: 'El más listo: rápido, esquiva tus balas, planta minas y calcula rebotes para alcanzarte.', tip: 'No lo persigas. Prepárale un cruce de minas y atráelo con fuego a distancia.' },
-        { t: 9, n: 'Asesino', lv: 17, d: 'Negro, veloz, con bala súper sin rebotes y minas. Va directo a cazarte.', tip: 'Una sola bala te basta si él falla; juega a esquinas cerradas y dispara primero.' },
-        { t: 13, n: 'Prisa', lv: 20, d: 'Tanque negro con contornos rojos, calavera en la torreta y pinchos por detrás. Es inmortal: ninguna bala ni mina le hace daño, atraviesa las paredes y te persigue sin descanso. Si te toca, mueres. Dispara balas normales con un rebote. Al cruzar un muro suelta humo negro a su alrededor, y calcula sus disparos (anticipa tu movimiento y los rebotes) para no fallar. Solo puede haber uno por nivel.', tip: 'No puedes matarlo: aprovecha que es más lento que tú, no te acorrales y cumple el objetivo antes de que te alcance. En Cazado por Prisa, recoge las 8 gemas rojas.' },
-        { t: 14, n: 'Misilero', lv: 23, d: 'Tanque blanco que dispara misiles grises, lentos pero guiados: calculan el camino real por los pasillos hasta ti. Dispara con mucha calma y solo tiene un misil en el aire.', tip: 'No intentes huir de un misil: dispárale directamente para destruirlo, o hazlo chocar contra una pared tras un giro brusco.' },
+        { t: 8, n: 'Cerebro', lv: 15, d: 'El más listo: rápido, esquiva tus balas, calcula rebotes y mina con estrategia: deja minas en los pasillos estrechos y cruces por los que vas a pasar y en su ruta de huida cuando lo persigues, siempre separadas entre sí.', tip: 'No lo persigas por pasillos: rodéalo y dispárale a distancia. Si ves una mina en un cruce, ahí habrá más.' },
+        { t: 9, n: 'Asesino', lv: 17, d: 'Negro, veloz y con bala súper sin rebotes. Si un muro rompible le obliga a dar un gran rodeo para llegar a ti, se acerca, planta una mina junto a él y se aparta para abrirse un atajo.', tip: 'Cuando lo veas pegado a un muro marrón, prepárate: en unos segundos habrá un agujero por el que entrar. Dispara por esa abertura.' },
+        { t: 13, n: 'Prisa', lv: 23, d: 'Tanque negro con contornos rojos, calavera en la torreta y pinchos por detrás. Es inmortal: ninguna bala ni mina le hace daño, atraviesa las paredes y te persigue sin descanso. Si te toca, mueres. Dispara balas normales con un rebote. Al cruzar un muro suelta humo negro a su alrededor, y calcula sus disparos (anticipa tu movimiento y los rebotes) para no fallar. Solo puede haber uno por nivel.', tip: 'No puedes matarlo: aprovecha que es más lento que tú, no te acorrales y cumple el objetivo antes de que te alcance. En Cazado por Prisa, recoge las 8 gemas rojas.' },
+        { t: 14, n: 'Misilero', lv: 20, d: 'Tanque blanco que dispara misiles grises, lentos pero guiados: calculan el camino real por los pasillos hasta ti. Dispara con mucha calma y solo tiene un misil en el aire.', tip: 'No intentes huir de un misil: dispárale directamente para destruirlo, o hazlo chocar contra una pared tras un giro brusco.' },
         { t: 18, n: 'Escudero', lv: 8, d: 'Tanque gris con una placa curva delante. Su escudo absorbe cualquier bala que le llegue de frente, así que mirarlo de cara no sirve de nada. Aguanta 2 impactos y avanza con calma.', tip: 'Rodéalo y dispara por la espalda o los costados, o déjale una mina en el camino: las minas ignoran el escudo.' },
-        { t: 20, n: 'Fragmentador', lv: 10, d: 'Blindaje agrietado de color ámbar. Cuando lo destruyes se parte en dos Esquirlas, pequeñas y muy rápidas. Aguanta 2 impactos.', tip: 'Dispárale cuando esté lejos de ti: así las esquirlas tardan más en alcanzarte. Una mina las barre a las dos.' },
+        { t: 20, n: 'Fragmentador', lv: 10, d: 'Blindaje agrietado de color ámbar con una grieta incandescente. Cae de un solo impacto, pero al destruirlo se parte en tres Esquirlas pequeñas y muy rápidas («¡FRAGMENTACIÓN!»).', tip: 'Dispárale cuando esté lejos de ti: así las esquirlas tardan más en alcanzarte. Una mina las barre a las tres.' },
         { t: 22, n: 'Furia', lv: 12, d: 'Tanque naranja con cuernos, colmillos y llamas detrás. Acecha despacio, pero cada vez que lo hieres entra en frenesí durante 2,5 s: te persigue al doble de velocidad y dispara abanicos de 3 balas. Con 1 de vida se queda en furia total y, al morir, estalla con un aviso de 0,8 s. Aguanta 3 impactos.', tip: 'Aléjate cuando se encienda el aura roja, esquiva el abanico tras un muro y no lo remates a quemarropa: su explosión final también te alcanza.' },
-        { t: 19, n: 'Mortero', lv: 13, d: 'Artillería lenta de cañón grueso. No te dispara: lanza obuses que marcan un círculo rojo en el suelo y estallan 1,3 s después con el radio de una mina. Calcula hacia dónde te mueves.', tip: 'Cuando veas el círculo, sal de él. Los obuses no se pueden disparar; castiga al mortero cuando acabe de lanzar.' },
+        { t: 19, n: 'Mortero', lv: 13, d: 'Artillería estática de cañón grueso. No te dispara: lanza obuses que marcan un círculo rojo en el suelo y estallan 1,3 s después con el radio de una mina. Calcula hacia dónde te mueves y dispara cada 3,8 s.', tip: 'Cuando veas el círculo, sal de él. Los obuses no se pueden disparar; acércate por un lateral mientras recarga.' },
         { t: 21, n: 'Embestidor', lv: 16, d: 'Tanque rayado de amarillo y negro con un ariete delante. Te persigue y, si te ve de lejos, se detiene un instante (un cono amarillo marca por dónde va a cargar) y arremete. La carga dobla esquinas siguiendo el camino del laberinto, rompe cajas y muros rompibles, encadena hasta 3 embestidas seguidas y las balas rebotan en su ariete mientras carga. Si te toca, pierdes una vida; si choca con un muro, queda aturdido. Aguanta 3 impactos.', tip: 'Mientras carga es inmune a las balas: una mina en su camino o esconderte tras un muro macizo es lo que funciona. Castígalo cuando quede aturdido.' },
         { t: 23, n: 'Esquirla', lv: 0, d: 'Fragmento diminuto que nace al destruir un Fragmentador. Muy rápido y de un solo impacto, dispara con poca frecuencia y sin rebotes.', tip: 'No las persigas: déjalas venir y elimínalas una a una desde una esquina.' },
+        { t: 24, n: 'Tesla', lv: 18, d: 'Bobina estática de cobre con un orbe azul. Cuando te ve carga chispas durante 0,5 s y suelta una onda de choque que se expande 250 px y te quita una vida si te alcanza; los muros la bloquean. Aguanta 2 impactos.', tip: 'Ponte tras un muro macizo cuando se carguen las chispas, o acércate y dispárale mientras recarga (4 s entre ondas).' },
         { s: 'vip', n: 'VIP', lv: 0, d: 'Objetivo de la misión VIP, marcado con un escudo cian que late. Si su tanque es móvil, huye de ti por los pasillos y ya no se queda quieto; si es estático, te espera rodeado de guardaespaldas. La escolta lo orbita y dispara a tus balas cercanas.', tip: 'Ignora a los guardias si puedes: arrincona al VIP contra un muro o usa rebotes para alcanzarlo.' },
-        { s: 'boss', n: 'Jefe', lv: 0, d: 'Tanque gigante con mucha vida, bala súper, un rebote extra y una cadencia un 40% más rápida que su versión normal. En el modo Jefes aparece en cada misión.', tip: 'Mantén distancia, esquiva con los muros y devuélvele daño con minas cuando te persiga.' },
+        { s: 'boss', n: 'Jefe', lv: 0, d: 'Tanque gigante con mucha vida, bala súper, un rebote extra y una cadencia un 40% más rápida. Imita las habilidades de enemigos recientes (1 a 3 según el nivel): escudo frontal, obuses de mortero, fragmentación en esquirlas, embestidas, furia al bajar al 50% y ondas de choque Tesla.', tip: 'Fíjate en sus adornos: escudo plateado, tubos de mortero, grietas ámbar, rayas amarillas, cuernos o bobinas azules. Cada uno anuncia una habilidad.' },
         { s: 'ally', n: 'Aliado', lv: 0, d: 'Tanque blanco que te acompaña en las misiones Proteger (10 de vida) y Escolta. Dispara al enemigo más cercano. Si cae, pierdes una vida y se reinicia la misión.', tip: 'Elimina primero a quien le apunte. En Escolta avanza solo cuando estás cerca.' },
         { s: 'mine', n: 'Mina', lv: 0, d: 'Estalla tras 3 segundos o cuando un tanque rival pasa cerca. Su explosión destruye muros marrones y daña búnkeres. Se puede detonar con una bala.', tip: 'Las tuyas son cian y las enemigas rojas. En el campo minado son permanentes: dispárales desde lejos.' },
         { s: 'bunker', n: 'Búnker', lv: 0, d: 'Puerta blindada de hormigón de la misión Demolición. Solo recibe daño de tus balas y de tus minas; las balas enemigas rebotan en ella, y de vez en cuando suelta enemigos.', tip: 'Empieza por los más alejados de los enemigos y rómpelos con minas mientras te cubres.' }
@@ -3389,9 +3621,10 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         if (e.t !== undefined) {
             const T = ENEMY_TYPES[e.t], b = [SPEEDTXT(T.speed), T.bullet === 'none' ? 'Sin disparo' : (T.bullet === 'super' ? 'Bala súper' : (T.bullet === 'missile' ? 'Misil guiado' : (T.bullet === 'acid' ? 'Saliva ácida' : 'Bala normal'))), T.bullet === 'none' ? 'Explota' : (T.bullet === 'missile' ? 'Sigue el camino' : 'Rebotes: ' + T.rebounces), (T.haste ? 'Vida: ∞' : 'Vida: ' + (T.hp || 1))];
             if (T.haste) b.push('Inmortal', 'Atraviesa paredes', 'Mata al tocar', 'Puntería calculada'); if (T.venom) b.push('Camino ácido'); if (T.necro) b.push('Revive a los caídos', 'Revive nigromantes y jefes', 'Huye de ti'); if (T.mines) b.push('Pone minas'); if (T.invisible) b.push('Invisible'); if (T.maxBullets) b.push('Ráfaga ×' + T.maxBullets);
-            if (T.mortar) { b[1] = 'Obús con aviso'; b[2] = 'Área como una mina'; b.push('No se puede disparar al obús'); }
-            if (T.charger) { b[1] = 'Embestida'; b[2] = 'Aturdido al chocar'; b.push('Quita una vida al tocar'); }
-            if (T.shield) b.push('Escudo frontal'); if (T.split) b.push('Fragmentación en 2'); if (T.rage) b.push('Se enfurece al herirla');
+            if (T.mortar) { b[1] = 'Obús con aviso'; b[2] = 'Área como una mina'; b.push('Estático'); }
+            if (T.tesla) { b[1] = 'Onda de choque'; b[2] = 'Los muros la bloquean'; b.push('Estático'); }
+            if (T.charger) { b[1] = 'Embestida recta'; b[2] = 'Aturdido al chocar'; b.push('Una mina lo mata'); }
+            if (T.shield) b.push('Escudo frontal'); if (T.split) b.push('Fragmentación en 3'); if (T.rage) b.push('Se enfurece al herirla');
             b.push(T.shard ? 'Nace de un Fragmentador' : 'Desde el nivel ' + e.lv); b.push('Derrotados: ' + ((prof.kt || {})[T.type] || 0)); return b;
         }
         return { vip: ['Escudo cian', 'Vida: 1', 'Escoltado'], boss: ['Vida 7+', 'Bala súper', '+1 rebote'], ally: ['Vida 6-10', 'De tu bando'], mine: ['Radio 85', '3 s de mecha'], bunker: ['Vida 5-9', 'Solo tu fuego'] }[e.s];
@@ -4430,18 +4663,18 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const P = q => [q.slot || 0, r1(q.x), r1(q.y), a2(q.baseAngle), a2(q.turretAngle), q.hp, q.dead ? 1 : 0, q.invuln > 0 ? 1 : 0, q.minesLaid || 0, q.carriedItems || 0, q.lives];
         const nd = [];
         const e = enemies.map(en => {
-            if (!net.sentDefs.has(en.nid)) { net.sentDefs.add(en.nid); nd.push([en.nid, en.baseColor, en.turretColor, en.type, en.isBoss ? 1 : 0, en.invisible ? 1 : 0, en.isVip ? 1 : 0, en.isAlly ? 1 : 0, en.radius, en.kamikaze ? 1 : 0, en.maxHp, r1(en.x), r1(en.y), en.sq === undefined ? -1 : en.sq]); }
-            return [en.nid, r1(en.x), r1(en.y), a2(en.baseAngle), a2(en.turretAngle), en.hp, en.role === 'def' ? 1 : (en.fz > 0 ? 2 : (en.chS === 1 ? 3 : (en.chS === 3 ? 4 : (en.chS === 2 ? 5 : 0)))), en.rvT > 0 ? Math.round(en.rvT * 100 / NECRO_CHANNEL) : 0];
+            if (!net.sentDefs.has(en.nid)) { net.sentDefs.add(en.nid); nd.push([en.nid, en.baseColor, en.turretColor, en.type, en.isBoss ? 1 : 0, en.invisible ? 1 : 0, en.isVip ? 1 : 0, en.isAlly ? 1 : 0, en.radius, en.kamikaze ? 1 : 0, en.maxHp, r1(en.x), r1(en.y), en.sq === undefined ? -1 : en.sq, en.abs || '']); }
+            return [en.nid, r1(en.x), r1(en.y), a2(en.baseAngle), a2(en.turretAngle), en.hp, en.role === 'def' ? 1 : enemySt(en), en.rvT > 0 ? Math.round(en.rvT * 100 / NECRO_CHANNEL) : 0];
         });
         if (net.fx.length > 40) net.fx.length = 40;
         net.sn = (net.sn || 0) + 1; const full = net.sn % 3 === 1; // minas, objetos, zonas y ácido cambian poco: 1 de cada 3 paquetes
         const m = { t: 's', fc: frameCount, p: [P(player), ...remotes.map(P)], e, b: bullets.filter(b => !b.dead).map(b => [r1(b.x), r1(b.y), a2(b.vx), a2(b.vy), b.radius, b.color, b.tm === undefined ? -1 : b.tm, b.mis ? 1 : 0, b.bid || 0]),
             h: [player.lives, score, gems, surviveTimer, timeLimit, combo, keysCollected, itemsDelivered, objDone ? 1 : 0, jewelTaken ? 1 : 0, pvs], fx: net.fx.splice(0) };
         if (full) {
-            m.m = mines.map(q => [r1(q.x), r1(q.y), q.owner === 'player' ? 1 : 0, Math.min(q.timer, 9999), q.shell ? 2 : (q.perm ? 1 : 0)]);
+            m.m = mines.map(q => [r1(q.x), r1(q.y), q.owner === 'player' ? 1 : 0, Math.min(q.timer, 9999), q.shock ? 3 : (q.shell ? 2 : (q.perm ? 1 : 0))]);
             m.i = items.filter(i => !i.collected).map(i => [i.type, r1(i.x), r1(i.y), i.color]);
             m.q = pendingSpawns.map(q => [r1(q.x), r1(q.y), q.tm === undefined ? -1 : q.tm]);
-            m.ez = ezOut(); m.zn = zonesOut(); m.tg = targets.map(t => [t.x, t.y, t.hp, t.maxHp, t.tm === undefined ? -1 : t.tm]);
+            m.ez = ezOut(); m.zn = zonesOut(); m.tg = targets.map(t => [t.x, t.y, t.hp, t.maxHp, t.tm === undefined ? -1 : t.tm, t.spawner ? 1 : 0]);
             m.ac = acid.map(a => [r1(a.x), r1(a.y), a.r, a.life, r1(a.ph * 100)]);
             m.dm = deadMarks.map(q => [r1(q.x), r1(q.y), q.life, q.by ? 1 : 0]);
         }
@@ -4550,7 +4783,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 net.on = true; net.roster = d.roster; net.cfg = d.cfg; currentMode = d.mode; level = d.level; missionNo = d.mn; net.cu = d.cu || null; gemGoal = d.gg; MAP_WIDTH = MAP_HEIGHT = d.W; bossAlso = !!d.ba;
                 setWalls(d.walls); navGrid = []; buildWallGrid(); bullets = []; mines = []; items = []; enemies = []; particles = []; pendingSpawns = []; tracks = []; deadMarks = []; acid = []; net.em.clear(); net.pl = {}; net.bm = new Map();
                 escapeZone = { x: d.ez[0], y: d.ez[1], active: !!d.ez[2], hidden: !!d.ez[3], color: d.ez[4] };
-                zones = d.zn.map(z => ({ x: z[0], y: z[1], r: 70, p: z[2], done: !!z[3], own: z[4] === undefined ? -1 : z[4], ch: z[5] === undefined ? -1 : z[5] })); targets = d.tg.map(t => ({ x: t[0], y: t[1], hp: t[2], maxHp: t[3], width: 80, height: 80, tm: t[4] >= 0 ? t[4] : undefined }));
+                zones = d.zn.map(z => ({ x: z[0], y: z[1], r: 70, p: z[2], done: !!z[3], own: z[4] === undefined ? -1 : z[4], ch: z[5] === undefined ? -1 : z[5] })); targets = d.tg.map(t => ({ x: t[0], y: t[1], hp: t[2], maxHp: t[3], width: 80, height: 80, spawner: !!t[5], tm: t[4] >= 0 ? t[4] : undefined }));
                 applyProfile(); pvpSpawns = d.sp || {}; net.pts = d.pts || [0, 0, 0, 0]; const sp = spawnPos(net.slot);
                 Object.assign(player, { x: sp.x, y: sp.y, dead: !!(d.lv && d.lv[net.slot] <= 0), hp: 1, maxHp: 1, lives: (d.lv && d.lv[net.slot] !== undefined) ? d.lv[net.slot] : d.lives, minesLaid: 0, invuln: 0, lastShotFrame: 0, slot: net.slot, carriedItems: 0 });
                 score = d.score; combo = 0; gems = 0; timeLimit = d.tl; surviveTimer = 0; objDone = false; jewelTaken = false; keysCollected = 0; itemsDelivered = 0; net.rdy = {}; net.pausedBy = {};
@@ -4574,7 +4807,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                     upd(o, a[1], a[2], a[3], a[4]);
                     Object.assign(o, { hp: a[5], dead: !!a[6], inv: !!a[7], ml: a[8], ci: a[9], lv: a[10] });
                 }
-                if (d.nd) for (const a of d.nd) net.em.set(a[0], { nid: a[0], id: 'n' + a[0], baseColor: a[1], turretColor: a[2], type: a[3], isBoss: !!a[4], invisible: !!a[5], isVip: !!a[6], isAlly: !!a[7], radius: a[8], kamikaze: !!a[9], sq: a[13] >= 0 ? a[13] : undefined, maxHp: a[10], hp: a[10], x: a[11], y: a[12], tx: a[11], ty: a[12], hx: a[11], hy: a[12], vx: 0, vy: 0, age: 0, baseAngle: 0, turretAngle: 0, tba: 0, tta: 0 });
+                if (d.nd) for (const a of d.nd) net.em.set(a[0], { nid: a[0], id: 'n' + a[0], baseColor: a[1], turretColor: a[2], type: a[3], isBoss: !!a[4], invisible: !!a[5], isVip: !!a[6], isAlly: !!a[7], radius: a[8], kamikaze: !!a[9], sq: a[13] >= 0 ? a[13] : undefined, abs: a[14] || '', maxHp: a[10], hp: a[10], x: a[11], y: a[12], tx: a[11], ty: a[12], hx: a[11], hy: a[12], vx: 0, vy: 0, age: 0, baseAngle: 0, turretAngle: 0, tba: 0, tta: 0 });
                 const seen = new Set();
                 for (const a of d.e) { const o = net.em.get(a[0]); if (!o) continue; seen.add(a[0]); upd(o, a[1], a[2], a[3], a[4]); o.hp = a[5]; o.role = a[6] === 1 ? 'def' : 'atk'; o.st = a[6] || 0; o.rv = a[7] || 0; }
                 for (const id of [...net.em.keys()]) if (!seen.has(id)) net.em.delete(id);
@@ -4593,12 +4826,12 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 bullets = nb;
                 [, score, gems, surviveTimer, timeLimit, combo, keysCollected, itemsDelivered] = d.h; if (net.pl[net.slot] && net.pl[net.slot].lv !== undefined) player.lives = net.pl[net.slot].lv; objDone = !!d.h[8]; jewelTaken = !!d.h[9]; if (d.h[10]) pvs = d.h[10];
                 if (d.m) {
-                    mines = d.m.map(a => ({ x: a[0], y: a[1], owner: a[2] ? 'player' : 'enemy', timer: a[3], radius: 12, perm: a[4] === 1, shell: a[4] === 2 }));
+                    mines = d.m.map(a => ({ x: a[0], y: a[1], owner: a[2] ? 'player' : 'enemy', timer: a[3], radius: 12, perm: a[4] === 1, shell: a[4] === 2, shock: a[4] === 3 }));
                     items = d.i.map(a => ({ type: a[0], x: a[1], y: a[2], color: a[3], collected: false }));
                     pendingSpawns = d.q.map(a => ({ x: a[0], y: a[1], tm: a[2] >= 0 ? a[2] : undefined }));
                     escapeZone = { x: d.ez[0], y: d.ez[1], active: !!d.ez[2], hidden: !!d.ez[3], color: d.ez[4] };
                     zones = d.zn ? d.zn.map(z => ({ x: z[0], y: z[1], r: 70, p: z[2], done: !!z[3], own: z[4] === undefined ? -1 : z[4], ch: z[5] === undefined ? -1 : z[5] })) : [];
-                    targets = d.tg ? d.tg.map(t => ({ x: t[0], y: t[1], hp: t[2], maxHp: t[3], width: 80, height: 80, tm: t[4] >= 0 ? t[4] : undefined })) : [];
+                    targets = d.tg ? d.tg.map(t => ({ x: t[0], y: t[1], hp: t[2], maxHp: t[3], width: 80, height: 80, spawner: !!t[5], tm: t[4] >= 0 ? t[4] : undefined })) : [];
                     acid = (d.ac || []).map(a => ({ x: a[0], y: a[1], r: a[2], life: a[3], max: 360, ph: a[4] / 100 }));
                     deadMarks = (d.dm || []).map(a => ({ x: a[0], y: a[1], life: a[2], by: a[3] ? 1 : 0 }));
                 }
