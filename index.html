@@ -638,9 +638,9 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
 
     // Ácido del enemigo venenoso
-    function dropAcid(x, y, r, owner) {
+    function dropAcid(x, y, r, owner, life) {
         if (wallHit({ x, y, radius: 4 })) return;
-        acid.push({ x, y, r, life: 360, max: 360, o: owner, ph: Math.random() * 6.283 });
+        acid.push({ x, y, r, life: life || 360, max: life || 360, o: owner, ph: Math.random() * 6.283 });
         if (acid.length > 260) acid.shift();
     }
     function acidGrid() {
@@ -669,11 +669,11 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (const p of alivePlayers()) {
             if (p.invuln > 0 || !onAcid(p)) { p.acT = 0; continue; }
             p.acT = (p.acT || 0) + 1;
-            if (p.acT >= 40) { p.acT = 0; createExplosion(p.x, p.y, '#76ff03', 14); playerDamage(p); }
+            if (p.acT >= 1) { p.acT = 0; createExplosion(p.x, p.y, '#76ff03', 14); playerDamage(p); } // el charco ácido quita una vida al instante
         }
         const al = enemies.find(q => q.isAlly);
         if (al) {
-            if (onAcid(al)) { al.acT = (al.acT || 0) + 1; if (al.acT >= 45) { al.acT = 0; al.hp--; createExplosion(al.x, al.y, '#76ff03', 10); if (al.hp <= 0) allyDeath(); } }
+            if (onAcid(al)) { al.acT = (al.acT || 0) + 1; if (al.acT >= 1) { al.acT = 0; al.hp = 0; createExplosion(al.x, al.y, '#76ff03', 10); if (al.hp <= 0) allyDeath(); } }
             else al.acT = 0;
         }
     }
@@ -1563,7 +1563,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         }
         if (A.includes('V') && tp && (e.visT || 0) >= 20 && Math.hypot(tp.x - e.x, tp.y - e.y) < 700) { // saliva ácida en abanico de 3 (cada 5 s)
             if (e.bV === undefined) e.bV = 150;
-            if (--e.bV <= 0) { e.bV = 300; const a0 = Math.atan2(tp.y - e.y, tp.x - e.x); for (const o of [-0.26, 0, 0.26]) { const a = a0 + o; bullets.push({ x: e.x + Math.cos(a) * (e.radius + 6), y: e.y + Math.sin(a) * (e.radius + 6), vx: Math.cos(a) * BULLET_SPEED, vy: Math.sin(a) * BULLET_SPEED, radius: 5, color: '#76ff03', shooterId: e.id, bounces: 1, dead: false, life: 450, bid: ++BID, acid: true }); } }
+            if (--e.bV <= 0) { e.bV = 360; const a0 = Math.atan2(tp.y - e.y, tp.x - e.x); for (const o of [-0.18, 0.18]) { const a = a0 + o; bullets.push({ x: e.x + Math.cos(a) * (e.radius + 6), y: e.y + Math.sin(a) * (e.radius + 6), vx: Math.cos(a) * BULLET_SPEED, vy: Math.sin(a) * BULLET_SPEED, radius: 5, color: '#76ff03', shooterId: e.id, bounces: 1, dead: false, life: 450, bid: ++BID, acid: true, bossAcid: true }); } }
         }
         if (A.includes('M') && tp && (e.visT || 0) >= 20) {
             if (e.bM === undefined) e.bM = 200;
@@ -1628,11 +1628,15 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         if (d < 760) {
             // no embiste directo hacia ti: se coloca con una embestida (en la esquina de tu fila o columna) y con la siguiente te alcanza
             const adx = Math.abs(tp.x - e.x), ady = Math.abs(tp.y - e.y);
-            if ((adx < 36 || ady < 36) && legClear(e.x, e.y, tp.x, tp.y)) return { a: a0, len: d + 50 };
+            // solo carga directo si ya estás alineado (en línea recta o en diagonal de 45°)
+            if ((adx < 36 || ady < 36 || Math.abs(adx - ady) < 36) && legClear(e.x, e.y, tp.x, tp.y)) return { a: a0, len: d + 50 };
+            const sxn = Math.sign(tp.x - e.x), syn = Math.sign(tp.y - e.y), m = Math.min(adx, ady), okc = cr => { const l1 = Math.hypot(cr[0] - e.x, cr[1] - e.y), l2 = Math.hypot(tp.x - cr[0], tp.y - cr[1]); return l1 >= 60 && l2 >= 40 && legClear(e.x, e.y, cr[0], cr[1]) && legClear(cr[0], cr[1], tp.x, tp.y); };
+            // rutas de 2 tramos con diagonales: diagonal y luego recto, o recto y luego diagonal
+            const diag = m > 60 ? [[e.x + sxn * m, e.y + syn * m], (adx > ady ? [tp.x - sxn * m, e.y] : [e.x, tp.y - syn * m])].filter(okc) : [];
+            if (diag.length) { const cr = diag[Math.floor(Math.random() * diag.length)]; return { a: Math.atan2(cr[1] - e.y, cr[0] - e.x), len: Math.hypot(cr[0] - e.x, cr[1] - e.y) }; }
             let best = null;
             for (const cr of [[tp.x, e.y], [e.x, tp.y]]) {
-                const l1 = Math.hypot(cr[0] - e.x, cr[1] - e.y), l2 = Math.hypot(tp.x - cr[0], tp.y - cr[1]);
-                if (l1 < 60 || l2 < 40 || !legClear(e.x, e.y, cr[0], cr[1]) || !legClear(cr[0], cr[1], tp.x, tp.y)) continue;
+                if (!okc(cr)) continue; const l1 = Math.hypot(cr[0] - e.x, cr[1] - e.y), l2 = Math.hypot(tp.x - cr[0], tp.y - cr[1]);
                 if (!best || l1 + l2 < best.t) best = { t: l1 + l2, a: Math.atan2(cr[1] - e.y, cr[0] - e.x), len: l1 };
             }
             if (best) return { a: best.a, len: best.len };
@@ -1652,9 +1656,10 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         while (hp.length && it++ < 9000) {
             const [dk, cur] = hpop(); if (done[cur]) continue; done[cur] = 1; if (cur === g0) { found = true; break; }
             const r = (cur / cols) | 0, c = cur % cols;
-            for (const q of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            for (const q of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
                 const nr = r + q[0], nc = c + q[1]; if (nr < 0 || nc < 0 || nr >= rows || nc >= cols) continue;
                 const ni = nr * cols + nc; if (done[ni]) continue; let cs = cost(nr, nc); if (ni === g0 && cs === Infinity) cs = 1; if (cs === Infinity) continue;
+                if (q[0] && q[1]) { if (cost(r + q[0], c) === Infinity || cost(r, c + q[1]) === Infinity) continue; cs *= 1.414; } // las diagonales no cortan esquinas
                 const nd = dk + cs; if (nd < dist[ni]) { dist[ni] = nd; prev[ni] = cur; hpush(nd, ni); }
             }
         }
@@ -1840,11 +1845,11 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
         for (let i = bullets.length - 1; i >= 0; i--) {
             let b = bullets[i];
-            if (b.dead) { if (b.acid && !b.spl) { b.spl = 1; dropAcid(b.x - b.vx, b.y - b.vy, 24, b.shooterId); } bullets.splice(i, 1); continue; }
+            if (b.dead) { if (b.acid && !b.spl) { b.spl = 1; dropAcid(b.x - b.vx, b.y - b.vy, b.bossAcid ? 30 : 24, b.shooterId, b.bossAcid ? 200 : 0); } bullets.splice(i, 1); continue; }
 
             if (b.mis) missileSteer(b);
             b.x += b.vx; b.y += b.vy; b.life--;
-            if (b.acid) { b.tr = (b.tr || 0) + Math.hypot(b.vx, b.vy); if (b.tr >= 14) { b.tr = 0; dropAcid(b.x, b.y, 15, b.shooterId); } }
+            if (b.acid && !b.bossAcid) { b.tr = (b.tr || 0) + Math.hypot(b.vx, b.vy); if (b.tr >= 14) { b.tr = 0; dropAcid(b.x, b.y, 15, b.shooterId); } }
             if (b.life <= 0) { b.dead = true; continue; }
 
             let hitW = false; const w = wallHit(b);
@@ -2692,6 +2697,13 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         c.fillStyle = baseColor; c.strokeStyle = haste ? '#ff1744' : '#222'; c.lineWidth = haste ? 3 : 2; c.beginPath();
         const r = isBoss ? 24 : 14; c.roundRect(-r, -r, r * 2, r * 2, 4); c.fill(); c.stroke();
         if (ven) { c.fillStyle = '#9ccc65'; c.strokeStyle = '#33691e'; c.lineWidth = 1; for (const q of [[-7, -6, 3], [6, 5, 2.5], [-5, 7, 2]]) { c.beginPath(); c.arc(q[0], q[1], q[2], 0, 6.283); c.fill(); c.stroke(); } }
+        if (isBoss) { // blindaje por placas, remaches, faldones de peligro y núcleo trasero
+            c.fillStyle = 'rgba(0,0,0,.30)'; c.fillRect(-r, -r, 12, r * 2); c.fillStyle = 'rgba(255,255,255,.14)'; c.fillRect(r - 14, -r, 14, r * 2);
+            c.strokeStyle = 'rgba(0,0,0,.6)'; c.lineWidth = 2; c.beginPath(); c.moveTo(-r + 12, -r); c.lineTo(-r + 12, r); c.moveTo(r - 14, -r); c.lineTo(r - 14, r); c.moveTo(-r + 12, 0); c.lineTo(r - 14, 0); c.stroke();
+            c.fillStyle = '#212121'; c.fillRect(-r + 2, -r - 3, r * 2 - 4, 4); c.fillRect(-r + 2, r - 1, r * 2 - 4, 4); c.fillStyle = '#ffd600'; for (let i = -r + 4; i < r - 6; i += 9) { c.fillRect(i, -r - 3, 4.5, 4); c.fillRect(i, r - 1, 4.5, 4); }
+            c.fillStyle = '#cfd8dc'; c.strokeStyle = '#37474f'; c.lineWidth = 1; for (const sx of [-r + 5, r - 7]) for (const sy of [-r + 5, r - 5]) { c.beginPath(); c.arc(sx, sy, 2.2, 0, 6.283); c.fill(); c.stroke(); }
+            const bp = 0.5 + 0.5 * Math.sin(frameCount * 0.12); c.fillStyle = 'rgba(255,82,82,' + (0.5 + 0.4 * bp) + ')'; c.fillRect(-r - 4, -8, 6, 16); c.fillStyle = '#ffe0b2'; c.fillRect(-r - 3, -3, 4, 6);
+            c.fillStyle = '#37474f'; c.strokeStyle = '#111'; c.lineWidth = 1.5; for (const s of [-1, 1]) { c.beginPath(); c.moveTo(r - 6, s * (r - 2)); c.lineTo(r + 6, s * (r + 4)); c.lineTo(r - 1, s * (r - 8)); c.closePath(); c.fill(); c.stroke(); } }
         if (com) { // galones dorados y charreteras de mando
             c.strokeStyle = '#ffd54f'; c.lineWidth = 2.4; for (const o of [-10, -5]) { c.beginPath(); c.moveTo(o, -6); c.lineTo(o + 5, 0); c.lineTo(o, 6); c.stroke(); }
             c.fillStyle = '#ffd54f'; c.strokeStyle = '#222'; c.lineWidth = 1; c.fillRect(3, -r - 1, 9, 3.4); c.strokeRect(3, -r - 1, 9, 3.4); c.fillRect(3, r - 2.4, 9, 3.4); c.strokeRect(3, r - 2.4, 9, 3.4); }
@@ -2761,6 +2773,10 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 c.closePath(); c.fill(); c.stroke();
             }
             c.fillStyle = turretColor; c.strokeStyle = haste ? '#ff1744' : '#222'; c.lineWidth = haste ? 2.5 : 2; c.beginPath(); c.arc(0, 0, isBoss ? 16 : 10, 0, Math.PI * 2); c.fill(); c.stroke();
+            if (isBoss) { // aro blindado con pinchos y freno de boca
+                c.strokeStyle = '#b0bec5'; c.lineWidth = 3; c.beginPath(); c.arc(0, 0, 15, 0, 6.283); c.stroke();
+                c.fillStyle = '#37474f'; c.strokeStyle = '#111'; c.lineWidth = 1.2; for (let i = 0; i < 6; i++) { const an = i * 1.0472 + 0.52; c.beginPath(); c.moveTo(Math.cos(an - 0.14) * 15, Math.sin(an - 0.14) * 15); c.lineTo(Math.cos(an) * 21, Math.sin(an) * 21); c.lineTo(Math.cos(an + 0.14) * 15, Math.sin(an + 0.14) * 15); c.closePath(); c.fill(); c.stroke(); }
+                c.fillStyle = '#263238'; c.fillRect(cL - 9, -cW / 2 - 3, 8, cW + 6); c.fillStyle = '#ff5252'; c.fillRect(cL - 2, -cW / 2 + 1, 3, cW - 2); c.fillStyle = '#cfd8dc'; c.fillRect(cL - 14, -cW / 2 - 1.5, 3, cW + 3); }
             if (com) { // gorra con estrella
                 c.save(); c.rotate(-turretAngle); c.fillStyle = '#ffd54f'; c.strokeStyle = '#6d4c00'; c.lineWidth = 1; c.beginPath(); for (let i = 0; i < 10; i++) { const rr = i % 2 ? 2.2 : 5.2, an = -Math.PI / 2 + i * Math.PI / 5; c.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); } c.closePath(); c.fill(); c.stroke(); c.restore(); }
             if (bra) { // cúpula de cristal con un cerebro luminoso dentro
@@ -3637,7 +3653,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         { t: 2, n: 'Cañón Rojo', lv: 8, d: 'Torreta fija de bala súper (más rápida) con 2 rebotes. Cubre pasillos enteros con ángulos imposibles. Junto a Prisa, es el único que anticipa hacia dónde te mueves.', tip: 'Evita las líneas largas frente a él y acércate pegado a los muros para quedar fuera de sus rebotes.' },
         { t: 11, n: 'Francotirador', lv: 9, d: 'Se mueve despacio, pero su bala súper con 2 rebotes encuentra ángulos que no ves. Espera su momento y dispara con calma.', tip: 'Muévete en zigzag y no repitas la misma ruta; el rebote castiga la previsibilidad.' },
         { t: 7, n: 'Repetidor', lv: 10, d: 'Ametralla con hasta 3 balas en el aire a la vez y una cadencia altísima. También esquiva tus disparos.', tip: 'Espera a que agote sus tres balas y entonces avanza. Las minas funcionan muy bien contra él.' },
-        { t: 15, n: 'Venenoso', lv: 11, d: 'Tanque verde tóxico que escupe saliva ácida. Su bala deja un camino de charcos verdes con burbujas que queman a quien los pise (a ti y a tu aliado) y que se evaporan con el tiempo. No te apunta a ti: lanza el ácido a los pasillos estrechos de tu ruta para cortarte el paso. No vuelve a disparar hasta que el camino ácido de su último disparo ha desaparecido. Aguanta 2 impactos.', tip: 'No pises los charcos: aprovecha su pausa entre disparos para acercarte. Tu aliado los esquiva, así que no le cortes el paso ni le bloquees los pasillos.' },
+        { t: 15, n: 'Venenoso', lv: 11, d: 'Tanque verde oscuro que escupe saliva ácida. Deja charcos en su trayectoria y donde impacta, y tocar un charco te quita una vida al instante. Los charcos duran 6 s. Aguanta 2 impactos.', tip: 'No pises nunca el verde: rodea los charcos, aprovecha que el Venenoso no dispara mientras su charco siga activo y atácalo desde lejos.' },
         { t: 5, n: 'Fantasma', lv: 13, d: 'Invisible: solo delatan su posición las huellas en el suelo y sus balas. En el juego no se dibuja; aquí lo ves en transparencia.', tip: 'Sigue las huellas recientes y lanza minas en los pasillos por donde pasa.' },
         { t: 17, n: 'Nigromante', lv: 14, d: 'Hechicero de túnica violeta con una cruz de médico verde en la capucha y un aura espectral. Te acecha a distancia, escondido tras los muros y sin disparar, mientras peleas con otros enemigos. Cuando matas a uno se cuela hasta su X y canaliza un ritual de 2 s para levantarlo de nuevo (hasta 5 veces). Si te acercas mucho huye y se defiende a tiros; si te plantas junto al ritual lo interrumpes. Los resucitados no dan puntos, pero se pueden volver a levantar. También resucita a otros nigromantes y a jefes (un jefe exige un ritual de 4 s, gasta 2 usos y vuelve con la mitad de vida). No revive Prisa, suicidas ni VIPs. Aguanta 2 impactos.', tip: 'Si se acumulan X sin que nadie las pise, hay un nigromante cerca: rodea los muros y cázalo primero. Mientras viva, el nivel no se acaba.' },
         { t: 8, n: 'Cerebro', lv: 15, d: 'El más listo: rápido, esquiva tus balas, calcula rebotes y mina con estrategia: deja minas en los pasillos estrechos y cruces por los que vas a pasar y en su ruta de huida cuando lo persigues, siempre separadas entre sí.', tip: 'No lo persigas por pasillos: rodéalo y dispárale a distancia. Si ves una mina en un cruce, ahí habrá más.' },
@@ -3648,11 +3664,11 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         { t: 20, n: 'Fragmentador', lv: 10, d: 'Blindaje agrietado de color ámbar con una grieta incandescente. Cae de un solo impacto, pero al destruirlo se parte en tres Esquirlas pequeñas y muy rápidas («¡FRAGMENTACIÓN!»).', tip: 'Dispárale cuando esté lejos de ti: así las esquirlas tardan más en alcanzarte. Una mina las barre a las tres.' },
         { t: 22, n: 'Furia', lv: 12, d: 'Tanque naranja con cuernos, colmillos y llamas detrás. Acecha despacio, pero cada vez que lo hieres entra en frenesí durante 2,5 s: te persigue al doble de velocidad y dispara abanicos de 3 balas. Con 1 de vida se queda en furia total y, al morir, estalla con un aviso de 0,8 s. Aguanta 3 impactos.', tip: 'Aléjate cuando se encienda el aura roja, esquiva el abanico tras un muro y no lo remates a quemarropa: su explosión final también te alcanza.' },
         { t: 19, n: 'Mortero', lv: 13, d: 'Artillería estática de cañón grueso. No te dispara: lanza obuses que marcan un círculo rojo en el suelo y estallan 1,3 s después con el radio de una mina. Calcula hacia dónde te mueves y dispara cada 3,8 s.', tip: 'Cuando veas el círculo, sal de él. Los obuses no se pueden disparar; acércate por un lateral mientras recarga.' },
-        { t: 21, n: 'Embestidor', lv: 16, d: 'Tanque rayado de amarillo y negro con un ariete delante. Cuando te ve no apunta directamente hacia ti: planifica hasta 3 embestidas rectas (un cono amarillo marca cada una), primero se coloca, por ejemplo en la esquina de tu fila o columna, y luego carga para alcanzarte. En laberintos calcula la ruta de embestidas y cuenta los muros rompibles como camino: los rompe al pasar. Si te toca, pierdes una vida; si choca con un muro o termina su tercera embestida, queda aturdido. Aguanta 3 impactos pero una mina lo mata.', tip: 'Cada embestida es recta y se esquiva apartándote. Mientras carga es inmune a las balas: una mina en su camino, o castigarlo cuando queda aturdido, es lo que funciona.' },
+        { t: 21, n: 'Embestidor', lv: 16, d: 'Tanque rayado de amarillo y negro con un ariete delante. Cuando te ve no apunta directamente hacia ti: planifica hasta 3 embestidas rectas, también en diagonal (un cono amarillo marca cada una): primero se coloca y luego carga para alcanzarte. En laberintos calcula la ruta de embestidas y cuenta los muros rompibles como camino: los rompe al pasar. Si te toca, pierdes una vida; si choca con un muro o termina su tercera embestida, queda aturdido. Aguanta 3 impactos pero una mina lo mata.', tip: 'Cada embestida es recta y se esquiva apartándote. Mientras carga es inmune a las balas: una mina en su camino, o castigarlo cuando queda aturdido, es lo que funciona.' },
         { t: 23, n: 'Esquirla', lv: 0, d: 'Fragmento diminuto que nace al destruir un Fragmentador. Muy rápido y de un solo impacto, dispara con poca frecuencia y sin rebotes.', tip: 'No las persigas: déjalas venir y elimínalas una a una desde una esquina.' },
         { t: 24, n: 'Tesla', lv: 18, d: 'Bobina estática de cobre con un orbe azul. Cuando te ve carga chispas durante 0,5 s y suelta una onda de choque que se expande 250 px y te quita una vida si te alcanza; los muros la bloquean. Aguanta 2 impactos.', tip: 'Ponte tras un muro macizo cuando se carguen las chispas, o acércate y dispárale mientras recarga (4 s entre ondas).' },
         { s: 'vip', n: 'VIP', lv: 0, d: 'Objetivo de la misión VIP, marcado con un escudo cian que late. Si su tanque es móvil, huye de ti por los pasillos y ya no se queda quieto; si es estático, te espera rodeado de guardaespaldas. La escolta lo orbita y dispara a tus balas cercanas.', tip: 'Ignora a los guardias si puedes: arrincona al VIP contra un muro o usa rebotes para alcanzarlo.' },
-        { s: 'boss', n: 'Jefe', lv: 0, d: 'Tanque gigante con mucha vida, bala súper, un rebote extra y una cadencia un 40% más rápida. Imita 1 a 3 habilidades de enemigos recientes (según el nivel): escudo frontal, obuses de mortero, fragmentación en esquirlas, embestidas, furia al bajar al 50%, ondas de choque Tesla, misiles guiados y saliva ácida.', tip: 'Fíjate en sus adornos: escudo plateado (solo protege por delante), tubos de mortero, grietas ámbar, rayas amarillas, cuernos, bobinas azules, cohetes blancos o depósitos verdes. Cada uno anuncia una habilidad.' },
+        { s: 'boss', n: 'Jefe', lv: 0, d: 'Tanque gigante con mucha vida, bala súper, un rebote extra y una cadencia un 40% más rápida. Imita 1 a 3 habilidades de enemigos recientes (según el nivel): escudo frontal, obuses de mortero, fragmentación en esquirlas, embestidas, furia al bajar al 50%, ondas de choque Tesla, misiles guiados y saliva ácida (2 globos que dejan un charco letal durante 3 s donde caen).', tip: 'Fíjate en sus adornos: escudo plateado (solo protege por delante), tubos de mortero, grietas ámbar, rayas amarillas, cuernos, bobinas azules, cohetes blancos o depósitos verdes. Cada uno anuncia una habilidad.' },
         { s: 'ally', n: 'Aliado', lv: 0, d: 'Tanque blanco que te acompaña en las misiones Proteger (10 de vida) y Escolta. Dispara al enemigo más cercano. Si cae, pierdes una vida y se reinicia la misión.', tip: 'Elimina primero a quien le apunte. En Escolta avanza solo cuando estás cerca.' },
         { s: 'mine', n: 'Mina', lv: 0, d: 'Estalla tras 3 segundos o cuando un tanque rival pasa cerca. Su explosión destruye muros marrones y daña búnkeres. Se puede detonar con una bala.', tip: 'Las tuyas son cian y las enemigas rojas. En el campo minado son permanentes: dispárales desde lejos.' },
         { s: 'bunker', n: 'Búnker', lv: 0, d: 'Puerta blindada de hormigón de la misión Demolición. Solo recibe daño de tus balas y de tus minas; las balas enemigas rebotan en ella, y de vez en cuando suelta enemigos.', tip: 'Empieza por los más alejados de los enemigos y rómpelos con minas mientras te cubres.' }
@@ -3680,9 +3696,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function bookGo(d) { bookPage = (bookPage + d + BOOK.length) % BOOK.length; if (document.getElementById('bookwrap').style.display === 'block') openBookOverlay(); else renderLobby(); }
     function openBookOverlay() { const w = document.getElementById('bookwrap'); w.innerHTML = bookHTML() + '<div style="text-align:center"><button class="red" onclick="document.getElementById(\'bookwrap\').style.display=\'none\'">Cerrar libro</button></div>'; w.style.display = 'block'; }
     function bookSpecialKind(e, T) {
-        if (e.s === 'boss') return 'boss';
         if (!T) return null;
-        return T.mortar ? 'mortar' : T.tesla ? 'tesla' : T.charger ? 'charger' : T.bullet === 'missile' ? 'missile' : T.venom ? 'venom' : T.rage ? 'fury' : T.split ? 'split' : T.shield ? 'shield' : T.type === 'assassin' ? 'assassin' : T.type === 'commander' ? 'commander' : T.type === 'brainiac' ? 'brain' : null;
+        return T.mortar ? 'mortar' : T.bullet === 'missile' ? 'missile' : T.rage ? 'fury' : null;
     }
     // Diagramas animados de las trayectorias y efectos especiales; devuelve el título del diagrama
     function bookSpecial(g, e, T, W, y0, y1) {
@@ -3697,77 +3712,18 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         if (k === 'mortar') {
             const bx = ex - 30, by = cy + 36, sy = cy + 30, qx = (sx + bx) / 2, qy = y0 + 4; dot(sx, sy, 11, base);
             g.setLineDash([7, 5]); g.strokeStyle = '#ff9800'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(sx, sy); g.quadraticCurveTo(qx, qy, bx, by); g.stroke(); g.setLineDash([]);
-            const q = Math.min(1, ph * 1.4); ball((1 - q) * (1 - q) * sx + 2 * (1 - q) * q * qx + q * q * bx, (1 - q) * (1 - q) * sy + 2 * (1 - q) * q * qy + q * q * by, '#ff9800', 5);
-            const w = Math.max(0, Math.min(1, (ph - 0.45) / 0.55)); g.strokeStyle = '#ff1744'; g.lineWidth = 3; g.beginPath(); g.arc(bx, by, 28, 0, 6.283); g.stroke(); g.fillStyle = 'rgba(255,23,68,' + (0.08 + 0.3 * w) + ')'; g.fill(); g.beginPath(); g.arc(bx, by, 28 * w, 0, 6.283); g.stroke(); cross(bx, by);
-            return 'Obús en arco: círculo rojo de aviso y explosión 1,3 s después';
-        }
-        if (k === 'tesla') {
-            const wx = sx + 150; dot(sx + 14, cy, 11, '#00b8d4'); wall(wx, y0 + 16, 16, y1 - y0 - 80, '#78909c');
-            g.save(); g.beginPath(); g.rect(10, y0, wx - 10, y1 - y0); g.rect(wx + 16, y1 - 62, W, 62); g.rect(wx + 16, y0, W, 16); g.clip();
-            for (let i = 0; i < 2; i++) { const r = ((ph + i * 0.5) % 1) * 250; g.strokeStyle = 'rgba(0,184,212,' + (0.9 - 0.7 * r / 250) + ')'; g.lineWidth = 6 - 3 * r / 250; g.beginPath(); g.arc(sx + 14, cy, r, 0, 6.283); g.stroke(); } g.restore();
-            g.fillStyle = 'rgba(76,175,80,.28)'; g.fillRect(wx + 16, y0 + 18, W - wx - 30, y1 - y0 - 82); g.fillStyle = '#2e7d32'; g.font = "700 14px 'Barlow Condensed','Arial Narrow',sans-serif"; g.textAlign = 'center'; g.fillText('A SALVO', wx + 16 + (W - wx - 30) / 2, cy - 8);
-            return 'Onda de choque: los muros la bloquean';
-        }
-        if (k === 'charger') {
-            const ax = sx + 14, ay = y0 + 48, bx = ex - 20, by = y1 - 26, pts = [[ax, ay], [bx, ay], [bx, by]];
-            g.fillStyle = 'rgba(255,214,0,.22)'; g.fillRect(ax, ay - 12, bx - ax, 24); g.fillRect(bx - 12, ay, 24, by - ay); line(pts, '#ffd600', false);
-            const p = along(pts, ph2); dot(p[0], p[1], 11, base); cross(bx, by);
-            g.fillStyle = '#fff'; g.strokeStyle = '#ffb300'; g.lineWidth = 2; g.font = "700 15px 'Barlow Condensed','Arial Narrow',sans-serif"; g.textAlign = 'center'; for (const [i, q] of [[1, [(ax + bx) / 2, ay]], [2, [bx, (ay + by) / 2]]]) { g.beginPath(); g.arc(q[0], q[1], 9, 0, 6.283); g.fill(); g.stroke(); g.fillStyle = '#222'; g.fillText(i, q[0], q[1] + 5); g.fillStyle = '#fff'; }
-            return 'Hasta 3 embestidas rectas: se coloca y luego carga';
+            const q = Math.min(1, ph * 1.4); ball((1 - q) * (1 - q) * sx + 2 * (1 - q) * q * qx + q * q * bx, (1 - q) * (1 - q) * sy + 2 * (1 - q) * q * qy + q * q * by, '#ff9800', 5); cross(bx, by);
+            return 'Obús en arco: cae donde vas a estar';
         }
         if (k === 'missile') {
-            const m1 = sx + 120, m2 = ex - 70, pts = [[sx, cy], [m1, cy], [m1, y1 - 24], [m2, y1 - 24], [m2, y0 + 30], [ex - 10, y0 + 30]];
-            wall(m1 + 30, y0 + 22, 18, y1 - y0 - 70, '#78909c'); dot(sx, cy, 11, base); line(pts, '#9e9e9e', true); cross(ex - 10, y0 + 30);
+            const pts = [[sx, cy], [sx + 80, cy - 46], [sx + 170, cy + 46], [sx + 260, cy - 30], [ex - 10, cy]]; dot(sx, cy, 11, base); line(pts, '#9e9e9e', true); cross(ex - 10, cy);
             const p = along(pts, ph2); ball(p[0], p[1], '#fafafa', 6); g.strokeStyle = '#e53935'; g.lineWidth = 2; g.beginPath(); g.arc(p[0], p[1], 6, 0, 6.283); g.stroke();
-            return 'Misil guiado: rodea los muros hasta alcanzarte';
-        }
-        if (k === 'venom') {
-            const ay = cy, bx = ex - 14; dot(sx, ay, 11, base); line([[sx, ay], [bx, ay]], '#76ff03', true);
-            for (let i = 0; i < 9; i++) { const x = sx + 26 + i * ((bx - sx - 26) / 8); g.fillStyle = 'rgba(118,255,3,' + (0.28 + 0.1 * Math.sin(t * 0.1 + i)) + ')'; g.strokeStyle = '#33691e'; g.lineWidth = 1; g.beginPath(); g.arc(x, ay + 20, 10 - (i % 3), 0, 6.283); g.fill(); g.stroke(); }
-            ball(sx + 20 + ph * (bx - sx - 20), ay, '#76ff03', 5); cross(bx, ay);
-            return 'Saliva ácida: deja un rastro de charcos que dañan';
+            return 'Misil guiado: busca el camino hasta ti';
         }
         if (k === 'fury') {
             dot(sx, cy, 11, base);
-            for (const a of [-0.3, 0, 0.3]) { const L2 = ex - sx; line([[sx, cy], [sx + Math.cos(a) * L2, cy + Math.sin(a) * L2]], '#ff9800', true); const d = ph * L2; ball(sx + Math.cos(a) * d, cy + Math.sin(a) * d, '#ff9800', 4.5); }
-            return 'Frenesí: abanico de 3 balas y persecución a doble velocidad';
-        }
-        if (k === 'split') {
-            const cx2 = sx + 110; const f = ph2 * 2;
-            if (f < 1) { dot(cx2, cy, 14, base); g.fillStyle = '#ff6d00'; g.fillRect(cx2 - 11, cy - 2, 22, 4); cross(cx2, cy - 26); } else { const q = f - 1; for (let i = 0; i < 3; i++) { const a = i * 2.094 + 0.5; dot(cx2 + Math.cos(a) * (14 + q * 100), cy + Math.sin(a) * (14 + q * 100), 8, '#ffcc80'); } g.strokeStyle = 'rgba(255,171,64,' + (1 - q) + ')'; g.lineWidth = 3; g.beginPath(); g.arc(cx2, cy, 14 + q * 110, 0, 6.283); g.stroke(); }
-            g.fillStyle = '#4e342e'; g.font = "700 14px 'Barlow Condensed','Arial Narrow',sans-serif"; g.textAlign = 'left'; g.fillText('1 impacto → 3 esquirlas', cx2 + 70, cy + 40);
-            return 'Fragmentación: se parte en 3 al destruirlo';
-        }
-        if (k === 'shield') {
-            const tx = ex - 90, a0 = ((t * 0.01) % 1);
-            g.strokeStyle = '#b0bec5'; g.lineWidth = 7; g.beginPath(); g.arc(tx, cy, 26, Math.PI - 1.0, Math.PI + 1.0); g.stroke(); dot(tx, cy, 14, base); dot(sx, cy, 11, '#00e5ff');
-            line([[sx, cy], [tx - 26, cy]], '#00e5ff', true); line([[tx - 26, cy], [tx - 70, cy - 60]], '#00e5ff', true); const f = a0 * 2;
-            if (f < 1) ball(sx + (tx - 26 - sx) * f, cy, '#00e5ff', 4.5); else ball(tx - 26 - 44 * (f - 1), cy - 60 * (f - 1), '#00e5ff', 4.5); cross(tx + 40, cy);
-            line([[tx + 60, cy + 70], [tx + 30, cy + 10]], '#00e5ff', true); g.fillStyle = '#2e7d32'; g.font = "700 14px 'Barlow Condensed','Arial Narrow',sans-serif"; g.textAlign = 'center'; g.fillText('por detrás sí entra', tx + 50, cy + 90);
-            return 'Escudo frontal: absorbe las balas de cara; ataca por detrás';
-        }
-        if (k === 'assassin') {
-            const wx = sx + 150; wall(wx, y0 + 20, 22, y1 - y0 - 90, '#78909c'); wall(wx, cy - 22, 22, 44, '#a1887f'); dot(sx + 10, cy, 11, base);
-            const f = ph2; if (f < 0.4) { dot(sx + 10 + (wx - 40 - sx) * (f / 0.4), cy, 11, base); } else { dot(wx - 38, cy, 11, base); g.fillStyle = '#9e9e9e'; g.strokeStyle = '#424242'; g.lineWidth = 2; g.beginPath(); g.arc(wx - 20, cy, 8, 0, 6.283); g.fill(); g.stroke(); g.fillStyle = Math.floor(t / 8) % 2 ? '#f44336' : '#fff'; g.beginPath(); g.arc(wx - 20, cy, 3, 0, 6.283); g.fill(); }
-            if (f > 0.75) { g.fillStyle = 'rgba(255,87,34,' + (1 - (f - 0.75) * 3) + ')'; g.beginPath(); g.arc(wx + 6, cy, 22 + (f - 0.75) * 80, 0, 6.283); g.fill(); g.setLineDash([7, 5]); g.strokeStyle = '#212121'; g.lineWidth = 3; g.beginPath(); g.moveTo(wx - 38, cy); g.lineTo(ex - 10, cy); g.stroke(); g.setLineDash([]); cross(ex - 10, cy); } else { g.setLineDash([3, 6]); g.strokeStyle = '#9e9e9e'; g.lineWidth = 2; g.beginPath(); g.moveTo(sx + 10, cy - 42); g.lineTo(sx + 10, y0 + 12); g.lineTo(ex - 10, y0 + 12); g.lineTo(ex - 10, cy); g.stroke(); g.setLineDash([]); cross(ex - 10, cy); }
-            return 'Mina un muro rompible para abrirse un atajo hasta ti';
-        }
-        if (k === 'commander') {
-            dot(sx + 10, cy, 11, base); dot(ex - 30, cy, 11, '#bdbdbd'); g.strokeStyle = 'rgba(0,229,255,.9)'; g.lineWidth = 2.5; for (let i = 0; i < 3; i++) { g.globalAlpha = 1 - i * 0.3; g.beginPath(); g.arc(sx + 24, cy, 18 + i * 12 + (t % 24), -0.55, 0.55); g.stroke(); } g.globalAlpha = 1;
-            g.setLineDash([6, 5]); g.beginPath(); g.arc(ex - 30, cy, 22, 0, 6.283); g.stroke(); g.setLineDash([]); for (let i = 0; i < 3; i++) { g.beginPath(); g.moveTo(ex - 70 - i * 8, cy - 8 + i * 8); g.lineTo(ex - 52 - i * 8, cy - 8 + i * 8); g.stroke(); }
-            g.fillStyle = '#4e342e'; g.font = "700 14px 'Barlow Condensed','Arial Narrow',sans-serif"; g.textAlign = 'center'; g.fillText('móvil ×2 · 12 s   |   estático: anda 20 s', W / 2, y1 - 14);
-            return 'Grito: acelera a un aliado cercano y avisa al terminar';
-        }
-        if (k === 'brain') {
-            const wy1 = cy - 50, wy2 = cy + 28; wall(sx + 60, y0 + 10, ex - sx - 70, wy1 - y0 - 10 + 20); wall(sx + 60, wy2 + 20, ex - sx - 70, y1 - wy2 - 30); dot(sx + 10, cy - 6, 11, base);
-            for (const x of [sx + 150, sx + 250]) { g.fillStyle = '#9e9e9e'; g.strokeStyle = '#424242'; g.lineWidth = 2; g.beginPath(); g.arc(x, cy - 6, 9, 0, 6.283); g.fill(); g.stroke(); g.fillStyle = Math.floor(t / 14) % 2 ? '#f44336' : '#fff'; g.beginPath(); g.arc(x, cy - 6, 3.5, 0, 6.283); g.fill(); }
-            g.setLineDash([6, 5]); g.strokeStyle = '#7e57c2'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(ex - 10, cy - 6); g.lineTo(sx + 70, cy - 6); g.stroke(); g.setLineDash([]); cross(ex - 10, cy - 6);
-            return 'Mina pasillos estrechos y cruces por los que vas a pasar';
-        }
-        if (k === 'boss') {
-            const ab = [['🛡', 'Escudo'], ['💣', 'Mortero'], ['🧩', 'Fragm.'], ['🐂', 'Embestida'], ['😡', 'Furia'], ['⚡', 'Tesla'], ['🚀', 'Misiles'], ['☣', 'Veneno']];
-            g.textAlign = 'center'; for (let i = 0; i < 8; i++) { const x = 38 + i * ((W - 76) / 7), on = Math.floor(t / 60) % 8 === i; g.fillStyle = on ? 'rgba(255,193,7,.45)' : 'rgba(255,255,255,.5)'; g.fillRect(x - 28, cy - 34, 56, 62); g.strokeStyle = on ? '#ff6f00' : '#8d6e63'; g.lineWidth = 2; g.strokeRect(x - 28, cy - 34, 56, 62); g.font = '24px sans-serif'; g.fillStyle = '#222'; g.fillText(ab[i][0], x, cy - 6); g.font = "700 13px 'Barlow Condensed','Arial Narrow',sans-serif"; g.fillStyle = '#4e342e'; g.fillText(ab[i][1], x, cy + 18); }
-            return 'Imita 1 a 3 habilidades de enemigos recientes';
+            for (const a of [-0.3, 0, 0.3]) { const L2 = ex - sx; line([[sx, cy], [sx + Math.cos(a) * L2, cy + Math.sin(a) * L2]], '#ff9800', true); const d = ph * L2; ball(sx + Math.cos(a) * d, cy + Math.sin(a) * d, '#ff9800', 4.5); cross(sx + Math.cos(a) * L2, cy + Math.sin(a) * L2); }
+            return 'Abanico de 3 balas (en frenesí)';
         }
         return null;
     }
@@ -3793,7 +3749,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             if (T.venom) { for (let i = 0; i < 3; i++) { g.save(); g.translate(-96 + i * 26, 84 + (i % 2) * 6); g.fillStyle = '#5bd01e'; g.strokeStyle = '#2e7d32'; g.lineWidth = 2; g.beginPath(); g.arc(0, 0, 13, 0, 6.283); g.fill(); g.stroke(); const ph = ((bookT * 0.02) + i * 0.33) % 1; g.fillStyle = '#d7ffb0'; g.strokeStyle = '#33691e'; g.lineWidth = 1; g.beginPath(); g.arc(Math.cos(i * 2.1) * 5, Math.sin(i * 2.1) * 5 - ph * 8, 2 + ph * 3, 0, 6.283); g.fill(); g.stroke(); g.restore(); } label = 'SE MUEVE · DEJA ÁCIDO'; }
             if (T.necro) for (let i = 0; i < 2; i++) { g.save(); g.translate(-100 + i * 36, 82 - i * 6); g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 5; g.beginPath(); g.moveTo(-10, -10); g.lineTo(10, 10); g.moveTo(10, -10); g.lineTo(-10, 10); g.stroke(); g.strokeStyle = '#2e7d32'; g.lineWidth = 2; g.setLineDash([4, 4]); g.beginPath(); g.arc(0, 0, 17 + Math.sin(bookT * 0.1 + i) * 2, 0, 6.283); g.stroke(); g.setLineDash([]); g.restore(); }
             if (T.maxBullets) bn = T.maxBullets;
-            bulletCol = T.bullet === 'acid' ? '#76ff03' : (T.bullet === 'super' ? '#e91e63' : (T.bullet === 'missile' ? '#9e9e9e' : (T.haste ? '#ff1744' : '#ff9800'))); rb = T.rebounces;
+            bulletCol = T.bullet === 'acid' ? '#76ff03' : (T.bullet === 'super' ? '#e91e63' : (T.bullet === 'missile' ? '#9e9e9e' : (T.haste ? '#ff1744' : '#ff9800'))); rb = T.rebounces; if (T.bullet === 'none') none = true;
         } else if (e.s === 'vip') { g.save(); g.scale(3, 3); drawTank(0, 0, '#ffeb3b', '#fbc02d', ba, ta, 'v', false, false, true, 1, 1, false, g); g.restore(); label = 'ESCUDO CIAN'; rb = 1; }
         else if (e.s === 'boss') { g.save(); g.scale(1.9, 1.9); AB_DRAW = ['SMC', 'FRT', 'LVS', 'CRV'][Math.floor(bookT / 220) % 4]; drawTank(0, 0, '#673ab7', '#311b92', ba, ta, 'b', true, false, false, 7, 7, false, g); AB_DRAW = ''; g.restore(); bulletCol = '#e91e63'; rb = 2; label = 'JEFE GIGANTE'; }
         else if (e.s === 'ally') { g.save(); g.scale(3, 3); drawTank(0, 0, '#ffffff', '#e0e0e0', ba, ta, 'a', false, false, false, 5, 5, true, g); g.restore(); bulletCol = '#03a9f4'; rb = 1; label = 'TANQUE ALIADO'; }
@@ -3803,6 +3759,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         g.fillStyle = '#4e342e'; g.font = "700 15px 'Barlow Condensed','Arial Narrow',sans-serif"; g.textAlign = 'center'; if (label) g.fillText(label, cx, 252);
         // diagrama de trayectoria
         const SPC = bookSpecialKind(e, T); if (SPC) none = true;
+        const showDiag = !!SPC || !none;
+        if (showDiag) {
         const y0 = 262, y1 = H - 10; g.fillStyle = 'rgba(255,255,255,.4)'; g.fillRect(10, y0, W - 20, y1 - y0); g.strokeStyle = '#8d6e63'; g.lineWidth = 2; g.strokeRect(10, y0, W - 20, y1 - y0);
         if (!none) { g.fillStyle = '#78909c'; g.fillRect(W - 34, y0 + 4, 20, y1 - y0 - 8); g.fillRect(100, y0 + 4, W - 140, 8); g.fillRect(100, y1 - 12, W - 140, 8); }
         let spLabel = null; if (SPC) { g.save(); g.beginPath(); g.rect(10, y0, W - 20, y1 - y0); g.clip(); spLabel = bookSpecial(g, e, T, W, y0, y1); g.restore(); }
@@ -3816,6 +3774,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             const L = []; let tot = 0; for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); L.push(l); tot += l; }
             for (let n = 0; n < bn; n++) { let d = ((bookT * 3.5 - n * 26) % (tot + 40)); if (d < 0 || d > tot) continue; let i = 0; while (i < L.length - 1 && d > L[i]) { d -= L[i]; i++; } const f = d / L[i]; g.fillStyle = bulletCol; g.strokeStyle = '#000'; g.lineWidth = 1; g.beginPath(); g.arc(pts[i][0] + (pts[i + 1][0] - pts[i][0]) * f, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * f, bulletCol === '#e91e63' ? 6 : 4, 0, 6.283); g.fill(); g.stroke(); }
             const last = pts[pts.length - 1]; g.strokeStyle = '#d32f2f'; g.lineWidth = 2; g.beginPath(); g.moveTo(last[0] - 7, last[1] - 7); g.lineTo(last[0] + 7, last[1] + 7); g.moveTo(last[0] + 7, last[1] - 7); g.lineTo(last[0] - 7, last[1] + 7); g.stroke();
+        }
         }
     }
 
