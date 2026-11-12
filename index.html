@@ -973,9 +973,10 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         if (dailyCur) return dailyCur.mode;
         if (sbCur) return (sbCur.lv.mi && MISSIONS[sbCur.lv.mi]) ? sbCur.lv.mi : 'custom';
         const gm = effMode();
-        if (gm === 'continuous') { const pool = isPvp() ? GAME_MODES.filter(x => x !== 'protect' && x !== 'escort') : GAME_MODES; let m = pool[Math.floor(Math.random() * pool.length)]; for (let i = 0; i < 12 && m === currentMode; i++) m = pool[Math.floor(Math.random() * pool.length)]; return m; }
+        const early = x => !((x === 'haste' && level < 8) || (x === 'boss' && level < 3));
+        if (gm === 'continuous') { const pool = (isPvp() ? GAME_MODES.filter(x => x !== 'protect' && x !== 'escort') : GAME_MODES).filter(early); let m = pool[Math.floor(Math.random() * pool.length)]; for (let i = 0; i < 12 && m === currentMode; i++) m = pool[Math.floor(Math.random() * pool.length)]; return m; }
         if (missionNo === 1) return 'eliminate';
-        const pool = gm === 'bosses' ? GAME_MODES.filter(m => m !== 'boss') : GAME_MODES;
+        const pool = (gm === 'bosses' ? GAME_MODES.filter(m => m !== 'boss') : GAME_MODES).filter(early);
         return pool[Math.floor(Math.random() * pool.length)];
     }
     function makeAlly(x, y, hp, speed) {
@@ -1084,7 +1085,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         escapeZone = { x: 0, y: 0, active: false, hidden: false, color: '#00ff00' };
         updateCamera();
 
-        const numEnemies = (dailyCur && dailyCur.n) ? Math.round(dailyCur.n * (1 + 0.45 * (playersCount() - 1))) : Math.max(2, Math.round((level === 1 ? 4 : (4 + Math.floor(level * 1.5))) * DIFFS[curDiff()].cnt * (1 + 0.45 * (playersCount() - 1)) * (isPvp() ? 0.6 : 1)));
+        const numEnemies = (dailyCur && dailyCur.n) ? Math.round(dailyCur.n * (1 + 0.45 * (playersCount() - 1))) : Math.max(2, Math.min(Math.round((isPvp() ? 10 : 18) * (1 + 0.45 * (playersCount() - 1))), Math.round(Math.min(15, 3 + Math.ceil(level * 0.85)) * DIFFS[curDiff()].cnt * (1 + 0.45 * (playersCount() - 1)) * (isPvp() ? 0.6 : 1))));
         let objText = ""; levelFrames = 0; hitsThisLevel = 0; popCap = Math.round(numEnemies * 1.3) + 12;
         const spawnN = k => { if (sbMi && sbCur.lv.e.length) return; for (let i = 0; i < k; i++) spawnEnemy(null, false, null, null, false, false); };
         const zonePos = () => { if (sbMi && sbCur.lv.f) { escapeZone.x = sbCur.lv.f[0] * 40 + 20; escapeZone.y = sbCur.lv.f[1] * 40 + 20; return; } const p = findFreeSpawn(true); escapeZone.x = p.x; escapeZone.y = p.y; };
@@ -1093,7 +1094,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         if (currentMode === 'custom') { objText = sbSetup(sbCur.lv); }
         else if (currentMode.startsWith('p_')) { objText = pvpSetup(currentMode.slice(2), numEnemies); }
         else if (currentMode === 'eliminate') { objText = "⚔️ ELIMINAR A TODOS"; spawnN(numEnemies); }
-        else if (currentMode === 'survive') { surviveTimer = 45 * 60; objText = "⏱️ SOBREVIVE 45 SEGUNDOS A LA HORDA"; spawnN(Math.min(14, 6 + level)); }
+        else if (currentMode === 'survive') { surviveTimer = 45 * 60; objText = "⏱️ SOBREVIVE 45 SEGUNDOS A LA HORDA"; spawnN(Math.min(11, 5 + Math.ceil(level / 2))); }
         else if (currentMode === 'jewel') {
             objText = "💎 ROBA LA JOYA Y HUYE A LA ZONA VERDE"; spawnN(Math.max(1, numEnemies - 1));
             const pos = findFreeSpawn(false); items.push({ type: 'jewel', x: pos.x, y: pos.y, collected: false, color: '#00e5ff' }); zonePos();
@@ -1110,7 +1111,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             for (let i = 0; i < numGuards; i++) { spawnEnemy(null, false, vipObj.x, vipObj.y, false, false); const pe = pendingSpawns[pendingSpawns.length - 1].enemy; pe.guardIndex = i; pe.totalGuards = numGuards; }
         }
         else if (currentMode === 'keys') { objText = "🔑 MATA ENEMIGOS PARA OBTENER 3 LLAVES Y ESCAPA"; spawnN(Math.max(1, numEnemies - 1)); zonePos(); }
-        else if (currentMode === 'boss') { objText = "💀 DESTRUYE AL JEFE GIGANTE"; spawnEnemy(makeBossType(), false, null, null, true, false); spawnN(6); }
+        else if (currentMode === 'boss') { objText = "💀 DESTRUYE AL JEFE GIGANTE"; spawnEnemy(makeBossType(), false, null, null, true, false); spawnN(Math.min(6, 2 + Math.ceil(level / 2))); }
         else if (currentMode === 'escape_blind') { objText = "🏃 ENCUENTRA LA ZONA DE EVACUACIÓN OCULTA"; spawnN(numEnemies + 2); zonePos(); escapeZone.active = true; escapeZone.hidden = true; }
         else if (currentMode === 'carry') {
             objText = "📦 LLEVA 3 SUMINISTROS A LA ZONA AMARILLA"; spawnN(numEnemies);
@@ -1121,7 +1122,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             objText = "🛡️ PROTEGE AL ALIADO (BLANCO) 60 SEGUNDOS"; surviveTimer = 60 * 60;
             const a = findFreeSpawn(true); addEnemy(makeAlly(a.x, a.y, 10, 0.8));
             const pS = findFreeSpawn(false, a.x, a.y); player.x = pS.x; player.y = pS.y; player.lastX = player.x; player.lastY = player.y;
-            spawnN(6);
+            spawnN(Math.min(6, 3 + Math.ceil(level / 2)));
         }
         else if (currentMode === 'gems') { gemGoal = 8 + 3 * playersCount(); objText = "🔷 REÚNE " + gemGoal + " GEMAS ENTRE TODOS"; spawnN(numEnemies); }
         else if (currentMode === 'capture') {
@@ -1739,10 +1740,12 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             keysSpawned++; updateUI();
         }
 
-        if (currentMode === 'jewel' || currentMode === 'gems') spawnEnemy(null, false, null, null, false, false);
-        if (currentMode === 'gems') items.push({ type: 'jewel', x: e.x, y: e.y, collected: false, color: '#e040fb', gem: true });
-        if (currentMode === 'keys') spawnEnemy(null, false, null, null, false, false);
-        if (currentMode === 'carry') spawnEnemy(null, false, null, null, false, false);
+        if (currentMode === 'gems') {
+            items.push({ type: 'jewel', x: e.x, y: e.y, collected: false, color: '#e040fb', gem: true });
+            // solo repone un enemigo si los que quedan no bastan para soltar las gemas que faltan
+            const falta = gemGoal - gems - items.filter(i => i.gem).length, vivos = enemies.filter(x => x !== e && !x.isAlly && !x.haste).length + pendingSpawns.length;
+            if (falta > vivos) spawnEnemy(null, false, null, null, false, false);
+        }
 
         let wasVip = e.isVip; let wasBoss = e.isBoss;
         enemies.splice(idx, 1);
@@ -2441,11 +2444,11 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         c.restore();
     }
     function bunkerSpawns() {
-        const limit = 8 + Math.min(Math.floor(level / 2), 6);
+        const limit = 7 + Math.min(Math.floor(level / 3), 4);
         for (const b of targets) {
             if (b.spawnT === undefined) b.spawnT = 240 + Math.floor(Math.random() * 360);
             if (--b.spawnT > 0) continue;
-            b.spawnT = b.spawner ? 480 : 600;
+            b.spawnT = b.spawner ? 540 : 660;
             if (enemies.filter(e => !e.isAlly).length + pendingSpawns.length >= limit) continue;
             const cx = b.x + b.width / 2, cy = b.y + b.height / 2, p = findFreeSpawn(true, cx, cy);
             if (Math.hypot(p.x - cx, p.y - cy) > 320) continue;
@@ -2466,8 +2469,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             case 'survive': case 'protect': {
                 if (!objDone) { surviveTimer--; if (surviveTimer <= 0) objectiveDone(); }
                 if (frameCount % 15 === 0) updateUI();
-                const limit = (currentMode === 'protect' ? 12 : 15) + Math.min(Math.floor(level / 2), 5);
-                if (!objDone && enemies.filter(e => !e.isAlly).length + pendingSpawns.length < limit && frameCount % 90 === 0) spawnEnemy(null, false, null, null, false, false);
+                const limit = (currentMode === 'protect' ? 9 : 10) + Math.min(Math.floor(level / 3), 4);
+                if (!objDone && enemies.filter(e => !e.isAlly).length + pendingSpawns.length < limit && frameCount % 105 === 0) spawnEnemy(null, false, null, null, false, false);
                 break;
             }
             case 'vip': if (!enemies.some(e => e.isVip) && !pendingSpawns.some(s => s.enemy && s.enemy.isVip)) objectiveDone(); break;
@@ -3990,7 +3993,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
 
     // ===== Multijugador (WebRTC/PeerJS). El anfitrión simula; los demás envían sus entradas =====
-    const DIFFS = [{ n: 'Fácil', cnt: 0.7, cd: 1.35, lvl: 3, tm: 1.35 }, { n: 'Normal', cnt: 1, cd: 1, lvl: 6, tm: 1.15 }, { n: 'Difícil', cnt: 1.35, cd: 0.8, lvl: 10, tm: 1 }, { n: 'Extremo', cnt: 1.8, cd: 0.6, lvl: 15, tm: 0.85 }];
+    const DIFFS = [{ n: 'Fácil', cnt: 0.7, cd: 1.35, lvl: 2, tm: 1.35 }, { n: 'Normal', cnt: 1, cd: 1, lvl: 4, tm: 1.15 }, { n: 'Difícil', cnt: 1.3, cd: 0.82, lvl: 8, tm: 1 }, { n: 'Extremo', cnt: 1.6, cd: 0.65, lvl: 12, tm: 0.85 }];
     const SLOT_COL = ['#00e5ff', '#76ff03', '#ff4081', '#ffea00'];
     const net = { on: false, up: false, role: null, slot: 0, roster: [], cfg: { mode: 'campaign', diff: 1, vs: 'coop', pm: 'random' }, pts: [0, 0, 0, 0], kills: [0, 0, 0, 0], code: '', msg: '', lastCode: '', pl: {}, em: new Map(), fx: [], rdy: {}, pausedBy: {}, myRdy: false, nextMission: 'random', goAt: 0, wait: null, sentDefs: new Set(), hb: null, hostSeen: 0 };
     try { net.lastCode = localStorage.getItem('tankersLastCode') || ''; } catch (e) {}
