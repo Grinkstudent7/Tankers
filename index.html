@@ -104,6 +104,10 @@ canvas{cursor:crosshair}
 #lobby .bay{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;align-items:start}
 #lobby .bay canvas{width:100%;height:auto;border:3px solid #0f1416;display:block}
 #lobby .bay .ups{grid-template-columns:1fr}
+#lobby .clsg{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+#lobby .cl{border:3px solid #1c2326;padding:8px;display:flex;flex-direction:column;gap:6px}
+#lobby .cl.on{border-color:#ffd740;box-shadow:inset 0 0 0 2px #ffd740}
+#lobby .cl small{display:block;opacity:.85;line-height:1.3}
 
 /* ===== v2: pulido, escalado de interfaz y versión móvil ===== */
 :root{--ui:1;--tui:1}
@@ -153,6 +157,7 @@ body.mobile.ingame #touch{display:block}
 #touch .stick i{position:absolute;left:50%;top:50%;width:46%;height:46%;margin:-23% 0 0 -23%;border-radius:50%;background:rgba(255,255,255,.75)}
 #touch .tbtn{position:absolute;margin:0;padding:0;border-radius:50%;width:calc(62px*var(--tui));height:calc(62px*var(--tui));font-size:calc(13px*var(--tui));background:rgba(255,152,0,.88);border:3px solid rgba(255,255,255,.7);box-shadow:none;letter-spacing:0;line-height:1;display:flex;align-items:center;justify-content:center;touch-action:none}
 #t-mine{right:calc(14px + env(safe-area-inset-right));bottom:calc(150px*var(--tui))}
+#t-abil{right:calc(14px + env(safe-area-inset-right));bottom:calc(228px*var(--tui));background:rgba(0,172,193,.9)!important}
 #touch #t-pause{right:calc(10px + env(safe-area-inset-right));top:calc(34px*var(--tui));width:calc(40px*var(--tui));height:calc(40px*var(--tui));background:rgba(55,71,79,.85);font-size:calc(16px*var(--tui))}
 /* móvil */
 body.mobile #ui{top:0;bottom:auto;height:auto;min-height:0;padding:2px 8px;background:rgba(28,35,38,.72);border:0;box-shadow:none;font-size:11px;pointer-events:none;flex-wrap:wrap;gap:2px 10px;justify-content:flex-start}
@@ -249,7 +254,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             <div class="stat-item" id="time-wrap" style="display:none">⏱ <span id="ui-time" class="stat-value">0</span></div>
             <div class="stat-item">Objetivo: <span id="ui-enemies" class="stat-value">0</span></div>
             <div class="stat-item">Vidas: <span id="ui-lives" class="stat-value" style="color:#ff5252">3</span></div>
-            <div class="stat-item">Minas: <span id="ui-mines" class="stat-value">3/5</span></div><div class="stat-item">Puntos: <span id="ui-score" class="stat-value">0</span><span id="ui-combo" class="stat-value" style="color:#ff9800"></span></div><div class="stat-item" id="pvp-wrap" style="display:none">VS: <span id="ui-pvp" class="stat-value"></span></div>
+            <div class="stat-item">Minas: <span id="ui-mines" class="stat-value">3/5</span></div><div class="stat-item" id="abil-wrap" style="display:none">Clase: <span id="ui-abil" class="stat-value"></span></div><div class="stat-item">Puntos: <span id="ui-score" class="stat-value">0</span><span id="ui-combo" class="stat-value" style="color:#ff9800"></span></div><div class="stat-item" id="pvp-wrap" style="display:none">VS: <span id="ui-pvp" class="stat-value"></span></div>
         </div>
 
         <div class="stat-group" style="font-size: 12px; color: #90a4ae;">
@@ -275,13 +280,14 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             <span>Izquierda:</span> <div id="key-left" class="key-btn" onclick="listenKey('left')">A</div>
             <span>Derecha:</span> <div id="key-right" class="key-btn" onclick="listenKey('right')">D</div>
             <span>Poner Mina:</span> <div id="key-mine" class="key-btn" onclick="listenKey('mine')">Q</div>
+            <span>Habilidad de clase:</span> <div id="key-ability" class="key-btn" onclick="listenKey('ability')">E</div>
             <span>Disparar:</span> <div id="key-shoot" class="key-btn" onclick="listenKey('shoot')">CLICK</div>
         </div>
         <p style="font-size:13px;opacity:.8;margin:0 0 8px">🎮 Mando: stick izq. mover · stick der. apuntar · RT/A/RB disparar · LT/X/LB mina · Start pausa</p><button onclick="togglePause()">Guardar y continuar</button><button style="background:#5d4037" onclick="openBookOverlay()">📖 Libro</button><button class="red" onclick="quitMatch()">Salir al lobby</button>
     </div>
 
     <div id="edstk"><i></i></div><div id="lobby"></div><div id="picker"></div><div id="bookwrap"></div><div id="pause-banner"></div><div id="toast"></div><div id="spec"></div><div id="edui"></div><div id="edmodal"></div>
-    <div id="touch"><div class="stick" id="stkL"><i></i></div><div class="stick" id="stkR"><i></i></div><button class="tbtn" id="t-mine">MINA</button><button class="tbtn" id="t-pause">II</button></div>
+    <div id="touch"><div class="stick" id="stkL"><i></i></div><div class="stick" id="stkR"><i></i></div><button class="tbtn" id="t-mine">MINA</button><button class="tbtn" id="t-abil" style="display:none">⚡</button><button class="tbtn" id="t-pause">II</button></div>
     <canvas id="game"></canvas>
 
 <script>
@@ -349,9 +355,9 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     const PLAYER_SPAWN_X = BORDER_SIZE + GRID_SIZE * 2;
     const PLAYER_SPAWN_Y = BORDER_SIZE + GRID_SIZE * 2;
 
-    let controls = { up: 'w', down: 's', left: 'a', right: 'd', mine: 'q', shoot: 'click' };
+    let controls = { up: 'w', down: 's', left: 'a', right: 'd', mine: 'q', ability: 'e', shoot: 'click' };
     let savedControls = null; try { savedControls = localStorage.getItem('tankControls'); } catch (e) {}
-    if (savedControls) controls = JSON.parse(savedControls);
+    if (savedControls) controls = { ability: 'e', ...JSON.parse(savedControls) };
 
     for(let k in controls) {
         let el = document.getElementById('key-' + k);
@@ -370,14 +376,15 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         let dx = L[0], dy = L[1]; if (bt(14)) dx = -1; if (bt(15)) dx = 1; if (bt(12)) dy = -1; if (bt(13)) dy = 1;
         pad.mx = dx; pad.my = dy; pad.mag = Math.min(1, Math.hypot(dx, dy)); pad.aimOn = Rr[2] > 0.3;
         if (pad.aimOn) { pad.aimA = Math.atan2(Rr[1], Rr[0]); pad.aimSet = true; } else if (pad.mag > 0.2 && !pad.aimSet) pad.aimA = Math.atan2(dy, dx);
-        const fire = bt(7) || bt(0) || bt(5), mine = bt(6) || bt(2) || bt(4), start = bt(9);
+        const fire = bt(7) || bt(0) || bt(5), mine = bt(6) || bt(2) || bt(4), start = bt(9), abil = bt(1) || bt(3);
         if (pad.mag > 0 || pad.aimOn || fire || mine) pad.use = true;
         if (state === 'playing' && !player.dead) {
             if (fire && frameCount - player.lastShotFrame > shotDelay) playerFire();
             if (mine && !pad.mn) placePlayerMine();
+            if (abil && !pad.ab) useAbility();
         }
         if (start && !pad.st && (state === 'playing' || state === 'paused')) togglePause();
-        pad.mn = mine; pad.st = start;
+        pad.mn = mine; pad.st = start; pad.ab = abil;
     }
 
     let lastTime = performance.now();
@@ -444,10 +451,10 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const i = walls.indexOf(w); if (i < 0) return false;
         walls.splice(i, 1); paintWall(w, null); for (const o of walls) if (o.x < w.x + w.width && o.x + o.width > w.x && o.y < w.y + w.height && o.y + o.height > w.y) paintWall(o, o); refreshNav(w.x, w.y, w.width, w.height); return true;
     }
-    function wallHit(c) {
+    function wallHit(c, skipPw) {
         const r = c.radius, c0 = Math.max(0, Math.floor((c.x - r) / GRID_SIZE)), c1 = Math.min(gridCols - 1, Math.floor((c.x + r) / GRID_SIZE));
         const r0 = Math.max(0, Math.floor((c.y - r) / GRID_SIZE)), r1 = Math.min(gridRows - 1, Math.floor((c.y + r) / GRID_SIZE));
-        for (let rr = r0; rr <= r1; rr++) { const row = wallGrid[rr]; if (!row) continue; for (let cc = c0; cc <= c1; cc++) { const w = row[cc]; if (w && circleRectCollision(c, w)) return w; } }
+        for (let rr = r0; rr <= r1; rr++) { const row = wallGrid[rr]; if (!row) continue; for (let cc = c0; cc <= c1; cc++) { const w = row[cc]; if (w && !(skipPw && w.pw) && circleRectCollision(c, w)) return w; } }
         return null;
     }
 
@@ -722,6 +729,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
         keys[key] = true;
         if(key === controls.mine) placePlayerMine();
+        if(key === (controls.ability || 'e')) useAbility();
         if(key === controls.shoot && frameCount - player.lastShotFrame > shotDelay) {
             playerFire();
         }
@@ -1080,7 +1088,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         player.lastX = player.x; player.lastY = player.y;
         bullets = []; mines = []; enemies = []; particles = []; if (!soft) tracks = []; items = []; deadMarks = []; pendingSpawns = []; acid = [];
         zones = []; targets = []; jewelTaken = false; objDone = false; keysCollected = 0; keysSpawned = 0; gems = 0; surviveTimer = 0;
-        net.rdy = {}; net.pausedBy = {};
+        net.rdy = {}; net.pausedBy = {}; for (const w of walls.filter(w => w.pw)) removeWall(w); pwActive = false; if (!soft) { abilCd = 0; shieldT = 0; }
         for (let k in keys) keys[k] = false;
         escapeZone = { x: 0, y: 0, active: false, hidden: false, color: '#00ff00' };
         updateCamera();
@@ -1370,7 +1378,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
     function placePlayerMine() { if (net.role === 'client') { netSend({ t: 'mine' }); return; }
         if(player.minesLaid < PLAYER_MAX_MINES) {
-            mines.push({ x: player.x, y: player.y, timer: MINE_TIMER, owner: 'player', radius: 12, tm: net.on ? teamOf(player) : undefined });
+            mines.push({ x: player.x, y: player.y, timer: MINE_TIMER, owner: 'player', radius: 12, perm: curCls() === 'minero', tm: net.on ? teamOf(player) : undefined });
             player.minesLaid++; updateUI();
         }
     }
@@ -1398,7 +1406,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         }
         return [fx ? -vx : vx, fy ? -vy : vy];
     }
-    function isCollidingWithWalls(entity) { return !!wallHit(entity); }
+    function isCollidingWithWalls(entity) { return !!wallHit(entity, entity === player); }
 
     function moveEntitySmooth(entity, dx, dy) { const n = Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 8); if (n > 1) { let cc = false; for (let i = 0; i < n; i++) cc = moveEntitySmooth(entity, dx / n, dy / n) || cc; return cc; }
         let collision = false;
@@ -1841,7 +1849,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             player.lastX = player.x; player.lastY = player.y;
         }
 
-        updateRemotes(); for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        classTick(); updateRemotes(); for (let i = floatingTexts.length - 1; i >= 0; i--) {
             floatingTexts[i].y -= 0.5; floatingTexts[i].life--;
             if (floatingTexts[i].life <= 0) floatingTexts.splice(i, 1);
         }
@@ -1850,12 +1858,12 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             let b = bullets[i];
             if (b.dead) { if (b.acid && !b.spl) { b.spl = 1; dropAcid(b.x - b.vx, b.y - b.vy, b.bossAcid ? 30 : 24, b.shooterId, b.bossAcid ? 200 : 0); } bullets.splice(i, 1); continue; }
 
-            if (b.mis) missileSteer(b);
+            if (b.mis || b.pm) missileSteer(b);
             b.x += b.vx; b.y += b.vy; b.life--;
             if (b.acid && !b.bossAcid) { b.tr = (b.tr || 0) + Math.hypot(b.vx, b.vy); if (b.tr >= 14) { b.tr = 0; dropAcid(b.x, b.y, 15, b.shooterId); } }
             if (b.life <= 0) { b.dead = true; continue; }
 
-            let hitW = false; const w = wallHit(b);
+            let hitW = false; const w = wallHit(b, b.shooterId === 'player');
             if (w) {
                 hitW = true;
                 if (w.target && (w.tm !== undefined ? b.tm !== undefined : isTeam(b.shooterId))) { b.dead = true; if (w.tm === undefined || b.tm !== w.tm) damageBunker(w, 1, b.tm); else createParticles(b.x, b.y, '#999', 4); }
@@ -1916,8 +1924,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                         if(t.hp <= 0) allyDeath(); 
                     }
                     else {
-                        if ((t.shield && shieldBlocks(t, b)) || (t.charger && t.chS === 2)) { createParticles(b.x, b.y, '#eceff1', 8); if (frameCount % 3 === 0) floatingTexts.push({ text: '🛡', x: t.x, y: t.y - 34, life: 24, color: '#eceff1' }); }
-                        else if(t.maxHp > 1) { t.hp--; createExplosion(b.x, b.y, '#ffeb3b', 15); if(t.hp <= 0) killEnemy(t.id); }
+                        if ((t.shield && !b.pm && shieldBlocks(t, b)) || (t.charger && t.chS === 2)) { createParticles(b.x, b.y, '#eceff1', 8); if (frameCount % 3 === 0) floatingTexts.push({ text: '🛡', x: t.x, y: t.y - 34, life: 24, color: '#eceff1' }); }
+                        else if(t.maxHp > 1) { t.hp -= (b.dmg || 1); createExplosion(b.x, b.y, b.pm ? '#ff7043' : '#ffeb3b', b.pm ? 30 : 15); if(t.hp <= 0) killEnemy(t.id); }
                         else { killEnemy(t.id); }
                     }
                     break;
@@ -1928,7 +1936,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         acidTick();
         let allTanksMines = activeTanks();
         for (let i = mines.length - 1; i >= 0; i--) {
-            let m = mines[i]; m.timer--;
+            let m = mines[i]; if (!m.perm) m.timer--;
             if (m.shock) { shockStep(m); if (m.timer <= 0) mines.splice(i, 1); continue; }
             let triggered = false;
             for (let t of allTanksMines) {
@@ -2381,8 +2389,9 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         b.pt = (b.pt || 0) - 1;
         if (b.pt <= 0 || !b.path || !b.path.length) {
             b.pt = 18;
-            const tp = nearestPlayer(b), al = enemies.find(a => a.isAlly);
-            b.tg = (tp && al) ? (Math.hypot(al.x - b.x, al.y - b.y) < Math.hypot(tp.x - b.x, tp.y - b.y) ? al : tp) : (tp || al);
+            if (b.pm) { if (!b.tg || !enemies.includes(b.tg)) b.tg = nearestFoe(b.x, b.y); }
+            else { const tp = nearestPlayer(b), al = enemies.find(a => a.isAlly);
+            b.tg = (tp && al) ? (Math.hypot(al.x - b.x, al.y - b.y) < Math.hypot(tp.x - b.x, tp.y - b.y) ? al : tp) : (tp || al); }
             if (b.tg) { const p = findPath(b.x, b.y, b.tg.x, b.tg.y, 6, 6000); if (p && p.length) b.path = p; }
         }
         const tg = b.tg; let wx, wy;
@@ -2654,8 +2663,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function drawWalls() {
         const G = GRID_SIZE, c0 = Math.max(0, Math.floor(camera.x / G)), c1 = Math.min(gridCols - 1, Math.floor((camera.x + viewW) / G));
         const r0 = Math.max(0, Math.floor(camera.y / G)), r1 = Math.min(gridRows - 1, Math.floor((camera.y + viewH) / G));
-        const kind = (r, c) => (r < 0 || c < 0 || r >= gridRows || c >= gridCols) ? 0 : (wallGrid[r][c] ? (wallGrid[r][c].target ? 3 : wallGrid[r][c].crate ? 4 : wallGrid[r][c].destructible ? 2 : 1) : 0);
-        const FILL = ['', '#78909c', '#a1887f', '#8d9aa0', '#c8a165'], EDGE = ['', '#455a64', '#5d4037', '#4f5b62', '#6d4c1d'];
+        const kind = (r, c) => (r < 0 || c < 0 || r >= gridRows || c >= gridCols) ? 0 : (wallGrid[r][c] ? (wallGrid[r][c].pw ? ((wallGrid[r][c].life < 90 && frameCount % 12 < 6) ? 0 : 5) : wallGrid[r][c].target ? 3 : wallGrid[r][c].crate ? 4 : wallGrid[r][c].destructible ? 2 : 1) : 0);
+        const FILL = ['', '#78909c', '#a1887f', '#8d9aa0', '#c8a165', '#4dd0e1'], EDGE = ['', '#455a64', '#5d4037', '#4f5b62', '#6d4c1d', '#00838f'];
         for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) { const k = kind(r, c); if (k) { ctx.fillStyle = FILL[k]; ctx.fillRect(c * G, r * G, G + 0.5, G + 0.5); } }
         for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
             const k = kind(r, c); if (!k) continue; ctx.fillStyle = EDGE[k]; const x = c * G, y = r * G;
@@ -2928,7 +2937,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             if (m.shock) { const pp = Math.max(0, Math.min(1, 1 - m.timer / SHOCK_T)), R = pp * SHOCK_R; ctx.strokeStyle = 'rgba(0,229,255,' + (0.95 - 0.55 * pp) + ')'; ctx.lineWidth = 7 - 3 * pp; ctx.beginPath(); ctx.arc(0, 0, R, 0, 6.283); ctx.stroke(); ctx.strokeStyle = 'rgba(224,255,255,' + (0.8 - 0.5 * pp) + ')'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, Math.max(0, R - 9), 0, 6.283); ctx.stroke(); ctx.restore(); continue; }
             if (m.shell) { const R = MINE_RADIUS_EXPLOSION, pp = Math.max(0, Math.min(1, 1 - m.timer / 80)); ctx.fillStyle = 'rgba(255,23,68,' + (0.1 + 0.22 * pp) + ')'; ctx.beginPath(); ctx.arc(0, 0, R, 0, 6.283); ctx.fill(); ctx.strokeStyle = '#ff1744'; ctx.lineWidth = 3; ctx.stroke(); ctx.beginPath(); ctx.arc(0, 0, R * pp, 0, 6.283); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(8, 0); ctx.moveTo(0, -8); ctx.lineTo(0, 8); ctx.stroke(); ctx.restore(); continue; }
             ctx.fillStyle = '#9e9e9e'; ctx.beginPath(); ctx.arc(0, 0, m.radius, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#424242'; ctx.lineWidth = 2; ctx.stroke();
-            ctx.fillStyle = (m.timer < MINE_TIMER / 3 && frameCount % 10 < 5) ? '#fff' : (m.owner === 'player' ? '#00e5ff' : '#f44336');
+            ctx.fillStyle = (m.timer < MINE_TIMER / 3 && frameCount % 10 < 5) ? '#fff' : (m.owner === 'player' ? (m.perm ? '#ffd740' : '#00e5ff') : '#f44336');
             ctx.beginPath(); ctx.arc(0, 0, m.radius / 2, 0, Math.PI * 2); ctx.fill(); ctx.restore();
             const perm = m.perm || m.timer > 5000;
             if (!perm || near(m, player, 220)) { ctx.strokeStyle = m.owner === 'player' ? 'rgba(0,229,255,0.2)' : 'rgba(244,67,54,0.2)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(m.x, m.y, MINE_TRIGGER_DIST, 0, Math.PI * 2); ctx.stroke(); }
@@ -2966,7 +2975,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
         if ((state === 'playing' || state === 'starting' || state === 'paused') && !player.dead) {
             if (player.carriedItems > 0) drawCarry(player.x, player.y, player.baseAngle, player.carriedItems);
-            if (!playerBlinkHidden(player)) drawPlayerTank(player);
+            if (!playerBlinkHidden(player)) drawPlayerTank(player); drawClassFx();
             if (net.on) drawNameTag(player.x, player.y, prof.name, isPvp() ? '#4fc3f7' : SLOT_COL[net.slot || 0], player.lives);
         }
 
@@ -2982,7 +2991,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
         drawOthers();
         for (const b of bullets) {
-            if (b.mis) {
+            if (b.mis || b.pm) {
                 ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(Math.atan2(b.vy, b.vx));
                 ctx.fillStyle = '#9e9e9e'; ctx.strokeStyle = '#212121'; ctx.lineWidth = 1.5; ctx.beginPath();
                 ctx.moveTo(10, 0); ctx.lineTo(3, -5); ctx.lineTo(-9, -5); ctx.lineTo(-9, 5); ctx.lineTo(3, 5); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -3020,7 +3029,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     let playerBounces = 1, shotDelay = 20, runActive = false, lobbyTab = 'play';
 
     function loadProf() {
-        const d = { name: 'Comandante', xp: 0, coins: 0, skin: 0, hat: 0, up: { speed: 0, reload: 0, armor: 0, mines: 0, bounce: 0 }, stats: { games: 0, kills: 0, missions: 0 }, best: {}, scores: [], set: { iface: 'auto', ui: 0, zoom: 1 } };
+        const d = { name: 'Comandante', xp: 0, coins: 0, skin: 0, hat: 0, cls: '', clsOwn: {}, up: { speed: 0, reload: 0, armor: 0, mines: 0, bounce: 0 }, stats: { games: 0, kills: 0, missions: 0 }, best: {}, scores: [], set: { iface: 'auto', ui: 0, zoom: 1 } };
         try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) return { ...d, ...s, up: { ...d.up, ...s.up }, stats: { ...d.stats, ...s.stats }, set: { ...d.set, ...(s.set || {}) } }; } catch (e) {}
         return d;
     }
@@ -3031,7 +3040,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
     function applyProfile() {
         PLAYER_SPEED = 2.5 + prof.up.speed * 0.2; shotDelay = 20 - prof.up.reload * 2;
-        PLAYER_MAX_MINES = 5 + prof.up.mines; playerBounces = 1 + prof.up.bounce;
+        PLAYER_MAX_MINES = 5 + prof.up.mines + (curCls() === 'minero' ? 3 : 0); playerBounces = 1 + prof.up.bounce; player.lmax = 0; player.rageS = 0;
         if (rankOf(prof.xp) < SKINS[prof.skin][3]) prof.skin = 0;
         player.baseColor = SKINS[prof.skin][1]; player.turretColor = SKINS[prof.skin][2]; player.hat = hatOk(prof.hat | 0) ? (prof.hat | 0) : 0;
     }
@@ -3060,6 +3069,91 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function buyUp(k) {
         const lv = prof.up[k], cost = 150 * (lv + 1);
         if (lv < UPS[k][1] && prof.coins >= cost) { prof.coins -= cost; prof.up[k]++; saveProf(); applyProfile(); renderLobby(); }
+    }
+
+    // ===== Clases del garaje: una sola a la vez, caras y con rango mínimo =====
+    const CLASSES = {
+        saltador: { n: 'Saltador', ic: '⚡', t: 'act', cost: 3000, rk: 3, cd: 300, d: 'Te teletransportas a corta distancia hacia donde apuntas (atraviesa muros finos). Recarga 5 s.' },
+        minero: { n: 'Minero', ic: '💣', t: 'pas', cost: 4000, rk: 4, d: 'Tus minas son permanentes: no caducan hasta que un enemigo las pisa. Además llevas 3 minas más.' },
+        arquitecto: { n: 'Arquitecto', ic: '🧱', t: 'act', cost: 5000, rk: 5, cd: 840, d: 'Levantas un muro delante de ti que solo tú (y tus balas) podéis atravesar. Dura 8 s. Recarga 14 s.' },
+        ultimo: { n: 'Último aliento', ic: '🔥', t: 'pas', cost: 6000, rk: 6, d: 'Cuantas menos vidas te quedan, más fuerte eres: más velocidad y cadencia, y un rebote extra en la última vida.' },
+        misilero: { n: 'Misilero', ic: '🚀', t: 'act', cost: 7500, rk: 8, cd: 720, d: 'Lanzas un misil teledirigido que persigue al enemigo más cercano a tu cursor y rodea los muros. Daño triple. Recarga 12 s.' },
+        coraza: { n: 'Coraza', ic: '🛡', t: 'act', cost: 9000, rk: 10, cd: 1800, d: 'Te vuelves invulnerable durante 3 s. Recarga 30 s.' }
+    };
+    let abilCd = 0, shieldT = 0, pwActive = false;
+    function curCls() { try { return (!net.on && !dailyCur && prof.cls && prof.clsOwn && prof.clsOwn[prof.cls] && CLASSES[prof.cls]) ? prof.cls : ''; } catch (e) { return ''; } }
+    function buyCls(id) {
+        const c = CLASSES[id]; if (!c || prof.clsOwn[id] || prof.coins < c.cost || rankOf(prof.xp) < c.rk) return;
+        prof.coins -= c.cost; prof.clsOwn[id] = 1; prof.cls = id; saveProf(); applyProfile(); renderLobby(); toast(c.ic + ' ¡Clase ' + c.n + ' desbloqueada!');
+    }
+    function equipCls(id) { if (!prof.clsOwn[id]) return; prof.cls = prof.cls === id ? '' : id; saveProf(); applyProfile(); renderLobby(); }
+    function classesHTML(r) {
+        return '<h3>Clase</h3><p class="st">Solo puedes llevar una clase a la vez. Se compran con monedas y exigen rango. No se usan en partidas en red ni en los desafíos diarios.</p><div class="clsg">' + Object.keys(CLASSES).map(id => {
+            const c = CLASSES[id], own = prof.clsOwn && prof.clsOwn[id], on = prof.cls === id, lock = r < c.rk;
+            return `<div class="cl ${on ? 'on' : ''}"><b>${c.ic} ${c.n}</b><small>${c.t === 'act' ? 'ACTIVA' : 'PASIVA'} · ${c.d}</small>` + (own
+                ? `<button onclick="equipCls('${id}')">${on ? 'Equipada · quitar' : 'Equipar'}</button>`
+                : `<button ${lock || prof.coins < c.cost ? 'disabled' : ''} onclick="buyCls('${id}')">${lock ? 'Rango ' + c.rk : 'Comprar · ' + c.cost}</button>`) + '</div>';
+        }).join('') + '</div>';
+    }
+    function nearestFoe(x, y) {
+        let best = null, bd = 1e12;
+        for (const e of enemies) { if (e.isAlly || e.haste) continue; const d = (e.x - x) ** 2 + (e.y - y) ** 2; if (d < bd) { bd = d; best = e; } }
+        return best;
+    }
+    function useAbility() {
+        const id = curCls(), c = CLASSES[id];
+        if (!c || c.t !== 'act' || state !== 'playing' || player.dead || abilCd > 0) return;
+        const G = GRID_SIZE, ang = Math.atan2(mouse.y - player.y, mouse.x - player.x), ca = Math.cos(ang), sa = Math.sin(ang); let ok = false;
+        if (id === 'saltador') {
+            for (let d = 190; d >= 40 && !ok; d -= 10) {
+                const x = player.x + ca * d, y = player.y + sa * d;
+                if (x < BORDER_SIZE + 22 || y < BORDER_SIZE + 22 || x > MAP_WIDTH - BORDER_SIZE - 22 || y > MAP_HEIGHT - BORDER_SIZE - 22) continue;
+                if (wallHit({ x, y, radius: player.radius + 2 }, true)) continue;
+                if (activeTanks().some(t => t !== player && !t.isAlly && Math.hypot(t.x - x, t.y - y) < t.radius + player.radius)) continue;
+                createParticles(player.x, player.y, '#80deea', 14); player.x = x; player.y = y; player.lastX = x; player.lastY = y;
+                createParticles(x, y, '#80deea', 14); player.invuln = Math.max(player.invuln || 0, 20); ok = true;
+            }
+        } else if (id === 'arquitecto') {
+            const cx = player.x + ca * (player.radius + 52), cy = player.y + sa * (player.radius + 52);
+            for (let k = -2; k <= 2; k++) {
+                const px = cx - sa * k * G, py = cy + ca * k * G, col = Math.floor(px / G), row = Math.floor(py / G);
+                if (col < 1 || row < 1 || col >= gridCols - 1 || row >= gridRows - 1 || wallGrid[row][col]) continue;
+                const mx = col * G + G / 2, my = row * G + G / 2;
+                if (enemies.some(e => Math.hypot(e.x - mx, e.y - my) < e.radius + G / 2 + 2) || mines.some(m => Math.hypot(m.x - mx, m.y - my) < G / 2 + 12)) continue;
+                const w = { x: col * G, y: row * G, width: G, height: G, destructible: false, pw: true, life: 480 };
+                walls.push(w); paintWall(w, w); refreshNav(w.x, w.y, w.width, w.height); ok = true;
+            }
+            if (ok) { pwActive = true; createParticles(cx, cy, '#4dd0e1', 16); }
+        } else if (id === 'misilero') {
+            const tg = nearestFoe(mouse.x, mouse.y);
+            bullets.push({ x: player.x + ca * (player.radius + 8), y: player.y + sa * (player.radius + 8), vx: ca * 4.4, vy: sa * 4.4, radius: 6, color: '#ff7043', shooterId: 'player', bounces: 0, dead: false, life: 600, pm: true, dmg: 3, spd: 4.4, path: [], pt: 0, bid: ++BID, tg: tg || null });
+            ok = true;
+        } else if (id === 'coraza') {
+            shieldT = 180; player.invuln = Math.max(player.invuln || 0, 180); createParticles(player.x, player.y, '#4dd0e1', 18); ok = true;
+        }
+        if (ok) abilCd = c.cd;
+    }
+    function classTick() {
+        const id = curCls(), c = CLASSES[id];
+        if (abilCd > 0) abilCd--; if (shieldT > 0) shieldT--;
+        if (pwActive) { let any = false; for (let i = walls.length - 1; i >= 0; i--) { const w = walls[i]; if (w.pw) { if (--w.life <= 0) removeWall(w); else any = true; } } pwActive = any; }
+        if (id === 'ultimo') {
+            if (!player.lmax || player.lives > player.lmax) player.lmax = player.lives;
+            const s = player.lmax > 1 ? Math.min(1, Math.max(0, (player.lmax - player.lives) / (player.lmax - 1))) : 0;
+            PLAYER_SPEED = (2.5 + prof.up.speed * 0.2) * (1 + 0.3 * s);
+            shotDelay = Math.max(6, Math.round((20 - prof.up.reload * 2) * (1 - 0.45 * s)));
+            playerBounces = 1 + prof.up.bounce + (s >= 1 ? 1 : 0); player.rageS = s;
+        }
+        if (frameCount % 6 === 0) {
+            const w = document.getElementById('abil-wrap');
+            if (w) { w.style.display = id ? '' : 'none'; if (id) document.getElementById('ui-abil').innerText = c.ic + ' ' + c.n + (c.t === 'act' ? ' · ' + (abilCd > 0 ? Math.ceil(abilCd / 60) + ' s' : 'LISTO [' + String(controls.ability || 'e').toUpperCase() + ']') : ''); }
+            const tb = document.getElementById('t-abil'); if (tb) { tb.style.display = (id && c.t === 'act') ? '' : 'none'; if (id && c.t === 'act') tb.innerText = abilCd > 0 ? Math.ceil(abilCd / 60) : c.ic; }
+        }
+    }
+    function drawClassFx() {
+        if (player.dead) return;
+        if (shieldT > 0) { ctx.save(); ctx.strokeStyle = 'rgba(77,208,225,' + ((shieldT < 40 && frameCount % 8 < 4) ? 0.3 : 0.9) + ')'; ctx.fillStyle = 'rgba(77,208,225,.18)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore(); }
+        if (player.rageS > 0 && curCls() === 'ultimo') { ctx.save(); ctx.strokeStyle = 'rgba(255,82,82,' + (0.35 + 0.5 * player.rageS) + ')'; ctx.lineWidth = 2 + 2 * player.rageS; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 6 + Math.sin(frameCount * 0.2) * 2, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
     }
 
     // ===== Progreso: logros, racha diaria, recompensas de rango y bestiario =====
@@ -3168,7 +3262,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             h += '<div class="bay"><canvas id="garage-cv" width="460" height="400"></canvas><div class="ups">' + Object.keys(UPS).map(k => {
                 const [n, max, d] = UPS[k], lv = prof.up[k], cost = 150 * (lv + 1);
                 return `<div class="up"><div><b>${n}</b><small>${d}</small></div><div class="pips">${'■'.repeat(lv) + '□'.repeat(max - lv)}</div><button ${lv >= max || prof.coins < cost ? 'disabled' : ''} onclick="buyUp('${k}')">${lv >= max ? 'Máximo' : 'Mejorar · ' + cost}</button></div>`;
-            }).join('') + '</div></div><h3>Pintura</h3><div class="skins">' + SKINS.map((s, i) => {
+            }).join('') + '</div></div>' + classesHTML(r) + '<h3>Pintura</h3><div class="skins">' + SKINS.map((s, i) => {
                 const ok = r >= s[3];
                 return `<button class="skin ${i === prof.skin ? 'on' : ''}" ${ok ? '' : 'disabled'} onclick="prof.skin=${i};saveProf();applyProfile();renderLobby()"><span style="background:${s[1]};border-color:${s[2]}"></span>${s[0]}${ok ? '' : '<small>Rango ' + s[3] + '</small>'}</button>`;
             }).join('') + '</div><h3>Sombrero</h3><div class="skins">' + HATS.map((q, i) => {
@@ -3822,7 +3916,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         };
         tz.addEventListener('pointerup', up); tz.addEventListener('pointercancel', up);
         const press = (id, fn) => document.getElementById(id).addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); fn(); });
-        press('t-mine', () => { if (state === 'playing' && !player.dead) placePlayerMine(); }); press('t-pause', () => togglePause());
+        press('t-mine', () => { if (state === 'playing' && !player.dead) placePlayerMine(); }); press('t-abil', () => useAbility()); press('t-pause', () => togglePause());
         tz.addEventListener('contextmenu', e => e.preventDefault());
     }
 
