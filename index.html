@@ -869,7 +869,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         }
         return best;
     }
-    const inWall = o => !!wallHit({ x: o.x, y: o.y, radius: (o.radius || 18) - 3 });
+    const inWall = o => !!wallHit({ x: o.x, y: o.y, radius: (o.radius || 18) - 3 }, o.id);
     // Si un tanque está metido en un muro lo saca al hueco libre más cercano
     function unstick(o) {
         if (!o || o.dead || !inWall(o)) return false;
@@ -2257,7 +2257,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         let allTanksFinal = activeTanks();
         for(let t of allTanksFinal) {
             t.x = Math.max(BORDER_SIZE + t.radius, Math.min(MAP_WIDTH - BORDER_SIZE - t.radius, t.x));
-            t.y = Math.max(BORDER_SIZE + t.radius, Math.min(MAP_HEIGHT - BORDER_SIZE - t.radius, t.y)); if (!t.haste && t.lastX !== undefined && wallHit({ x: t.x, y: t.y, radius: t.radius - 2 }) && !wallHit({ x: t.lastX, y: t.lastY, radius: t.radius - 2 })) { t.x = t.lastX; t.y = t.lastY; }
+            t.y = Math.max(BORDER_SIZE + t.radius, Math.min(MAP_HEIGHT - BORDER_SIZE - t.radius, t.y)); if (!t.haste && t.lastX !== undefined && wallHit({ x: t.x, y: t.y, radius: t.radius - 2 }, t.id) && !wallHit({ x: t.lastX, y: t.lastY, radius: t.radius - 2 }, t.id)) { t.x = t.lastX; t.y = t.lastY; }
         }
 
         if (particles.length > 500) particles.splice(0, particles.length - 500); for (let i = particles.length - 1; i >= 0; i--) { let p = particles[i]; p.x += p.vx; p.y += p.vy; p.life--; p.radius *= p.sm ? 1.018 : 0.95; if (p.sm) { p.vx *= 0.97; p.vy *= 0.97; }
