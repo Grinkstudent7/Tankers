@@ -1847,7 +1847,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             player.lastX = player.x; player.lastY = player.y;
         }
 
-        classTick(); updateRemotes(); for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        classTick(); petBombTick(); updateRemotes(); for (let i = floatingTexts.length - 1; i >= 0; i--) {
             floatingTexts[i].y -= 0.5; floatingTexts[i].life--;
             if (floatingTexts[i].life <= 0) floatingTexts.splice(i, 1);
         }
@@ -2966,9 +2966,15 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 ctx.moveTo(sx - 7, sy - 6); ctx.lineTo(sx + 7, sy - 6); ctx.lineTo(sx + 7, sy + 1); ctx.quadraticCurveTo(sx + 7, sy + 8, sx, sy + 11);
                 ctx.quadraticCurveTo(sx - 7, sy + 8, sx - 7, sy + 1); ctx.closePath(); ctx.fill(); ctx.stroke();
                 ctx.save(); ctx.strokeStyle = '#fff'; ctx.fillStyle = '#fff'; ctx.lineWidth = 1.7; ctx.lineCap = 'round';
-                if (e.role === 'def') { ctx.beginPath(); ctx.moveTo(sx - 3.2, sy + 3.6); ctx.lineTo(sx - 3.2, sy - 3.2); ctx.lineTo(sx - 1.6, sy - 3.2); ctx.lineTo(sx - 1.6, sy - 1.4); ctx.lineTo(sx + 1.6, sy - 1.4); ctx.lineTo(sx + 1.6, sy - 3.2); ctx.lineTo(sx + 3.2, sy - 3.2); ctx.lineTo(sx + 3.2, sy + 3.6); ctx.closePath(); ctx.fill(); }
+                if (e.role === 'bomb') { ctx.beginPath(); ctx.moveTo(sx, sy - 4); ctx.lineTo(sx, sy + 1); ctx.stroke(); ctx.beginPath(); ctx.arc(sx, sy + 4.2, 1.1, 0, 6.283); ctx.fill(); }
+                else if (e.role === 'def') { ctx.beginPath(); ctx.moveTo(sx - 3.2, sy + 3.6); ctx.lineTo(sx - 3.2, sy - 3.2); ctx.lineTo(sx - 1.6, sy - 3.2); ctx.lineTo(sx - 1.6, sy - 1.4); ctx.lineTo(sx + 1.6, sy - 1.4); ctx.lineTo(sx + 1.6, sy - 3.2); ctx.lineTo(sx + 3.2, sy - 3.2); ctx.lineTo(sx + 3.2, sy + 3.6); ctx.closePath(); ctx.fill(); }
                 else { ctx.beginPath(); ctx.moveTo(sx - 3.6, sy - 3.8); ctx.lineTo(sx + 3.6, sy + 3.8); ctx.moveTo(sx + 3.6, sy - 3.8); ctx.lineTo(sx - 3.6, sy + 3.8); ctx.stroke(); }
                 ctx.restore();
+                if (e.role === 'bomb') {
+                    const bs = net.role === 'client' ? (e.bombS || 0) : Math.max(0, Math.ceil(((e.bombEnd || frameCount) - frameCount) / 60)), hot = bs <= 3 && frameCount % 16 < 8;
+                    ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = 'bold 18px sans-serif'; ctx.lineWidth = 4; ctx.strokeStyle = '#000';
+                    const tx = bs > 0 ? String(bs) : '💥'; ctx.strokeText(tx, e.x, sy - 16); ctx.fillStyle = hot ? '#ff1744' : '#ffeb3b'; ctx.fillText(tx, e.x, sy - 16); ctx.restore();
+                }
             }
             if (e.type === 'necro') {
                 const rp = e.rvT > 0 ? e.rvT / necroNeed(e.rvM) : (e.rv || 0) / 100;
@@ -3091,7 +3097,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         misilero: { n: 'Misilero', ic: '🚀', t: 'act', cost: 7500, rk: 8, cd: 720, d: 'Lanzas un misil teledirigido que persigue al enemigo más cercano a tu cursor y rodea los muros. Daño triple. Recarga 12 s.' },
         pulso: { n: 'Pulso', ic: '🌀', t: 'act', cost: 8000, rk: 9, cd: 900, d: 'Una onda expansiva destruye las balas enemigas en 260 px y daña (hasta 3) y empuja a los enemigos que tengas al lado. Recarga 15 s.' },
         coraza: { n: 'Coraza', ic: '🛡', t: 'act', cost: 9000, rk: 10, cd: 1800, d: 'Te vuelves invulnerable durante 3 s. Recarga 30 s.' },
-        reclutador: { n: 'Reclutador', ic: '🤝', t: 'pas', cost: 12000, rk: 12, d: 'Al matar a un enemigo con tus balas hay un 40 % de que se una a ti, y un 95 % si lo matas con una de tus minas. Conserva todas las mecánicas del enemigo original. Hasta 7 aliados: los defensores van hacia ti y te escoltan, los atacantes cazan enemigos. Dispárale a un aliado para cambiar su comportamiento.' },
+        reclutador: { n: 'Reclutador', ic: '🤝', t: 'pas', cost: 12000, rk: 12, d: 'Todo enemigo que mates con balas o minas se une a ti (hasta 7) y conserva sus mecánicas. Nace en modo 💣 bomba: si en 8 s no le cambias el modo, explota contra el enemigo más cercano (si es estático, explota a los 8 s). Dispárale para rotar: bomba → 🛡 defensor (te escolta) → ⚔ atacante (caza enemigos) → bomba.' },
         chaleco: { n: 'Chaleco', ic: '🦺', t: 'pas', cost: 10000, rk: 11, d: 'Absorbes un impacto sin perder vida y la absorción se recupera sola cada 20 s.' }
     };
     let pwActive = false, killBy, killMine = false, pulses = [];
@@ -3237,7 +3243,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
     // ===== Reclutador: el enemigo reclutado sigue siendo el mismo tanque (mismas mecánicas) y pasa a tu bando =====
     const petLos = (x0, y0, x1, y1) => { const d = Math.hypot(x1 - x0, y1 - y0), a = Math.atan2(y1 - y0, x1 - x0); for (let k = 14; k < d; k += 12) if (wallHit({ x: x0 + Math.cos(a) * k, y: y0 + Math.sin(a) * k, radius: 5 })) return false; return true; };
-    const PET_MAX = 7, PET_P_BALA = 0.4, PET_P_MINA = 0.95;
+    const PET_MAX = 7, PET_P_BALA = 1, PET_P_MINA = 1, PET_BOMB = 480;
     const petOwner = id => id === 'player' ? player : remotes.find(r => r.id === id);
     const petCount = by => enemies.filter(q => q.owner === by).length + pendingSpawns.filter(p => p.enemy && p.enemy.owner === by).length;
     function petRecruit(e, by) {
@@ -3245,31 +3251,60 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const ow = petOwner(by); if (!ow || ow.dead || clsOf(ow) !== 'reclutador') return;
         if (petCount(by) >= PET_MAX || Math.random() >= (killMine ? PET_P_MINA : PET_P_BALA)) return;
         const bt0 = ENEMY_TYPES.find(q => q.type === e.type), tm = teamOf(ow);
-        const o = { ...e, sq: tm, owner: by, role: e.speed === 0 ? 'def' : (Math.random() < 0.5 ? 'def' : 'atk'), hp: Math.max(1, e.maxHp || 1), speed: bt0 ? bt0.speed : e.speed, cooldown: bt0 ? bt0.cooldown : e.cooldown, chS: undefined, chT: 0, buffT: 0, bm: 1, sprint: 1, wasStatic: false, tcT: undefined, fz: 0, spd0: undefined, lastHp: undefined, shout: 0, cmCd: undefined, asS: undefined, asCd: undefined, rvT: 0, rvM: null, rvN: 0, rvCd: 0,
+        const o = { ...e, sq: tm, owner: by, role: 'bomb', bombEnd: 0, hp: Math.max(1, e.maxHp || 1), speed: bt0 ? bt0.speed : e.speed, cooldown: bt0 ? bt0.cooldown : e.cooldown, chS: undefined, chT: 0, buffT: 0, bm: 1, sprint: 1, wasStatic: false, tcT: undefined, fz: 0, spd0: undefined, lastHp: undefined, shout: 0, cmCd: undefined, asS: undefined, asCd: undefined, rvT: 0, rvM: null, rvN: 0, rvCd: 0,
             path: [], targetX: e.x, targetY: e.y, lastShot: frameCount, lastMine: 0, canShoot: false, stuckFrames: 0, pathCooldown: 0, visT: 99, acidRange: 0, post: null, ptCache: null, id: undefined, nid: undefined };
         e.recruited = true; pendingSpawns.push({ x: e.x, y: e.y, timer: 45, enemy: o, tm });
         floatingTexts.push({ text: '¡RECLUTADO!', x: e.x, y: e.y - 40, life: 60, color: tmCol(tm) });
+    }
+    function petDetonate(e) {
+        const R = 130; createExplosion(e.x, e.y, '#ff9800', 50); createExplosion(e.x, e.y, '#ffeb3b', 30);
+        floatingTexts.push({ text: '💥', x: e.x, y: e.y - 30, life: 50, color: '#ff9800' });
+        if (isPvp()) convTm = e.sq;
+        for (const o of enemies.slice()) {
+            if (o === e || o.isAlly || o.haste || !enemies.includes(o) || (o.sq !== undefined && (!isPvp() || o.sq === e.sq))) continue;
+            if (Math.hypot(o.x - e.x, o.y - e.y) > R) continue;
+            if (o.maxHp > 1) { o.hp -= 3; if (o.hp <= 0) killEnemy(o.id); } else killEnemy(o.id);
+        }
+        convTm = undefined;
+        if (isPvp()) for (const p of alivePlayers()) if (teamOf(p) !== e.sq && Math.hypot(p.x - e.x, p.y - e.y) < R) { pvpHitTm = e.sq; playerDamage(p); pvpHitTm = undefined; }
+        e.noScore = true; e.recruited = true; if (enemies.includes(e)) killEnemy(e.id);
+    }
+    function petBombTick() {
+        for (const e of enemies.slice()) {
+            if (e.owner === undefined || e.role !== 'bomb' || !enemies.includes(e)) continue;
+            if (!e.bombEnd) e.bombEnd = frameCount + PET_BOMB;
+            const left = e.bombEnd - frameCount;
+            if (left > 0) { if (e.bm > 1) e.bm = 1; continue; }
+            if (e.speed === 0) { petDetonate(e); continue; } // los estáticos explotan al acabar la cuenta atrás
+            e.bm = 1.8; e.sprint = 1;
+            let best = null, bd = Infinity;
+            for (const o of enemies) if (o !== e && !o.isAlly && !o.haste && (o.sq === undefined || (isPvp() && o.sq !== e.sq))) { const d = Math.hypot(o.x - e.x, o.y - e.y); if (d < bd) { bd = d; best = o; } }
+            if (isPvp()) for (const p of alivePlayers()) if (teamOf(p) !== e.sq) { const d = Math.hypot(p.x - e.x, p.y - e.y); if (d < bd) { bd = d; best = p; } }
+            if ((best && bd < e.radius + best.radius + 16) || left < -720) petDetonate(e);
+        }
     }
     // Defensor: va hasta su dueño y lo escolta (se interpone si hay enemigos cerca de él). Atacante: caza al enemigo más cercano de todo el mapa.
     function petTarget(e) {
         const ow = petOwner(e.owner);
         if (!ow || ow.dead) return { aim: { x: e.x + Math.cos(e.baseAngle || 0) * 100, y: e.y + Math.sin(e.baseAngle || 0) * 100 }, dest: { x: e.x, y: e.y }, base: null, hostile: false, idle: true };
+        if (e.role === 'bomb' && !e.bombEnd) e.bombEnd = frameCount + PET_BOMB;
+        const rushing = e.role === 'bomb' && e.bombEnd - frameCount <= 0, role = (e.role === 'bomb' && !rushing) ? 'def' : e.role;
         const c = e.ptCache;
-        if (c && c.role === e.role && (frameCount + (e.nid || 0)) % 6 !== 0 && (!c.foe || enemies.includes(c.foe) || (c.foe.isPlayer && !c.foe.dead))) return c.res;
+        if (!rushing && c && c.role === role && (frameCount + (e.nid || 0)) % 6 !== 0 && (!c.foe || enemies.includes(c.foe) || (c.foe.isPlayer && !c.foe.dead))) return c.res;
         let best = null, bd = Infinity;
         const consider = o => {
-            if (e.role === 'def' && Math.hypot(o.x - ow.x, o.y - ow.y) > 340) return;
+            if (role === 'def' && Math.hypot(o.x - ow.x, o.y - ow.y) > 340) return;
             const sc = Math.hypot(o.x - e.x, o.y - e.y) + (petLos(e.x, e.y, o.x, o.y) ? 0 : 180); if (sc < bd) { bd = sc; best = o; }
         };
         if (isPvp()) for (const p of alivePlayers()) if (teamOf(p) !== e.sq) consider(p);
         for (const o of enemies) if (o !== e && o.sq !== e.sq && !o.haste && !o.isAlly) consider(o);
         let res;
         const rest = () => { if (!e.post || (frameCount + (e.nid || 0)) % 30 === 0) e.post = guardPost(e, ow); return { aim: { x: e.x + (e.x - ow.x), y: e.y + (e.y - ow.y) }, dest: e.post, base: null, hostile: false, idle: true }; };
-        if (e.role === 'def') {
+        if (role === 'def') {
             if (best) { const a = Math.atan2(best.y - ow.y, best.x - ow.x); res = { aim: best, dest: { x: ow.x + Math.cos(a) * 100, y: ow.y + Math.sin(a) * 100 }, base: null, hostile: true }; }
             else res = rest();
         } else res = best ? { aim: best, dest: { x: best.x, y: best.y }, base: null, hostile: true } : rest();
-        e.ptCache = { role: e.role, foe: best, res };
+        e.ptCache = { role, foe: best, res };
         return res;
     }
     // ===== Misil del jugador: ruta propia, predicción del objetivo y esquiva de balas y minas =====
@@ -4407,10 +4442,11 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     // ===== Legión: los soldados reclutados son atacantes (⚔) o defensores (🛡). Se cambian disparándoles =====
     const DEF_LEASH = 520;
     function squadToggle(t) {
-        t.role = t.role === 'def' ? 'atk' : 'def';
+        if (t.owner !== undefined) t.role = t.role === 'bomb' ? 'def' : (t.role === 'def' ? 'atk' : 'bomb'); else t.role = t.role === 'def' ? 'atk' : 'def';
+        if (t.owner !== undefined) { t.bm = 1; t.bombEnd = t.role === 'bomb' ? frameCount + PET_BOMB : 0; }
         t.roleCd = frameCount + 25; t.path = []; t.pathCooldown = 0; t.post = null;
         createExplosion(t.x, t.y, tmCol(t.sq), 14);
-        floatingTexts.push({ text: t.role === 'def' ? '🛡 DEFENSOR' : '⚔ ATACANTE', x: t.x, y: t.y - 50, life: 75, color: tmCol(t.sq) });
+        floatingTexts.push({ text: t.role === 'bomb' ? '💣 BOMBA' : (t.role === 'def' ? '🛡 DEFENSOR' : '⚔ ATACANTE'), x: t.x, y: t.y - 50, life: 75, color: tmCol(t.sq) });
         updateUI();
     }
     function guardPost(e, oc) {
@@ -5037,7 +5073,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const nd = [];
         const e = enemies.map(en => {
             if (!net.sentDefs.has(en.nid)) { net.sentDefs.add(en.nid); nd.push([en.nid, en.baseColor, en.turretColor, en.type, en.isBoss ? 1 : 0, en.invisible ? 1 : 0, en.isVip ? 1 : 0, en.isAlly ? 1 : 0, en.radius, en.kamikaze ? 1 : 0, en.maxHp, r1(en.x), r1(en.y), en.sq === undefined ? -1 : en.sq, en.abs || '']); }
-            return [en.nid, r1(en.x), r1(en.y), a2(en.baseAngle), a2(en.turretAngle), en.hp, en.role === 'def' ? 1 : enemySt(en), en.rvT > 0 ? Math.round(en.rvT * 100 / NECRO_CHANNEL) : 0];
+            return [en.nid, r1(en.x), r1(en.y), a2(en.baseAngle), a2(en.turretAngle), en.hp, (en.role === 'bomb' && en.owner !== undefined) ? 30 + Math.max(0, Math.min(9, Math.ceil(((en.bombEnd || frameCount) - frameCount) / 60))) : (en.role === 'def' ? 1 : enemySt(en)), en.rvT > 0 ? Math.round(en.rvT * 100 / NECRO_CHANNEL) : 0];
         });
         if (net.fx.length > 40) net.fx.length = 40;
         net.sn = (net.sn || 0) + 1; const full = net.sn % 3 === 1; // minas, objetos, zonas y ácido cambian poco: 1 de cada 3 paquetes
@@ -5188,7 +5224,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 }
                 if (d.nd) for (const a of d.nd) net.em.set(a[0], { nid: a[0], id: 'n' + a[0], baseColor: a[1], turretColor: a[2], type: a[3], isBoss: !!a[4], invisible: !!a[5], isVip: !!a[6], isAlly: !!a[7], radius: a[8], kamikaze: !!a[9], sq: a[13] >= 0 ? a[13] : undefined, abs: a[14] || '', maxHp: a[10], hp: a[10], x: a[11], y: a[12], tx: a[11], ty: a[12], hx: a[11], hy: a[12], vx: 0, vy: 0, age: 0, baseAngle: 0, turretAngle: 0, tba: 0, tta: 0 });
                 const seen = new Set();
-                for (const a of d.e) { const o = net.em.get(a[0]); if (!o) continue; seen.add(a[0]); upd(o, a[1], a[2], a[3], a[4]); o.hp = a[5]; o.role = a[6] === 1 ? 'def' : 'atk'; o.st = a[6] || 0; o.rv = a[7] || 0; }
+                for (const a of d.e) { const o = net.em.get(a[0]); if (!o) continue; seen.add(a[0]); upd(o, a[1], a[2], a[3], a[4]); o.hp = a[5]; o.role = a[6] >= 30 ? 'bomb' : (a[6] === 1 ? 'def' : 'atk'); o.bombS = a[6] >= 30 ? a[6] - 30 : 0; o.st = a[6] >= 30 ? 0 : (a[6] || 0); o.rv = a[7] || 0; }
                 for (const id of [...net.em.keys()]) if (!seen.has(id)) net.em.delete(id);
                 enemies = [...net.em.values()];
                 // Balas con identificador: se corrigen poco a poco en vez de saltar en cada paquete
