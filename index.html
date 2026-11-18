@@ -647,7 +647,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     // Ácido del enemigo venenoso
     function dropAcid(x, y, r, owner, life) {
         if (wallHit({ x, y, radius: 4 })) return;
-        acid.push({ x, y, r, life: life || 360, max: life || 360, o: owner, ph: Math.random() * 6.283 });
+        acid.push({ x, y, r, life: life || 360, max: life || 360, o: owner, ph: Math.random() * 6.283, pet: !isPvp() && enemies.some(q => q.id === owner && q.owner !== undefined) });
         if (acid.length > 260) acid.shift();
     }
     function acidGrid() {
@@ -672,7 +672,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function acidTick() {
         for (let i = acid.length - 1; i >= 0; i--) if (--acid[i].life <= 0) acid.splice(i, 1);
         if (!acid.length) return;
-        const onAcid = o => { for (const a of acid) if (a.life > 20 && (o.x - a.x) ** 2 + (o.y - a.y) ** 2 < (a.r + o.radius * 0.55) ** 2) return true; return false; };
+        const onAcid = o => { for (const a of acid) if (!a.pet && a.life > 20 && (o.x - a.x) ** 2 + (o.y - a.y) ** 2 < (a.r + o.radius * 0.55) ** 2) return true; return false; };
         for (const p of alivePlayers()) {
             if (p.invuln > 0 || !onAcid(p)) { p.acT = 0; continue; }
             p.acT = (p.acT || 0) + 1;
@@ -1028,7 +1028,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         }
     }
     function logicalTime() {
-        const sp = PLAYER_SPEED * 60, P = { x: player.x, y: player.y }, n = enemies.filter(e => !e.isAlly).length + pendingSpawns.length;
+        const sp = PLAYER_SPEED * 60, P = { x: player.x, y: player.y }, n = enemies.filter(e => !e.isAlly && e.sq === undefined).length + pendingSpawns.length;
         const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) * 1.5 / sp;
         let t = 0;
         switch (currentMode) {
@@ -1088,7 +1088,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         player.lastX = player.x; player.lastY = player.y;
         bullets = []; mines = []; enemies = []; particles = []; if (!soft) tracks = []; items = []; deadMarks = []; pendingSpawns = []; acid = [];
         zones = []; targets = []; jewelTaken = false; objDone = false; keysCollected = 0; keysSpawned = 0; gems = 0; surviveTimer = 0;
-        net.rdy = {}; net.pausedBy = {}; for (const w of walls.filter(w => w.pw)) removeWall(w); pwActive = false; pets.length = 0; player.vest = true; if (!soft) { player.abilCd = 0; player.shieldT = 0; }
+        net.rdy = {}; net.pausedBy = {}; for (const w of walls.filter(w => w.pw)) removeWall(w); pwActive = false; player.vest = true; if (!soft) { player.abilCd = 0; player.shieldT = 0; }
         for (let k in keys) keys[k] = false;
         escapeZone = { x: 0, y: 0, active: false, hidden: false, color: '#00ff00' };
         updateCamera();
@@ -1184,7 +1184,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function updateUI() {
         const cont = effMode() === 'continuous', $ = id => document.getElementById(id);
         const sc = (net.on && net.cfg.src) || ''; $('ui-lvl-label').innerText = (dailyCur || sc === 'daily') ? 'DESAFÍO' : ((sbCur || sc === 'sb') ? 'SANDBOX' : (cont ? 'MISIÓN' : 'NIVEL')); $('ui-level').innerText = dailyCur ? (dailyCur.idx + 1) + '/5' : (sc === 'daily' ? ((net.cfg.si | 0) + 1) + '/5' : ((sbCur || sc === 'sb') ? '🛠' : (cont ? missionNo : level)));
-        let t = enemies.filter(e => !e.isAlly && !e.haste).length + pendingSpawns.length;
+        let t = enemies.filter(e => !e.isAlly && !e.haste && e.sq === undefined).length + pendingSpawns.length;
         switch (currentMode) {
             case 'survive': t = Math.max(0, Math.ceil(surviveTimer / 60)) + " s"; break;
             case 'protect': t = Math.max(0, Math.ceil(surviveTimer / 60)) + " s"; if (player.dead) t += ` (REVIVE EN ${Math.ceil(player.respawnTimer / 60)})`; break;
@@ -1363,7 +1363,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
         if (owner.bullet === 'missile') {
             bullets.push({ x: owner.x + Math.cos(angle) * (owner.radius + 8), y: owner.y + Math.sin(angle) * (owner.radius + 8), vx: Math.cos(angle) * 2.2, vy: Math.sin(angle) * 2.2,
-                radius: 6, color: '#9e9e9e', shooterId: owner.id, bounces: 0, dead: false, life: 1800, mis: true, spd: 2.2, path: [], pt: 0, bid: ++BID });
+                radius: 6, color: '#9e9e9e', shooterId: owner.id, bounces: 0, dead: false, life: 1800, mis: true, spd: 2.2, path: [], pt: 0, bid: ++BID, tm: (!isPvp() && owner.sq !== undefined) ? owner.sq : undefined });
             return;
         }
         bullets.push({
@@ -1593,13 +1593,13 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     function brainMines(e) {
         if (e.isAlly || frameCount - e.lastMine <= (e.cooldown || 100) + 60) return;
-        const tp = nearestPlayer(e); if (!tp) return;
+        const tp = (!isPvp() && e.sq !== undefined) ? squadFoe(e) : nearestPlayer(e); if (!tp) return;
         const dP = Math.hypot(e.x - tp.x, e.y - tp.y); if (dP < 120 || dP > 700) return;
         const act = mines.filter(m => m.owner === 'enemy' && !m.shell && !m.shock && !m.perm); if (act.length >= 6 + Math.min(level, 8)) return;
         if (act.some(m => Math.hypot(m.x - e.x, m.y - e.y) < 160)) return;
         const pvx = tp.x - (tp.lastX === undefined ? tp.x : tp.lastX), pvy = tp.y - (tp.lastY === undefined ? tp.y : tp.lastY);
         const chased = dP < 380 && (pvx * (e.x - tp.x) + pvy * (e.y - tp.y)) > 0;
-        if ((isChoke(e.x, e.y) && dP < 560) || chased) { mines.push({ x: e.x, y: e.y, timer: MINE_TIMER, owner: 'enemy', radius: 12 }); e.lastMine = frameCount; }
+        if ((isChoke(e.x, e.y) && dP < 560) || chased) { mines.push({ x: e.x, y: e.y, timer: MINE_TIMER, owner: 'enemy', radius: 12, tm: (!isPvp() && e.sq !== undefined) ? e.sq : undefined }); e.lastMine = frameCount; }
     }
     // ---- Asesino: mina un muro rompible para abrirse un atajo ----
     function assassinUpdate(e) {
@@ -1740,30 +1740,30 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function killEnemy(id) {
         let idx = enemies.findIndex(e => e.id === id);
         if (idx === -1) return;
-        let e = enemies[idx]; if (killBy) petRecruit(e, killBy); if (e.sq === undefined) awardKill(e); if (e.isBoss) prof.stats.bosses = (prof.stats.bosses || 0) + 1; createExplosion(e.x, e.y, e.baseColor, e.isBoss ? 50 : 25); if (isPvp()) pvpEnemyDown(e);
+        let e = enemies[idx]; const wasPet = e.owner !== undefined; if (killBy) petRecruit(e, killBy); if (e.sq === undefined) awardKill(e); if (e.isBoss) prof.stats.bosses = (prof.stats.bosses || 0) + 1; createExplosion(e.x, e.y, e.baseColor, e.isBoss ? 50 : 25); if (isPvp()) pvpEnemyDown(e);
         { const dm = { x: e.x, y: e.y, life: 600 }; if (!e.haste && !e.isAlly && !e.isVip) { dm.ty = e.type; dm.life = e.isBoss ? 2600 : 1600; if (e.isBoss) dm.boss = e; } deadMarks.push(dm); }
 
-        if (currentMode === 'keys' && keysSpawned < 3 && !e.noScore) {
+        if (!wasPet && currentMode === 'keys' && keysSpawned < 3 && !e.noScore) {
             items.push({ type: 'key', x: e.x, y: e.y, collected: false, color: '#ffd700' });
             keysSpawned++; updateUI();
         }
 
-        if (currentMode === 'jewel' || currentMode === 'gems') spawnEnemy(null, false, null, null, false, false);
-        if (currentMode === 'gems') items.push({ type: 'jewel', x: e.x, y: e.y, collected: false, color: '#e040fb', gem: true });
-        if (currentMode === 'keys') spawnEnemy(null, false, null, null, false, false);
-        if (currentMode === 'carry') spawnEnemy(null, false, null, null, false, false);
+        if (!wasPet && (currentMode === 'jewel' || currentMode === 'gems')) spawnEnemy(null, false, null, null, false, false);
+        if (!wasPet && currentMode === 'gems') items.push({ type: 'jewel', x: e.x, y: e.y, collected: false, color: '#e040fb', gem: true });
+        if (!wasPet && currentMode === 'keys') spawnEnemy(null, false, null, null, false, false);
+        if (!wasPet && currentMode === 'carry') spawnEnemy(null, false, null, null, false, false);
 
         let wasVip = e.isVip; let wasBoss = e.isBoss;
         enemies.splice(idx, 1);
-        if (e.rage && !e.noScore) { mines.push({ x: e.x, y: e.y, timer: 50, owner: 'enemy', radius: 12, shell: true, by: e.id, tm: e.sq }); floatingTexts.push({ text: '¡ESTALLA!', x: e.x, y: e.y - 36, life: 50, color: '#ff3d00' }); }
-        if (e.split && !e.noScore) { for (let k3 = 0; k3 < 3; k3++) { const an3 = k3 * 2.094 + 0.5; spawnAtOverride = { x: e.x + Math.cos(an3) * 26, y: e.y + Math.sin(an3) * 26 }; spawnEnemy(ENEMY_TYPES[23], false, null, null, false, true); } spawnAtOverride = null; floatingTexts.push({ text: '¡FRAGMENTACIÓN!', x: e.x, y: e.y - 36, life: 50, color: '#ffab40' }); }
+        if (e.rage && !e.noScore && !e.recruited) { mines.push({ x: e.x, y: e.y, timer: 50, owner: 'enemy', radius: 12, shell: true, by: e.id, tm: e.sq }); floatingTexts.push({ text: '¡ESTALLA!', x: e.x, y: e.y - 36, life: 50, color: '#ff3d00' }); }
+        if (e.split && !e.noScore && !e.recruited) { for (let k3 = 0; k3 < 3; k3++) { const an3 = k3 * 2.094 + 0.5; spawnAtOverride = { x: e.x + Math.cos(an3) * 26, y: e.y + Math.sin(an3) * 26 }; spawnEnemy(ENEMY_TYPES[23], false, null, null, false, true); } spawnAtOverride = null; floatingTexts.push({ text: '¡FRAGMENTACIÓN!', x: e.x, y: e.y - 36, life: 50, color: '#ffab40' }); }
 
-        if (wasVip && currentMode === 'vip') enemies = enemies.filter(en => en.isAlly || (bossAlso && en.isBoss));
-        if (wasBoss && currentMode === 'boss') enemies = enemies.filter(en => en.isAlly);
+        if (wasVip && currentMode === 'vip') enemies = enemies.filter(en => en.isAlly || en.sq !== undefined || (bossAlso && en.isBoss));
+        if (wasBoss && currentMode === 'boss') enemies = enemies.filter(en => en.isAlly || en.sq !== undefined);
         updateUI();
     }
 
-    function playerDamage(p) { if (net.on) { playerDamageNet(p || player); return; } if (player.dead || player.invuln > 0) return; if (player.vest && curCls() === 'chaleco') { player.vest = false; player.invuln = 90; createExplosion(player.x, player.y, '#ffd740', 20); floatingTexts.push({ text: '🦺 ¡Absorbido!', x: player.x, y: player.y - 34, life: 60, color: '#ffd740' }); return; } hitsThisLevel++; combo = 0; comboTimer = 0;
+    function playerDamage(p) { if (net.on) { playerDamageNet(p || player); return; } if (player.dead || player.invuln > 0) return; if (player.vest && curCls() === 'chaleco') { player.vest = false; player.vestT = 1200; player.invuln = 90; createExplosion(player.x, player.y, '#ffd740', 20); floatingTexts.push({ text: '🦺 ¡Absorbido!', x: player.x, y: player.y - 34, life: 60, color: '#ffd740' }); return; } hitsThisLevel++; combo = 0; comboTimer = 0;
         player.lives--; createExplosion(player.x, player.y, '#2196f3', 40);
         
         if (currentMode === 'carry' && player.carriedItems > 0) {
@@ -1847,7 +1847,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             player.lastX = player.x; player.lastY = player.y;
         }
 
-        classTick(); petsTick(); updateRemotes(); for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        classTick(); updateRemotes(); for (let i = floatingTexts.length - 1; i >= 0; i--) {
             floatingTexts[i].y -= 0.5; floatingTexts[i].life--;
             if (floatingTexts[i].life <= 0) floatingTexts.splice(i, 1);
         }
@@ -1901,7 +1901,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                     if (isPvp()) { // PvP: cada tanque pertenece a un equipo (-1 = neutral). Nadie dispara a los suyos y los neutrales no se hieren entre sí
                         const bT = b.tm !== undefined ? b.tm : -1, tT = unitTm(t);
                         if (bT === tT) { // fuego amigo en Legión: cambia el rol del soldado (⚔ atacante / 🛡 defensor)
-                            if (t.sq !== undefined && bT >= 0 && isTeam(b.shooterId) && pvpKey() === 'legion' && (t.roleCd || 0) <= frameCount) { b.dead = true; squadToggle(t); break; }
+                            if (t.sq !== undefined && bT >= 0 && isTeam(b.shooterId) && !b.pm && (t.roleCd || 0) <= frameCount && (pvpKey() === 'legion' || (t.owner !== undefined && b.shooterId === t.owner))) { b.dead = true; squadToggle(t); break; }
                             continue;
                         }
                         b.dead = true;
@@ -1911,8 +1911,10 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                     }
                     let shooterIsEnemy = !isTeam(b.shooterId);
                     let targetIsEnemy = !t.isPlayer && !t.isAlly;
-                    
-                    if (shooterIsEnemy && targetIsEnemy) continue; 
+                    const tPet = !isPvp() && t.sq !== undefined, bPet = !isPvp() && b.tm !== undefined && !isTeam(b.shooterId); // aliados reclutados fuera de PvP
+                    if (bPet && (t.isPlayer || t.isAlly || tPet)) continue;
+                    if (tPet && !bPet && isTeam(b.shooterId)) { if (!b.pm && b.shooterId === t.owner && (t.roleCd || 0) <= frameCount) { b.dead = true; squadToggle(t); break; } continue; }
+                    if (shooterIsEnemy && targetIsEnemy && !(tPet !== bPet)) continue; 
                     if (isTeam(b.shooterId) && (t.isPlayer || t.isAlly) && !(isPvp() && t.isPlayer && b.tm !== undefined && b.tm !== teamOf(t))) continue; 
 
                     b.dead = true;
@@ -1939,8 +1941,9 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             let triggered = false;
             for (let t of allTanksMines) {
                 if (!m.shell && Math.sqrt((t.x - m.x)**2 + (t.y - m.y)**2) < MINE_TRIGGER_DIST) {
-                    if (m.owner === 'enemy' && (t.isPlayer || t.isAlly)) triggered = true;
-                    if (m.owner === 'player' && ((!t.isPlayer && !t.isAlly && !(t.sq !== undefined && t.sq === m.tm)) || (isPvp() && t.isPlayer && m.tm !== undefined && m.tm !== teamOf(t)))) triggered = true;
+                    if (m.owner === 'enemy' && (t.isPlayer || t.isAlly) && !(!isPvp() && m.tm !== undefined)) triggered = true;
+                    if (!isPvp() && m.owner === 'enemy' && !m.shell) { if (m.tm === undefined && t.sq !== undefined) triggered = true; else if (m.tm !== undefined && t.sq === undefined && !t.isPlayer && !t.isAlly && !t.haste) triggered = true; }
+                    if (m.owner === 'player' && ((!t.isPlayer && !t.isAlly && !(t.sq !== undefined && (t.sq === m.tm || !isPvp()))) || (isPvp() && t.isPlayer && m.tm !== undefined && m.tm !== teamOf(t)))) triggered = true;
                 }
             }
             if(m.timer <= 0 || triggered) {
@@ -2246,7 +2249,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 let nearWall = isCollidingWithWalls({x: e.x, y: e.y, radius: e.radius + 15});
                 
                 if (isChased || nearWall) {
-                    mines.push({ x: e.x, y: e.y, timer: MINE_TIMER, owner: 'enemy', radius: 12 }); 
+                    mines.push({ x: e.x, y: e.y, timer: MINE_TIMER, owner: 'enemy', radius: 12, tm: (!isPvp() && e.sq !== undefined) ? e.sq : undefined }); 
                     e.lastMine = frameCount;
                 }
             }
@@ -2387,6 +2390,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         b.pt = (b.pt || 0) - 1;
         if (b.pt <= 0 || !b.tg) {
             b.pt = 18; const tp = nearestPlayer(b), al = enemies.find(a => a.isAlly);
+            if (!isPvp() && b.tm !== undefined) b.tg = nearestFoe(b.x, b.y); else
             b.tg = (tp && al) ? (Math.hypot(al.x - b.x, al.y - b.y) < Math.hypot(tp.x - b.x, tp.y - b.y) ? al : tp) : (tp || al);
         }
         const tg = b.tg; if (!tg) return;
@@ -2459,7 +2463,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             if (b.spawnT === undefined) b.spawnT = 240 + Math.floor(Math.random() * 360);
             if (--b.spawnT > 0) continue;
             b.spawnT = b.spawner ? 540 : 660;
-            if (enemies.filter(e => !e.isAlly).length + pendingSpawns.length >= limit) continue;
+            if (enemies.filter(e => !e.isAlly && e.sq === undefined).length + pendingSpawns.length >= limit) continue;
             const cx = b.x + b.width / 2, cy = b.y + b.height / 2, p = findFreeSpawn(true, cx, cy);
             if (Math.hypot(p.x - cx, p.y - cy) > 320) continue;
             spawnEnemy(sbPoolPick(), false, null, null, false, false);
@@ -2475,12 +2479,12 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const P = alivePlayers();
         if (currentMode !== 'demolition' && !objDone && targets.some(t => t.spawner)) bunkerSpawns();
         switch (currentMode) {
-            case 'eliminate': if (!objDone && !pendingSpawns.length && !targets.some(t => t.spawner) && enemies.every(e => e.isAlly || e.haste)) objectiveDone(); break;
+            case 'eliminate': if (!objDone && !pendingSpawns.length && !targets.some(t => t.spawner) && enemies.every(e => e.isAlly || e.haste || e.sq !== undefined)) objectiveDone(); break;
             case 'survive': case 'protect': {
                 if (!objDone) { surviveTimer--; if (surviveTimer <= 0) objectiveDone(); }
                 if (frameCount % 15 === 0) updateUI();
                 const limit = (currentMode === 'protect' ? 9 : 10) + Math.min(Math.floor(level / 3), 4);
-                if (!objDone && enemies.filter(e => !e.isAlly).length + pendingSpawns.length < limit && frameCount % 105 === 0) spawnEnemy(null, false, null, null, false, false);
+                if (!objDone && enemies.filter(e => !e.isAlly && e.sq === undefined).length + pendingSpawns.length < limit && frameCount % 105 === 0) spawnEnemy(null, false, null, null, false, false);
                 break;
             }
             case 'vip': if (!enemies.some(e => e.isVip) && !pendingSpawns.some(s => s.enemy && s.enemy.isVip)) objectiveDone(); break;
@@ -2496,7 +2500,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             case 'keys': {
                 for (const p of P) for (let i = items.length - 1; i >= 0; i--) if (near(p, items[i], p.radius + 15)) { keysCollected++; items.splice(i, 1); updateUI(); }
                 if (keysCollected >= 3) { escapeZone.active = true; if (P.some(p => near(p, escapeZone, 85))) objectiveDone(); }
-                if (enemies.every(e => e.isAlly || e.haste) && pendingSpawns.length === 0 && keysSpawned < 3) spawnEnemy(null, false, null, null, false, false);
+                if (enemies.every(e => e.isAlly || e.haste || e.sq !== undefined) && pendingSpawns.length === 0 && keysSpawned < 3) spawnEnemy(null, false, null, null, false, false);
                 break;
             }
             case 'escape_blind': case 'minefield': if (P.some(p => near(p, escapeZone, 85))) objectiveDone(); break;
@@ -2535,7 +2539,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                     for (const p of P) for (const it of items) if (it.type === 'rgem' && !it.collected && near(p, it, p.radius + 15)) { it.collected = true; gems++; floatingTexts.push({ text: '+1 GEMA', x: it.x, y: it.y - 20, life: 50, color: '#ff1744' }); updateUI(); }
                     if (gems < gemGoal) ok = false;
                 }
-                if (L.k && L.e.length && (pendingSpawns.length || enemies.some(e => !e.isAlly && !e.haste))) ok = false;
+                if (L.k && L.e.length && (pendingSpawns.length || enemies.some(e => !e.isAlly && !e.haste && e.sq === undefined))) ok = false;
                 if (targets.some(t => t.spawner)) ok = false;
                 if (!objDone && ok && (!L.f || P.some(p => near(p, escapeZone, 85)))) objectiveDone();
                 break;
@@ -2558,7 +2562,9 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 let targetIsEnemy = !t.isPlayer && !t.isAlly;
                 if (t.haste) continue;
                 if (m.tm !== undefined && t.sq !== undefined && t.sq === m.tm) continue;
-                if (m.owner === 'enemy' && targetIsEnemy && m.tm === undefined) continue;
+                if (m.owner === 'enemy' && targetIsEnemy && m.tm === undefined && !(!isPvp() && t.sq !== undefined)) continue;
+                if (!isPvp() && m.owner === 'enemy' && m.tm !== undefined && (t.isPlayer || t.isAlly)) continue;
+                if (!isPvp() && m.owner === 'player' && t.sq !== undefined) continue;
                 if (t.isPlayer) { pvpHitTm = m.tm; playerDamage(t); pvpHitTm = undefined; }
                 else if (t.isAlly) { t.hp = m.kamikaze ? 0 : t.hp - 2; if(t.hp<=0) allyDeath(); }
                 else { convTm = m.tm; if (m.owner === 'player') { killBy = m.by !== undefined ? 'p' + m.by : 'player'; killMine = true; } if(t.maxHp > 1 && !(t.charger && !t.isBoss)) { t.hp -= 2; if(t.hp<=0) killEnemy(t.id); } else { killEnemy(t.id); } convTm = undefined; killBy = undefined; killMine = false; }
@@ -3083,12 +3089,12 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         ultimo: { n: 'Último aliento', ic: '🔥', t: 'pas', cost: 6000, rk: 6, d: 'Cuantas menos vidas te quedan, más fuerte eres: más velocidad y cadencia, y un rebote extra en la última vida.' },
         sembrador: { n: 'Sembrador', ic: '🌱', t: 'act', cost: 6500, rk: 7, cd: 600, d: 'Plantas 4 minas a tu alrededor de golpe (no cuentan para tu límite de minas hasta que explotan). Recarga 10 s.' },
         misilero: { n: 'Misilero', ic: '🚀', t: 'act', cost: 7500, rk: 8, cd: 720, d: 'Lanzas un misil teledirigido que persigue al enemigo más cercano a tu cursor y rodea los muros. Daño triple. Recarga 12 s.' },
-        pulso: { n: 'Pulso', ic: '🌀', t: 'act', cost: 8000, rk: 9, cd: 900, d: 'Una onda destruye las balas enemigas cercanas y daña a los enemigos que tengas al lado. Recarga 15 s.' },
+        pulso: { n: 'Pulso', ic: '🌀', t: 'act', cost: 8000, rk: 9, cd: 900, d: 'Una onda expansiva destruye las balas enemigas en 260 px y daña (hasta 3) y empuja a los enemigos que tengas al lado. Recarga 15 s.' },
         coraza: { n: 'Coraza', ic: '🛡', t: 'act', cost: 9000, rk: 10, cd: 1800, d: 'Te vuelves invulnerable durante 3 s. Recarga 30 s.' },
-        reclutador: { n: 'Reclutador', ic: '🤝', t: 'pas', cost: 12000, rk: 12, d: 'Al matar a un enemigo con tus balas hay un 25 % de que se una a ti, y un 80 % si lo matas con una de tus minas (hasta 3 aliados a la vez). Cada aliado elige al azar entre protegerte o cazar a otros tanques.' },
-        chaleco: { n: 'Chaleco', ic: '🦺', t: 'pas', cost: 10000, rk: 11, d: 'Absorbes el primer impacto de cada misión sin perder vida.' }
+        reclutador: { n: 'Reclutador', ic: '🤝', t: 'pas', cost: 12000, rk: 12, d: 'Al matar a un enemigo con tus balas hay un 40 % de que se una a ti, y un 95 % si lo matas con una de tus minas. Conserva todas las mecánicas del enemigo original. Hasta 7 aliados: los defensores van hacia ti y te escoltan, los atacantes cazan enemigos. Dispárale a un aliado para cambiar su comportamiento.' },
+        chaleco: { n: 'Chaleco', ic: '🦺', t: 'pas', cost: 10000, rk: 11, d: 'Absorbes un impacto sin perder vida y la absorción se recupera sola cada 20 s.' }
     };
-    let pwActive = false, killBy, killMine = false, pets = [], petN = 0;
+    let pwActive = false, killBy, killMine = false, pulses = [];
     function curCls() { try { return (!dailyCur && !(net.on && net.cfg && net.cfg.src === 'daily') && prof.cls && prof.clsOwn && prof.clsOwn[prof.cls] && CLASSES[prof.cls]) ? prof.cls : ''; } catch (e) { return ''; } }
     function buyCls(id) {
         const c = CLASSES[id]; if (!c || prof.clsOwn[id] || prof.coins < c.cost || rankOf(prof.xp) < c.rk) return;
@@ -3110,7 +3116,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     function nearestFoe(x, y) {
         let best = null, bd = 1e12;
-        for (const e of enemies) { if (e.isAlly || e.haste) continue; const d = (e.x - x) ** 2 + (e.y - y) ** 2; if (d < bd) { bd = d; best = e; } }
+        for (const e of enemies) { if (e.isAlly || e.haste || (e.sq !== undefined && (!isPvp() || e.sq === teamOf(player)))) continue; const d = (e.x - x) ** 2 + (e.y - y) ** 2; if (d < bd) { bd = d; best = e; } }
         return best;
     }
     const clsOf = q => q === player ? curCls() : ((q.cls && CLASSES[q.cls]) ? q.cls : '');
@@ -3156,12 +3162,22 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 mines.push({ x, y, timer: MINE_TIMER, owner: 'player', radius: 12, by: q === player ? undefined : q.slot, tm: tmv }); q.minesLaid = (q.minesLaid || 0) + 1; ok = true; }
             if (ok) updateUI();
         } else if (id === 'pulso') {
-            const friend = b => b.shooterId === q.id || (net.on && b.tm !== undefined && b.tm === teamOf(q)) || (!isPvp() && isTeam(b.shooterId));
-            for (const b of bullets) if (!b.dead && !friend(b) && Math.hypot(b.x - q.x, b.y - q.y) < 240) b.dead = true;
-            if (isPvp()) convTm = teamOf(q);
-            for (const e of enemies.slice()) { if (e.isAlly || e.haste || !enemies.includes(e) || Math.hypot(e.x - q.x, e.y - q.y) > 140) continue;
-                if (e.maxHp > 1) { e.hp--; if (e.hp <= 0) killEnemy(e.id); } else killEnemy(e.id); }
-            convTm = undefined; createExplosion(q.x, q.y, '#4dd0e1', 40); ok = true;
+            const R1 = 260, R2 = 200, tmq = teamOf(q);
+            const friend = b => b.shooterId === q.id || (net.on && b.tm !== undefined && b.tm === tmq) || (!isPvp() && (isTeam(b.shooterId) || b.tm !== undefined));
+            for (const b of bullets) if (!b.dead && !friend(b) && Math.hypot(b.x - q.x, b.y - q.y) < R1) { b.dead = true; createParticles(b.x, b.y, '#4dd0e1', 4); }
+            if (isPvp()) convTm = tmq;
+            for (const e of enemies.slice()) {
+                if (e.isAlly || e.haste || !enemies.includes(e) || (e.sq !== undefined && (!isPvp() || e.sq === tmq))) continue;
+                const d = Math.hypot(e.x - q.x, e.y - q.y); if (d > R2) continue;
+                if (e.maxHp > 1) {
+                    e.hp -= d < 110 ? 3 : 2; createExplosion(e.x, e.y, '#4dd0e1', 12);
+                    if (e.hp <= 0) killEnemy(e.id);
+                    else if (e.speed > 0 && !e.isBoss) { const an = Math.atan2(e.y - q.y, e.x - q.x); for (let k = 0; k < 6; k++) moveEntitySmooth(e, Math.cos(an) * 6, Math.sin(an) * 6); }
+                } else killEnemy(e.id);
+            }
+            convTm = undefined; pulses.push({ x: q.x, y: q.y, t: 0 }); createExplosion(q.x, q.y, '#4dd0e1', 20);
+            if (net.on && net.role === 'host') netSend({ t: 'pf', x: Math.round(q.x), y: Math.round(q.y) });
+            ok = true;
         } else if (id === 'coraza') {
             q.shieldT = 180; q.invuln = Math.max(q.invuln || 0, 180); createParticles(q.x, q.y, '#4dd0e1', 18); ok = true;
         }
@@ -3177,6 +3193,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function classTick() {
         const id = curCls(), c = CLASSES[id];
         if (player.abilCd > 0) player.abilCd--; if (player.shieldT > 0) player.shieldT--;
+        if (!player.vest && player.vestT > 0 && --player.vestT <= 0) player.vest = true;
+        for (let i = pulses.length - 1; i >= 0; i--) if (++pulses[i].t > 28) pulses.splice(i, 1);
         if (pwActive) { let any = false; for (let i = walls.length - 1; i >= 0; i--) { const w = walls[i]; if (w.pw) { if (--w.life <= 0) { if (net.on && net.role === 'host') netWallDel([w]); removeWall(w); } else any = true; } } pwActive = any; }
         if (id === 'ultimo') {
             if (!player.lmax || player.lives > player.lmax) player.lmax = player.lives;
@@ -3187,12 +3205,12 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         }
         if (frameCount % 6 === 0) {
             const w = document.getElementById('abil-wrap');
-            if (w) { w.style.display = id ? '' : 'none'; if (id) document.getElementById('ui-abil').innerText = c.ic + ' ' + c.n + (id === 'reclutador' && net.role !== 'client' ? ' · ' + pets.filter(q => q.owner === 'player').length + '/3' : '') + (id === 'chaleco' ? (player.vest ? ' · listo' : ' · gastado') : '') + (c.t === 'act' ? ' · ' + (player.abilCd > 0 ? Math.ceil(player.abilCd / 60) + ' s' : 'LISTO [' + String(controls.ability || 'e').toUpperCase() + ']') : ''); }
+            if (w) { w.style.display = id ? '' : 'none'; if (id) document.getElementById('ui-abil').innerText = c.ic + ' ' + c.n + (id === 'reclutador' && net.role !== 'client' ? ' · ' + petCount('player') + '/' + PET_MAX : '') + (id === 'chaleco' ? (player.vest ? ' · listo' : ' · ' + Math.ceil((player.vestT || 0) / 60) + ' s') : '') + (c.t === 'act' ? ' · ' + (player.abilCd > 0 ? Math.ceil(player.abilCd / 60) + ' s' : 'LISTO [' + String(controls.ability || 'e').toUpperCase() + ']') : ''); }
             const tb = document.getElementById('t-abil'); if (tb) { tb.style.display = (id && c.t === 'act') ? '' : 'none'; if (id && c.t === 'act') tb.innerText = player.abilCd > 0 ? Math.ceil(player.abilCd / 60) : c.ic; }
         }
     }
     function drawClassFx() {
-        drawPets();
+        for (const pu of pulses) { const r = 12 + pu.t * 9.5, al = Math.max(0, 1 - pu.t / 28); ctx.save(); ctx.strokeStyle = 'rgba(77,208,225,' + (0.9 * al) + ')'; ctx.lineWidth = 6 * al + 1; ctx.beginPath(); ctx.arc(pu.x, pu.y, r, 0, Math.PI * 2); ctx.stroke(); ctx.fillStyle = 'rgba(77,208,225,' + (0.12 * al) + ')'; ctx.fill(); ctx.restore(); }
         if (player.dead) return;
         const cid = curCls(), cc = CLASSES[cid];
         if (cc && cc.t === 'act') {
@@ -3212,83 +3230,53 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             ctx.restore();
         }
         if (player.shieldT > 0) { ctx.save(); ctx.strokeStyle = 'rgba(77,208,225,' + ((player.shieldT < 40 && frameCount % 8 < 4) ? 0.3 : 0.9) + ')'; ctx.fillStyle = 'rgba(77,208,225,.18)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore(); }
+        if (!player.vest && curCls() === 'chaleco' && player.vestT > 0) { ctx.save(); ctx.strokeStyle = 'rgba(255,215,64,.45)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - player.vestT / 1200)); ctx.stroke(); ctx.restore(); }
         if (player.vest && curCls() === 'chaleco') { ctx.save(); ctx.strokeStyle = 'rgba(255,215,64,.7)'; ctx.setLineDash([6, 5]); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 6, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
         if (player.rageS > 0 && curCls() === 'ultimo') { ctx.save(); ctx.strokeStyle = 'rgba(255,82,82,' + (0.35 + 0.5 * player.rageS) + ')'; ctx.lineWidth = 2 + 2 * player.rageS; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 6 + Math.sin(frameCount * 0.2) * 2, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
     }
 
-    // ===== Reclutador: aliados que te protegen o cazan a otros tanques =====
+    // ===== Reclutador: el enemigo reclutado sigue siendo el mismo tanque (mismas mecánicas) y pasa a tu bando =====
     const petLos = (x0, y0, x1, y1) => { const d = Math.hypot(x1 - x0, y1 - y0), a = Math.atan2(y1 - y0, x1 - x0); for (let k = 14; k < d; k += 12) if (wallHit({ x: x0 + Math.cos(a) * k, y: y0 + Math.sin(a) * k, radius: 5 })) return false; return true; };
+    const PET_MAX = 7, PET_P_BALA = 0.4, PET_P_MINA = 0.95;
     const petOwner = id => id === 'player' ? player : remotes.find(r => r.id === id);
+    const petCount = by => enemies.filter(q => q.owner === by).length + pendingSpawns.filter(p => p.enemy && p.enemy.owner === by).length;
     function petRecruit(e, by) {
         if (net.role === 'client' || e.sq !== undefined || e.isAlly || e.isBoss || e.haste || e.kamikaze || e.isVip || e.necro) return;
         const ow = petOwner(by); if (!ow || ow.dead || clsOf(ow) !== 'reclutador') return;
-        if (pets.filter(q => q.owner === by).length >= 3 || Math.random() >= (killMine ? 0.8 : 0.25)) return;
-        const mode = Math.random() < 0.5 ? 'guard' : 'hunt', hp = Math.max(3, e.maxHp || 1);
-        pets.push({ id: 'pet' + (++petN), nid: 9000 + petN, pet: true, owner: by, mode, type: e.type, baseColor: e.baseColor, turretColor: e.turretColor, radius: e.radius || 18, x: e.x, y: e.y, lastX: e.x, lastY: e.y, hp, maxHp: hp, speed: Math.max(1.5, Math.min(2.4, e.speed || 1.8)), cd: Math.max(55, Math.min(120, e.cooldown || 90)), baseAngle: e.baseAngle || 0, turretAngle: e.turretAngle || 0, lastShot: frameCount, path: [], pcd: 0, isAlly: true, spawnT: 30 });
-        floatingTexts.push({ text: mode === 'guard' ? '🛡 ¡Aliado guardián!' : '🎯 ¡Aliado cazador!', x: e.x, y: e.y - 40, life: 70, color: '#4fc3f7' });
+        if (petCount(by) >= PET_MAX || Math.random() >= (killMine ? PET_P_MINA : PET_P_BALA)) return;
+        const bt0 = ENEMY_TYPES.find(q => q.type === e.type), tm = teamOf(ow);
+        const o = { ...e, sq: tm, owner: by, role: e.speed === 0 ? 'def' : (Math.random() < 0.5 ? 'def' : 'atk'), hp: Math.max(1, e.maxHp || 1), speed: bt0 ? bt0.speed : e.speed, cooldown: bt0 ? bt0.cooldown : e.cooldown, chS: undefined, chT: 0, buffT: 0, bm: 1, sprint: 1, wasStatic: false, tcT: undefined, fz: 0, spd0: undefined, lastHp: undefined, shout: 0, cmCd: undefined, asS: undefined, asCd: undefined, rvT: 0, rvM: null, rvN: 0, rvCd: 0,
+            path: [], targetX: e.x, targetY: e.y, lastShot: frameCount, lastMine: 0, canShoot: false, stuckFrames: 0, pathCooldown: 0, visT: 99, acidRange: 0, post: null, ptCache: null, id: undefined, nid: undefined };
+        e.recruited = true; pendingSpawns.push({ x: e.x, y: e.y, timer: 45, enemy: o, tm });
+        floatingTexts.push({ text: '¡RECLUTADO!', x: e.x, y: e.y - 40, life: 60, color: tmCol(tm) });
     }
-    function petMove(p, tx, ty, spd) {
-        if (--p.pcd <= 0 || !p.path.length) { const np = findPath(p.x, p.y, tx, ty, p.radius, 12000); p.path = (np && np.length) ? np : []; p.pcd = p.path.length ? 30 : 12; }
-        while (p.path.length && Math.hypot(p.path[0].x - p.x, p.path[0].y - p.y) < 14) p.path.shift();
-        const wp = p.path[0] || { x: tx, y: ty }, a = Math.atan2(wp.y - p.y, wp.x - p.x);
-        if (Math.hypot(wp.x - p.x, wp.y - p.y) > 4) {
-            p.lastX = p.x; p.lastY = p.y; moveEntitySmooth(p, Math.cos(a) * spd, Math.sin(a) * spd);
-            let da = a - p.baseAngle; while (da < -Math.PI) da += Math.PI * 2; while (da > Math.PI) da -= Math.PI * 2; p.baseAngle += Math.max(-0.2, Math.min(0.2, da));
-        }
-    }
-    function petsTick() {
-        if (!pets.length || state !== 'playing') return;
-        for (let i = pets.length - 1; i >= 0; i--) {
-            const p = pets[i], ow = petOwner(p.owner);
-            if (p.hp <= 0 || !ow || clsOf(ow) !== 'reclutador') { createExplosion(p.x, p.y, '#4fc3f7', 25); pets.splice(i, 1); continue; }
-            if (p.spawnT > 0) { p.spawnT--; continue; }
-            // si un guardián se queda muy lejos de su dueño (o atascado), reaparece a su lado
-            if (Math.hypot(ow.x - p.x, ow.y - p.y) > 650) p.far = (p.far || 0) + 1; else p.far = 0;
-            if (p.far > 150) {
-                for (let k = 0; k < 24; k++) { const a = Math.random() * 6.28, d = 80 + Math.random() * 60, x = ow.x + Math.cos(a) * d, y = ow.y + Math.sin(a) * d; if (!wallHit({ x, y, radius: p.radius + 4 })) { createParticles(p.x, p.y, '#4fc3f7', 10); p.x = x; p.y = y; p.lastX = x; p.lastY = y; p.path = []; createParticles(x, y, '#4fc3f7', 10); break; } }
-                p.far = 0;
-            }
-            const tmv = net.on ? teamOf(ow) : undefined;
-            // balas enemigas que les alcanzan
-            for (const b of bullets) if (!b.dead && !isTeam(b.shooterId) && !(b.tm !== undefined && b.tm === tmv) && Math.hypot(b.x - p.x, b.y - p.y) < p.radius + b.radius) { b.dead = true; p.hp--; createExplosion(b.x, b.y, '#4fc3f7', 10); }
-            // objetivo: el tanque enemigo más cercano (los guardianes solo miran a los que están cerca de su dueño)
-            let foe = null, fd = Infinity;
-            const consider = o => { const d = Math.hypot(o.x - p.x, o.y - p.y); if (p.mode === 'guard' && Math.hypot(o.x - ow.x, o.y - ow.y) > 320) return; const sc = d + (petLos(p.x, p.y, o.x, o.y) ? 0 : 180); if (sc < fd) { fd = sc; foe = o; } };
-            for (const o of enemies) if (!o.isAlly && !o.haste) consider(o);
-            if (isPvp()) for (const q of alivePlayers()) if (teamOf(q) !== tmv) consider(q);
-            let tx, ty;
-            if (p.mode === 'guard') {
-                // se queda cerca de su dueño y se interpone si hay un enemigo cerca
-                if (foe && Math.hypot(foe.x - ow.x, foe.y - ow.y) < 300) { const a = Math.atan2(foe.y - ow.y, foe.x - ow.x); tx = ow.x + Math.cos(a) * 105; ty = ow.y + Math.sin(a) * 105; }
-                else { const a = (i * 2.1) + frameCount * 0.004; tx = ow.x + Math.cos(a) * 95; ty = ow.y + Math.sin(a) * 95; }
-                if (Math.hypot(tx - p.x, ty - p.y) > 28) petMove(p, tx, ty, p.speed);
-            } else if (foe) {
-                const d = Math.hypot(foe.x - p.x, foe.y - p.y);
-                if (!(d < 230 && petLos(p.x, p.y, foe.x, foe.y))) petMove(p, foe.x, foe.y, p.speed);
-            } else if (Math.hypot(ow.x - p.x, ow.y - p.y) > 150) petMove(p, ow.x, ow.y, p.speed);
-            // apuntar y disparar
-            if (foe && petLos(p.x, p.y, foe.x, foe.y) && Math.hypot(foe.x - p.x, foe.y - p.y) < 440) {
-                const a = Math.atan2(foe.y - p.y, foe.x - p.x); let da = a - p.turretAngle; while (da < -Math.PI) da += Math.PI * 2; while (da > Math.PI) da -= Math.PI * 2;
-                p.turretAngle += Math.max(-0.14, Math.min(0.14, da));
-                if (Math.abs(da) < 0.14 && frameCount - p.lastShot > p.cd) {
-                    p.lastShot = frameCount;
-                    bullets.push({ x: p.x + Math.cos(p.turretAngle) * (p.radius + 6), y: p.y + Math.sin(p.turretAngle) * (p.radius + 6), vx: Math.cos(p.turretAngle) * BULLET_SPEED, vy: Math.sin(p.turretAngle) * BULLET_SPEED, radius: 4, color: '#4fc3f7', shooterId: p.owner, bounces: 1, dead: false, life: 450, bid: ++BID, tm: tmv });
-                }
-            }
-        }
-    }
-    function drawPets() {
-        for (const p of pets) {
-            drawTank(p.x, p.y, p.baseColor, p.turretColor, p.baseAngle, p.turretAngle, p.type, false, false, false, p.hp, p.maxHp, true);
-            ctx.save(); ctx.strokeStyle = 'rgba(79,195,247,.85)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 5, 0, Math.PI * 2); ctx.stroke();
-            ctx.font = '14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(p.mode === 'guard' ? '🛡' : '🎯', p.x, p.y - p.radius - 16); ctx.restore();
-        }
+    // Defensor: va hasta su dueño y lo escolta (se interpone si hay enemigos cerca de él). Atacante: caza al enemigo más cercano de todo el mapa.
+    function petTarget(e) {
+        const ow = petOwner(e.owner);
+        if (!ow || ow.dead) return { aim: { x: e.x + Math.cos(e.baseAngle || 0) * 100, y: e.y + Math.sin(e.baseAngle || 0) * 100 }, dest: { x: e.x, y: e.y }, base: null, hostile: false, idle: true };
+        const c = e.ptCache;
+        if (c && c.role === e.role && (frameCount + (e.nid || 0)) % 6 !== 0 && (!c.foe || enemies.includes(c.foe) || (c.foe.isPlayer && !c.foe.dead))) return c.res;
+        let best = null, bd = Infinity;
+        const consider = o => {
+            if (e.role === 'def' && Math.hypot(o.x - ow.x, o.y - ow.y) > 340) return;
+            const sc = Math.hypot(o.x - e.x, o.y - e.y) + (petLos(e.x, e.y, o.x, o.y) ? 0 : 180); if (sc < bd) { bd = sc; best = o; }
+        };
+        if (isPvp()) for (const p of alivePlayers()) if (teamOf(p) !== e.sq) consider(p);
+        for (const o of enemies) if (o !== e && o.sq !== e.sq && !o.haste && !o.isAlly) consider(o);
+        let res;
+        const rest = () => { if (!e.post || (frameCount + (e.nid || 0)) % 30 === 0) e.post = guardPost(e, ow); return { aim: { x: e.x + (e.x - ow.x), y: e.y + (e.y - ow.y) }, dest: e.post, base: null, hostile: false, idle: true }; };
+        if (e.role === 'def') {
+            if (best) { const a = Math.atan2(best.y - ow.y, best.x - ow.x); res = { aim: best, dest: { x: ow.x + Math.cos(a) * 100, y: ow.y + Math.sin(a) * 100 }, base: null, hostile: true }; }
+            else res = rest();
+        } else res = best ? { aim: best, dest: { x: best.x, y: best.y }, base: null, hostile: true } : rest();
+        e.ptCache = { role: e.role, foe: best, res };
+        return res;
     }
     // ===== Misil del jugador: ruta propia, predicción del objetivo y esquiva de balas y minas =====
     const pmClear = (b, x1, y1, r = 12) => { const d = Math.hypot(x1 - b.x, y1 - b.y), a = Math.atan2(y1 - b.y, x1 - b.x); for (let k = 8; k < d; k += 10) if (wallHit({ x: b.x + Math.cos(a) * k, y: b.y + Math.sin(a) * k, radius: r }, b.shooterId)) return false; return true; };
     function pmPick(b) {
         let best = null, bs = Infinity;
-        for (const e of enemies) { if (e.isAlly || e.haste) continue; const d = Math.hypot(e.x - b.x, e.y - b.y), sc = d + (pmClear(b, e.x, e.y) ? 0 : 220); if (sc < bs) { bs = sc; best = e; } }
+        for (const e of enemies) { if (e.isAlly || e.haste || (e.sq !== undefined && (!isPvp() || e.sq === teamOf(player)))) continue; const d = Math.hypot(e.x - b.x, e.y - b.y), sc = d + (pmClear(b, e.x, e.y) ? 0 : 220); if (sc < bs) { bs = sc; best = e; } }
         return best;
     }
     function pmSteer(b) {
@@ -4293,6 +4281,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (const r of remotes) {
             if (r.invuln > 0) r.invuln--;
             if (r.abilCd > 0) r.abilCd--; if (r.shieldT > 0) r.shieldT--;
+            if (!r.vest && r.vestT > 0 && --r.vestT <= 0) r.vest = true;
             if (r.cls === 'ultimo') {
                 r.lmax = Math.max(r.lmax || 0, r.lives); const sv = r.lmax > 1 ? Math.min(1, Math.max(0, (r.lmax - r.lives) / (r.lmax - 1))) : 0;
                 r.speed = r.bs * (1 + 0.3 * sv); r.shotDelay = Math.max(6, Math.round(r.bd * (1 - 0.45 * sv))); r.rebounces = r.bb + (sv >= 1 ? 1 : 0);
@@ -4308,7 +4297,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     function playerDamageNet(p) {
         if (p.dead || p.invuln > 0) return;
-        if (p.vest && clsOf(p) === 'chaleco') { p.vest = false; p.invuln = 90; createExplosion(p.x, p.y, '#ffd740', 20); floatingTexts.push({ text: '🦺 ¡Absorbido!', x: p.x, y: p.y - 34, life: 60, color: '#ffd740' }); if (p !== player) netSend({ t: 'vest' }, p.slot); return; }
+        if (p.vest && clsOf(p) === 'chaleco') { p.vest = false; p.vestT = 1200; p.invuln = 90; createExplosion(p.x, p.y, '#ffd740', 20); floatingTexts.push({ text: '🦺 ¡Absorbido!', x: p.x, y: p.y - 34, life: 60, color: '#ffd740' }); if (p !== player) netSend({ t: 'vest' }, p.slot); return; }
         p.lives--; combo = 0; hitsThisLevel++; createExplosion(p.x, p.y, '#2196f3', 40);
         if (pvpKey() === 'hunt' && pvpHitTm !== undefined && pvpHitTm !== teamOf(p)) { pvs[pvpHitTm] = (pvs[pvpHitTm] || 0) + 3; floatingTexts.push({ text: '+3 🎯', x: p.x, y: p.y - 40, life: 55, color: tmCol(pvpHitTm) }); }
         if (pvpKey() === 'race') { const tm = teamOf(p), lose = Math.min(2, pvs[tm] || 0); pvs[tm] -= lose; for (let i = 0; i < lose; i++) items.push({ type: 'jewel', x: p.x + (Math.random() - .5) * 50, y: p.y + (Math.random() - .5) * 50, collected: false, color: '#e040fb', gem: true }); }
@@ -4436,6 +4425,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     // IA de la tropa. Atacante: ataca lo hostil cercano y, si no hay nada, va a por la base rival más próxima.
     // Defensor: no se aleja de su base; combate lo que se acerque y, si no hay amenazas, vuelve a su puesto.
     function squadTarget(e) {
+        if (e.owner !== undefined) return petTarget(e);
         const tm = e.sq; let best = null, bd = (e.role === 'def' ? 520 : 200) * (e.role === 'def' ? 520 : 200); // los atacantes solo se detienen por enemigos pegados: su objetivo es el búnker rival
         const own = e.role === 'def' ? targets.find(b => b.tm === tm) : null;
         const oc = own ? { x: own.x + own.width / 2, y: own.y + own.height / 2 } : null;
@@ -5045,8 +5035,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const r1 = n => Math.round(n), a2 = n => Math.round(n * 100) / 100;
         const P = q => [q.slot || 0, r1(q.x), r1(q.y), a2(q.baseAngle), a2(q.turretAngle), q.hp, q.dead ? 1 : 0, q.invuln > 0 ? 1 : 0, q.minesLaid || 0, q.carriedItems || 0, q.lives];
         const nd = [];
-        const e = [...enemies, ...pets].map(en => {
-            if (!net.sentDefs.has(en.nid)) { net.sentDefs.add(en.nid); nd.push([en.nid, en.baseColor, en.turretColor, en.type, en.isBoss ? 1 : 0, en.invisible ? 1 : 0, en.isVip ? 1 : 0, (en.isAlly || en.pet) ? 1 : 0, en.radius, en.kamikaze ? 1 : 0, en.maxHp, r1(en.x), r1(en.y), en.sq === undefined ? -1 : en.sq, en.abs || '']); }
+        const e = enemies.map(en => {
+            if (!net.sentDefs.has(en.nid)) { net.sentDefs.add(en.nid); nd.push([en.nid, en.baseColor, en.turretColor, en.type, en.isBoss ? 1 : 0, en.invisible ? 1 : 0, en.isVip ? 1 : 0, en.isAlly ? 1 : 0, en.radius, en.kamikaze ? 1 : 0, en.maxHp, r1(en.x), r1(en.y), en.sq === undefined ? -1 : en.sq, en.abs || '']); }
             return [en.nid, r1(en.x), r1(en.y), a2(en.baseAngle), a2(en.turretAngle), en.hp, en.role === 'def' ? 1 : enemySt(en), en.rvT > 0 ? Math.round(en.rvT * 100 / NECRO_CHANNEL) : 0];
         });
         if (net.fx.length > 40) net.fx.length = 40;
@@ -5159,7 +5149,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             case 'lobby': net.roster = d.roster; net.cfg = d.cfg; { const me = net.roster.find(r => r.slot === net.slot); if (me) net.myRdy = !!me.rdy; } if (state === 'menu' && lobbyTab === 'party') renderLobby(); break;
             case 'tp': player.x = d.x; player.y = d.y; player.lastX = d.x; player.lastY = d.y; break;
             case 'abx': player.abilCd = 0; player.shieldT = 0; break;
-            case 'vest': player.vest = false; break;
+            case 'vest': player.vest = false; player.vestT = 1200; break;
+            case 'pf': pulses.push({ x: d.x, y: d.y, t: 0 }); break;
             case 'wa': for (const q of d.w) { if (!wallGrid[q[1]] || wallGrid[q[1]][q[0]]) continue; const w = { x: q[0] * GRID_SIZE, y: q[1] * GRID_SIZE, width: GRID_SIZE, height: GRID_SIZE, destructible: false, pw: true, life: q[3], own: q[2] === net.slot ? 'player' : 'x' + q[2] }; walls.push(w); paintWall(w, w); refreshNav(w.x, w.y, w.width, w.height); } pwActive = true; break;
             case 'wd': for (const q of d.r) { const w = walls.find(x => x.x === q[0] && x.y === q[1]); if (w) removeWall(w); } break;
             case 'pz': if (d.by.length && state === 'playing') state = 'paused'; else if (!d.by.length && state === 'paused') state = 'playing'; showPauseBanner(d.by); break;
