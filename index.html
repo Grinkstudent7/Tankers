@@ -978,6 +978,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function randomMission() { return GAME_MODES[Math.floor(Math.random() * GAME_MODES.length)]; }
     function pickMode() {
         if (isPvp()) return 'p_' + pvpPick();
+        if (evCur) return 'hidden';
         if (dailyCur) return dailyCur.mode;
         if (sbCur) return (sbCur.lv.mi && MISSIONS[sbCur.lv.mi]) ? sbCur.lv.mi : 'custom';
         const gm = effMode();
@@ -1052,13 +1053,202 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         return Math.round(t * DIFFS[curDiff()].tm);
     }
 
+    // ===== Evento oculto «Operación Sombra» =====
+    let evCur = null, anom = null, horde = null, sbStk = 0, evBossOn = false;
+    const EV_TIME = 600 * 60, EV_SIDE = 4400, CUT = { on: false };
+    const evBase = () => targets.find(t => t.hb) || null;
+    const evUnlockedAll = () => !!prof.evOpen && (!net.on || net.roster.every(r => r.ev));
+    function placeHBase() {
+        const G = GRID_SIZE, c = Math.floor(gridCols / 2) - 1, r = Math.floor(gridRows / 2) - 1;
+        for (const w of walls.slice()) if (w.x < (c + 4) * G && w.x + w.width > (c - 2) * G && w.y < (r + 4) * G && w.y + w.height > (r - 2) * G && w.x > BORDER_SIZE && w.y > BORDER_SIZE) removeWall(w);
+        const hp = 30 + 8 * (playersCount() - 1), b = { x: c * G, y: r * G, width: G * 2, height: G * 2, destructible: false, target: true, hb: true, hp, maxHp: hp };
+        walls.push(b); paintWall(b, b); refreshNav(b.x, b.y, b.width, b.height); targets.push(b);
+        return b;
+    }
+    function spawnAnom() {
+        for (let i = 0; i < 25; i++) { const p = findFreeSpawn(false); if (Math.hypot(p.x - player.x, p.y - player.y) > 700 || i === 24) { anom = { x: p.x, y: p.y }; break; } }
+        floatingTexts.push({ text: '🌀 ¡ANOMALÍA DETECTADA!', x: player.x, y: player.y - 60, life: 150, color: '#ea80fc' });
+    }
+    function evSpawnHunter() {
+        spawnEnemy(ENEMY_TYPES[9], false, null, null, false, false);
+        const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps) ps.enemy.hunt = true;
+    }
+    function evSpawnMaster() {
+        spawnEnemy({ ...ENEMY_TYPES[9], baseColor: '#311b92', turretColor: '#d500f9', speed: 1.7, cooldown: 70, hp: 26 + 8 * (playersCount() - 1), radius: 34 }, false, null, null, true, false);
+        const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps) { ps.enemy.master = true; ps.enemy.hunt = true; ps.enemy.mt = 0; }
+        floatingTexts.push({ text: '☠ ¡EL MAESTRO ASESINO LLEGA!', x: player.x, y: player.y - 70, life: 180, color: '#ea80fc' });
+    }
+    function evBullet(e, a, sp) {
+        bullets.push({ x: e.x + Math.cos(a) * (e.radius + 6), y: e.y + Math.sin(a) * (e.radius + 6), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, radius: 5, color: '#d500f9', shooterId: e.id, bounces: 1, dead: false, life: 420, bid: ++BID });
+    }
+    // Maestro Asesino: Paso sombra (se teletransporta tras ti), Lluvia de cuchillas, Emboscada y, a media vida, minas y más ritmo
+    function masterUpdate(e) {
+        e.mt = (e.mt || 0) + 1; const rage = e.hp <= e.maxHp / 2, tp = nearestPlayer(e);
+        if (rage && !e.rg) { e.rg = 1; floatingTexts.push({ text: '¡FURIA DEL MAESTRO!', x: e.x, y: e.y - 60, life: 90, color: '#ff1744' }); }
+        if (tp && e.mt % (rage ? 200 : 300) === 0) {
+            const a = Math.atan2(tp.y - e.y, tp.x - e.x) + Math.PI;
+            for (let d = 150; d >= 70; d -= 20) {
+                const x = tp.x + Math.cos(a) * d, y = tp.y + Math.sin(a) * d;
+                if (x > BORDER_SIZE + 40 && y > BORDER_SIZE + 40 && x < MAP_WIDTH - BORDER_SIZE - 40 && y < MAP_HEIGHT - BORDER_SIZE - 40 && !wallHit({ x, y, radius: e.radius + 4 })) {
+                    createParticles(e.x, e.y, '#d500f9', 20); e.x = x; e.y = y; e.lastX = x; e.lastY = y; createParticles(x, y, '#d500f9', 20);
+                    floatingTexts.push({ text: '¡PASO SOMBRA!', x, y: y - 50, life: 60, color: '#ea80fc' }); break;
+                }
+            }
+        }
+        if (e.mt % (rage ? 330 : 480) === 240) {
+            const n = rage ? 12 : 8, o = Math.random() * 6.28; for (let k = 0; k < n; k++) evBullet(e, o + k * 6.283 / n, 3.2);
+            floatingTexts.push({ text: '¡LLUVIA DE CUCHILLAS!', x: e.x, y: e.y - 50, life: 60, color: '#ea80fc' });
+        }
+        if (e.mt % (rage ? 600 : 900) === 450) { for (let k = 0; k < (rage ? 4 : 3); k++) evSpawnHunter(); floatingTexts.push({ text: '¡EMBOSCADA!', x: e.x, y: e.y - 50, life: 60, color: '#ff5252' }); }
+        if (rage && e.mt % 90 === 0) mines.push({ x: e.x, y: e.y, timer: MINE_TIMER, owner: 'enemy', radius: 12 });
+    }
+    function evTick() {
+        const b = evBase(); if (!b || objDone) return;
+        const bx = b.x + 40, by = b.y + 40; surviveTimer = Math.max(0, surviveTimer - 1); const el = EV_TIME - surviveTimer;
+        if (frameCount % 15 === 0) updateUI();
+        const hunters = enemies.filter(e => e.hunt && !e.master).length + pendingSpawns.filter(p => p.enemy && p.enemy.hunt && !p.enemy.master).length;
+        const cap = Math.min(20, 5 + Math.floor(el / 1800) + 2 * (playersCount() - 1));
+        if (el > 1500 && hunters < cap && frameCount % Math.max(40, 130 - Math.floor(el / 900) * 6) === 0) evSpawnHunter();
+        if (!evBossOn && el > 18000) { evBossOn = true; evSpawnMaster(); }
+        for (const e of enemies.slice()) if (e.hunt && e.sq === undefined && Math.hypot(e.x - bx, e.y - by) < 125) { e.sab = (e.sab || 0) + 1; if (e.sab % 60 === 0) { damageBunker(b, e.master ? 3 : 1); if (!evBase()) return; } }
+        if (surviveTimer <= 0 && evBossOn && !bossAliveNow()) objectiveDone();
+    }
+    // Clase Sombra: horda marcada, invisibilidad y velocidad por bajas
+    function evClassTick() {
+        if (player.invT > 0) player.invT--; for (const r of remotes) if (r.invT > 0) r.invT--;
+        if (horde) {
+            const t = enemies.find(e => e.id === horde.tg);
+            if (!t) { for (const e of enemies) if (e.horde) createExplosion(e.x, e.y, '#d500f9', 12); enemies = enemies.filter(e => !e.horde); pendingSpawns = pendingSpawns.filter(p => !(p.enemy && p.enemy.horde)); horde = null; }
+            else if (frameCount % 40 === 0 && enemies.filter(e => e.horde).length + pendingSpawns.filter(p => p.enemy && p.enemy.horde).length < 14) {
+                const o = petOwner(horde.by) || player; let pos = null;
+                for (let i = 0; i < 8 && !pos; i++) { const x = o.x + (Math.random() - 0.5) * 220, y = o.y + (Math.random() - 0.5) * 220; if (x > BORDER_SIZE + 30 && y > BORDER_SIZE + 30 && x < MAP_WIDTH - BORDER_SIZE - 30 && y < MAP_HEIGHT - BORDER_SIZE - 30 && !wallHit({ x, y, radius: 22 })) pos = { x, y }; }
+                if (pos) {
+                    spawnAtOverride = pos; spawnEnemy(ENEMY_TYPES[9], false, null, null, false, false); spawnAtOverride = null; floatingTexts.pop();
+                    const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps) { Object.assign(ps.enemy, { sq: horde.tm, owner: horde.by, role: 'atk', horde: 1 }); ps.tm = horde.tm; }
+                }
+            }
+        }
+        if (curCls() === 'sombra') {
+            PLAYER_SPEED = (2.5 + prof.up.speed * 0.2) * (1 + 0.04 * sbStk);
+            shotDelay = Math.max(6, Math.round((20 - prof.up.reload * 2) * (1 - 0.03 * sbStk)));
+        }
+    }
+    function drawAnomFx() {
+        if (anom) {
+            const t = frameCount * 0.05; ctx.save();
+            for (let k = 0; k < 3; k++) { ctx.strokeStyle = 'rgba(' + (k ? 213 : 179) + ',0,249,' + (0.75 - k * 0.2) + ')'; ctx.lineWidth = 4 - k; ctx.beginPath(); ctx.arc(anom.x + Math.sin(t * 3 + k) * 3, anom.y, 22 + k * 10 + Math.sin(t + k) * 4, 0, 6.283); ctx.stroke(); }
+            ctx.fillStyle = 'rgba(0,229,255,.55)'; for (let k = 0; k < 4; k++) ctx.fillRect(anom.x - 30 + ((frameCount * 7 + k * 53) % 60), anom.y - 20 + k * 11, 14, 3);
+            ctx.font = '26px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🌀', anom.x, anom.y); ctx.restore();
+            if (!player.dead && Math.hypot(anom.x - player.x, anom.y - player.y) > 160) { const a = Math.atan2(anom.y - player.y, anom.x - player.x); ctx.save(); ctx.font = '22px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🌀', player.x + Math.cos(a) * 95, player.y + Math.sin(a) * 95); ctx.restore(); }
+        }
+        if (!player.dead && player.invT > 0) { ctx.save(); ctx.strokeStyle = 'rgba(179,136,255,.85)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 12, 0, 6.283); ctx.stroke(); ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#d1c4e9'; ctx.fillText('👻 ' + Math.ceil(player.invT / 60) + 's', player.x, player.y - player.radius - 20); ctx.restore(); }
+    }
+    function evStart(noCut) {
+        if (net.role || !(prof.evOpen || prof.evKey)) return;
+        const go = () => { dailyCur = null; sbCur = null; evCur = { nm: 'Operación Sombra' }; anom = null; startNewLevel(true); };
+        if (state === 'playing') finishRun();
+        noCut ? go() : playCut('intro', go);
+    }
+    function evFinish() {
+        const first = !prof.evOpen; prof.evOpen = 1; prof.evKey = 0; prof.evWins = (prof.evWins || 0) + 1;
+        prof.clsOwn.sombra = 1; prof.coins += first ? 500 : 200; prof.xp += first ? 600 : 250; saveProf(); return first;
+    }
+    function evWin(secs) {
+        const first = evFinish(); updateUI();
+        playCut('outro', () => { state = 'win'; showOverlay('menu-win', '¡OPERACIÓN COMPLETADA!', '', 'Tiempo: ' + secs + ' s · Puntos: ' + score + '\n+' + (first ? 500 : 200) + ' monedas' + (first ? '\n🥷 Clase exclusiva «Sombra» desbloqueada (Garaje).\n🎭 Evento disponible en la pestaña Eventos.' : ''), 'Volver al menú', () => openLobby('event')); });
+    }
+    function eventHTML() {
+        const open = !!prof.evOpen, solo = !net.role;
+        return '<h3>🎭 Eventos</h3><div class="modes"><button class="mode ' + (open ? 'on' : '') + '" ' + (open && solo ? '' : 'disabled') + ' onclick="evStart()"><b>🥷 Operación Sombra</b><span>Mapa enorme: defiende tu base 10 minutos de la horda de asesinos y derrota al Maestro Asesino. Con cutscenes 3D.</span><em>'
+            + (open ? (solo ? 'Desbloqueado · también en party si todos lo tienen (elige «Evento oculto» como origen)' : 'Desbloqueado · inícialo desde la party') : 'Bloqueado: un asesino puede soltar una llave (10 %) y debes hallar la anomalía 🌀 en una misión.') + '</em></button></div>'
+            + '<p class="st">' + (!open && prof.evKey ? '🗝️ Tienes la llave: busca la anomalía 🌀 en tus misiones.' : 'Superarlo da la clase exclusiva «Sombra».') + '</p>';
+    }
+    // ===== Cutscenes 3D por software (proyección en perspectiva sobre canvas, sin librerías) =====
+    function playCut(kind, done) {
+        if (CUT.on) { if (done) done(); return; } CUT.on = true;
+        const paused = !net.on && state === 'playing'; if (paused) state = 'paused';
+        const wrap = document.createElement('div'); wrap.style.cssText = 'position:fixed;inset:0;z-index:300;background:#000;color:#fff;font-family:Barlow,"Segoe UI",sans-serif;touch-action:none';
+        wrap.innerHTML = '<canvas style="position:absolute;inset:0;width:100%;height:100%"></canvas><div class="bx" style="position:absolute;left:4%;right:4%;bottom:5%;background:rgba(10,12,20,.82);border:2px solid #b388ff;border-radius:10px;padding:14px 18px;min-height:76px"><b class="who" style="font-size:20px;letter-spacing:1px"></b><div class="tx" style="font-size:19px;margin-top:6px;line-height:1.35"></div><small style="position:absolute;right:12px;bottom:6px;opacity:.6">Toca para avanzar</small></div><button class="sk" style="position:absolute;top:14px;right:14px;margin:0;padding:8px 16px;font-size:15px;background:#37474f">Saltar ⏭</button>';
+        document.body.appendChild(wrap);
+        const night = kind === 'intro', cv = wrap.querySelector('canvas'), g = cv.getContext('2d'), who = wrap.querySelector('.who'), tx = wrap.querySelector('.tx');
+        const S = night ? [['Comandante', '#4dd0e1', 'Base, aquí Comandante. Los sensores detectan actividad extraña en el sector.'], ['Radio', '#ffd54f', 'Una anomalía ha abierto un portal. Es una horda de asesinos y viene directa hacia vosotros.'], ['Maestro Asesino', '#ea80fc', 'Diez minutos. Es todo lo que necesito para borrar vuestra base del mapa.'], ['Comandante', '#4dd0e1', '¡Defended la base a toda costa y abatid al Maestro! ¡Preparaos!']]
+            : [['Comandante', '#4dd0e1', '¡El Maestro Asesino ha caído! La base sigue en pie.'], ['Radio', '#ffd54f', 'El portal se cierra. La horda se ha desvanecido con la primera luz del día.'], ['Comandante', '#4dd0e1', 'Te has ganado un lugar entre las sombras: aquí tienes la clase exclusiva «Sombra».']];
+        let li = 0, lt = 0, T = 0, fin = false, last = performance.now(); const cam = { x: 600, y: 300, z: 600, tx: 0, ty: 40, tz: 0 };
+        const end = () => { if (fin) return; fin = true; CUT.on = false; wrap.remove(); document.removeEventListener('keydown', kd); if (paused && state === 'paused') state = 'playing'; if (done) done(); };
+        const adv = () => { const n = S[li][2].length * 22; if (lt < n) lt = n; else { li++; lt = 0; if (li >= S.length) end(); } };
+        const kd = e => { if (e.key === 'Escape') end(); else if (e.key === ' ' || e.key === 'Enter') adv(); };
+        document.addEventListener('keydown', kd); wrap.addEventListener('click', adv); wrap.querySelector('.sk').addEventListener('click', e => { e.stopPropagation(); end(); });
+        const fogC = night ? [8, 10, 24] : [170, 120, 130], BX = 330, BZ = -330;
+        function render() {
+            const w = cv.clientWidth | 0, h = cv.clientHeight | 0; if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+            const sg = g.createLinearGradient(0, 0, 0, h); sg.addColorStop(0, night ? '#05060f' : '#3b2a5e'); sg.addColorStop(0.6, night ? '#1b1f3a' : '#ff9e6e'); sg.addColorStop(1, night ? '#101426' : '#ffd29a'); g.fillStyle = sg; g.fillRect(0, 0, w, h);
+            if (night) { g.fillStyle = '#fff'; for (let i = 0; i < 70; i++) g.fillRect((i * 193 % w), (i * 71 % (h * 0.5)), 1.5, 1.5); }
+            g.fillStyle = night ? '#e8eaf6' : '#fff3c4'; g.shadowColor = g.fillStyle; g.shadowBlur = 40; g.beginPath(); g.arc(w * 0.78, h * (night ? 0.2 : 0.34), night ? 46 : 70, 0, 6.283); g.fill(); g.shadowBlur = 0;
+            const tg = night ? [[Math.cos(T * .15 + .6) * 520, 230, Math.sin(T * .15 + .6) * 520, 0, 40, 0], [Math.cos(T * .15 + 2) * 330, 90, Math.sin(T * .15 + 2) * 330, Math.cos(T * .15 + 2.4) * 520, 30, Math.sin(T * .15 + 2.4) * 520], [BX + 140, 70, BZ + 240, BX, 70, BZ], [Math.cos(T * .15) * 380, 160, Math.sin(T * .15) * 380, 0, 40, 0]]
+                : [[Math.cos(T * .15) * 420, 170, Math.sin(T * .15) * 420, BX, 30, BZ], [Math.cos(T * .15 + 2) * 560, 300, Math.sin(T * .15 + 2) * 560, 0, 50, 0], [-150, 70, 260, 60, 25, 40]];
+            const D = tg[Math.min(li, tg.length - 1)], keys = ['x', 'y', 'z', 'tx', 'ty', 'tz']; keys.forEach((k, i) => { cam[k] += (D[i] - cam[k]) * 0.04; });
+            let F = [cam.tx - cam.x, cam.ty - cam.y, cam.tz - cam.z]; const fl = Math.hypot(...F) || 1; F = F.map(v => v / fl);
+            let R = [F[2], 0, -F[0]]; const rl = Math.hypot(...R) || 1; R = R.map(v => v / rl); const U = [F[1] * R[2] - F[2] * R[1], F[2] * R[0] - F[0] * R[2], F[0] * R[1] - F[1] * R[0]], fo = h * 1.05;
+            const polys = [], ground = [], LD = [-0.4, 0.8, 0.45];
+            const pr = p => { const dx = p[0] - cam.x, dy = p[1] - cam.y, dz = p[2] - cam.z, z = dx * F[0] + dy * F[1] + dz * F[2]; return [w / 2 + (dx * R[0] + dy * R[1] + dz * R[2]) * fo / z, h / 2 - (dx * U[0] + dy * U[1] + dz * U[2]) * fo / z, z]; };
+            const colr = (c, k, dist) => { const f = Math.min(1, dist / 2600); return 'rgb(' + [0, 1, 2].map(i => Math.round(Math.min(255, c[i] * k) * (1 - f) + fogC[i] * f)).join(',') + ')'; };
+            const face = (pts, n, c, em, arr) => {
+                const cx = (pts[0][0] + pts[2][0]) / 2, cy = (pts[0][1] + pts[2][1]) / 2, cz = (pts[0][2] + pts[2][2]) / 2;
+                if (n[0] * (cam.x - cx) + n[1] * (cam.y - cy) + n[2] * (cam.z - cz) <= 0) return;
+                const P = pts.map(pr); if (P.some(q => q[2] < 12)) return; const dist = Math.hypot(cam.x - cx, cam.y - cy, cam.z - cz);
+                const k = em ? 1.25 : (night ? 0.3 : 0.5) + 0.7 * Math.max(0, n[0] * LD[0] + n[1] * LD[1] + n[2] * LD[2]) * (night ? 0.6 : 1);
+                (arr || polys).push({ d: dist, p: P, c: colr(c, k, em ? dist * 0.3 : dist) });
+            };
+            const box = (x, y, z, bw, bh, bd, c, yaw = 0, em = false) => {
+                const co = Math.cos(yaw), si = Math.sin(yaw), rot = (a, b2) => [a * co + b2 * si, -a * si + b2 * co], V = (a, b2, c2) => { const r2 = rot(a * bw / 2, c2 * bd / 2); return [x + r2[0], y + b2 * bh, z + r2[1]]; };
+                const fs = [[[V(1, 0, -1), V(1, 1, -1), V(1, 1, 1), V(1, 0, 1)], [co, 0, -si]], [[V(-1, 0, 1), V(-1, 1, 1), V(-1, 1, -1), V(-1, 0, -1)], [-co, 0, si]], [[V(-1, 1, -1), V(-1, 1, 1), V(1, 1, 1), V(1, 1, -1)], [0, 1, 0]], [[V(-1, 0, 1), V(-1, 0, -1), V(1, 0, -1), V(1, 0, 1)], [0, -1, 0]], [[V(-1, 0, 1), V(1, 0, 1), V(1, 1, 1), V(-1, 1, 1)], [si, 0, co]], [[V(1, 0, -1), V(-1, 0, -1), V(-1, 1, -1), V(1, 1, -1)], [-si, 0, -co]]];
+                for (const f of fs) face(f[0], f[1], c, em);
+            };
+            const prism = (x, y, z, r, hh, c, n = 8) => {
+                for (let i = 0; i < n; i++) { const a0 = i / n * 6.283, a1 = (i + 1) / n * 6.283, am = (a0 + a1) / 2; face([[x + Math.cos(a0) * r, y, z + Math.sin(a0) * r], [x + Math.cos(a1) * r, y, z + Math.sin(a1) * r], [x + Math.cos(a1) * r, y + hh, z + Math.sin(a1) * r], [x + Math.cos(a0) * r, y + hh, z + Math.sin(a0) * r]], [Math.cos(am), 0, Math.sin(am)], c, false); }
+                const top = []; for (let i = 0; i < 4; i++) top.push([x + Math.cos(i * 1.5708) * r, y + hh, z + Math.sin(i * 1.5708) * r]); face(top, [0, 1, 0], c, false);
+            };
+            for (let gx = -12; gx < 12; gx++) for (let gz = -12; gz < 12; gz++) { const x0 = gx * 160, z0 = gz * 160, c = (gx + gz) & 1 ? [34, 42, 40] : [42, 52, 48]; face([[x0, 0, z0], [x0, 0, z0 + 160], [x0 + 160, 0, z0 + 160], [x0 + 160, 0, z0]], [0, 1, 0], night ? c : c.map(v => v * 1.5), false, ground); }
+            const tank = (x, z, yaw, s, bc, tc, eye, wreck) => {
+                box(x, 0, z, 38 * s, 7 * s, 56 * s, [28, 32, 36], yaw); box(x, 6 * s, z, 32 * s, 11 * s, 50 * s, bc, yaw);
+                if (wreck) { for (let k = 0; k < 5; k++) box(x + Math.sin(T + k) * 10, 14 * s + (T * 28 + k * 22) % 100, z + Math.cos(T * 1.3 + k) * 10, 12, 12, 12, [70, 70, 74]); return; }
+                const ty = yaw + Math.sin(T * 0.8 + x) * 0.4, sx = Math.sin(ty), cx2 = Math.cos(ty);
+                box(x, 16 * s, z, 22 * s, 9 * s, 24 * s, tc, ty); box(x + sx * 22 * s, 18 * s, z + cx2 * 22 * s, 5 * s, 5 * s, 30 * s, [60, 60, 66], ty);
+                if (eye) for (const sg of [-1, 1]) box(x + sx * 12 * s + cx2 * 6 * s * sg, 21 * s, z + cx2 * 12 * s - sx * 6 * s * sg, 4 * s, 3 * s, 2 * s, eye, ty, true);
+            };
+            box(0, 0, 0, 110, 34, 110, [70, 84, 92]); box(0, 34, 0, 80, 22, 80, [96, 110, 118]); prism(0, 56, 0, 26, 30, [120, 134, 142], 10); box(0, 86, 0, 6, 40, 6, [200, 200, 200]); box(0, 126, 0, 12, 12, 12, [0, 229, 255], 0, true);
+            for (const q of [[-80, -80], [80, -80], [-80, 80], [80, 80]]) { box(q[0], 0, q[1], 22, 40, 22, [60, 70, 76]); box(q[0], 40, q[1], 10, 8, 10, [0, 229, 255], 0, true); }
+            for (let k = -3; k <= 3; k++) { box(k * 30, 0, -140, 26, 14, 12, [110, 100, 80]); box(k * 30, 0, 140, 26, 14, 12, [110, 100, 80]); }
+            tank(120, 190, Math.PI, 1, [60, 130, 150], [80, 180, 200], null, false);
+            if (night) {
+                const r = li === 3 ? 650 - Math.min(lt, 3000) / 3000 * 360 : 650;
+                for (let k = 0; k < 10; k++) { const a = k * 0.6283 + T * 0.1, x = Math.cos(a) * r, z = Math.sin(a) * r; tank(x, z, Math.atan2(-x, -z), 1, [24, 24, 28], [10, 10, 12], [255, 30, 30], false); }
+                tank(BX, BZ, Math.atan2(-BX, -BZ), 1.9, [49, 27, 146], [213, 0, 249], [255, 214, 0], false);
+            } else {
+                tank(BX, BZ, 0.8, 1.9, [30, 20, 60], [30, 20, 60], null, true);
+                if (li >= 2) { tank(40, 230, Math.PI, 1.2, [49, 27, 146], [179, 136, 255], [213, 0, 249], false); prism(40, 0.5, 230, 70 + Math.sin(T * 4) * 6, 1, [213, 0, 249]); }
+            }
+            polys.sort((a, b) => b.d - a.d);
+            for (const arr of [ground, polys]) for (const q of arr) { g.fillStyle = q.c; g.strokeStyle = q.c; g.lineWidth = 1; g.beginPath(); g.moveTo(q.p[0][0], q.p[0][1]); for (let i = 1; i < q.p.length; i++) g.lineTo(q.p[i][0], q.p[i][1]); g.closePath(); g.fill(); g.stroke(); }
+            const vg = g.createRadialGradient(w / 2, h / 2, h * 0.3, w / 2, h / 2, h * 0.9); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)'); g.fillStyle = vg; g.fillRect(0, 0, w, h);
+        }
+        const frame = now => {
+            if (fin) return; const dt = Math.min(60, now - last); last = now; T += dt / 1000; lt += dt;
+            const L = S[li]; who.textContent = L[0]; who.style.color = L[1]; tx.textContent = L[2].slice(0, Math.floor(lt / 22));
+            if (lt > L[2].length * 22 + 2600) { li++; lt = 0; if (li >= S.length) { end(); return; } }
+            try { render(); } catch (e) { console.error(e); end(); return; }
+            requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+    }
+
     function startNewLevel(reset, keepLevel = false, soft = false) {
         // En party, tras ganar un desafío/nivel creado: siguiente desafío (o repetir) con todo reiniciado
         if (!reset && !keepLevel && net.on && net.role === 'host' && (dailyCur || sbCur)) { if (dailyCur && dailyCur.idx < 4) { const nx = dailyList()[dailyCur.idx + 1]; dailyCur = { ...nx, idx: dailyCur.idx + 1, k: 0 }; net.cfg.si = dailyCur.idx; net.cfg.sn = nx.nm; } reset = true; }
         lastReset = !!reset;
         if (reset) {
-            level = dailyCur ? dailyCur.level : (sbCur ? 8 : (net.on ? DIFFS[curDiff()].lvl : 1)); missionNo = 0; applyProfile(); player.lives = dailyCur ? dailyCur.lives : (sbCur ? sbCur.lv.l : (net.on ? 3 : 3 + prof.up.armor)); for (const r of remotes) r.lives = player.lives; net.pts = [0, 0, 0, 0];
-            floatingTexts = []; score = 0; combo = 0; comboTimer = 0; runKills = 0; runRevives = 0; runActive = !net.on && !dailyCur && !sbCur;
+            level = evCur ? 12 : dailyCur ? dailyCur.level : (sbCur ? 8 : (net.on ? DIFFS[curDiff()].lvl : 1)); missionNo = 0; applyProfile(); player.lives = evCur ? 4 : dailyCur ? dailyCur.lives : (sbCur ? sbCur.lv.l : (net.on ? 3 : 3 + prof.up.armor)); for (const r of remotes) r.lives = player.lives; net.pts = [0, 0, 0, 0];
+            floatingTexts = []; score = 0; combo = 0; comboTimer = 0; runKills = 0; runRevives = 0; runActive = !net.on && !dailyCur && !sbCur && !evCur;
         } else if (!keepLevel) {
             level++;
             if (isPvp()) { for (const q of [player, ...remotes]) q.lives = 3; }
@@ -1072,10 +1262,10 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (const id of ['overlay', 'pause-menu', 'picker', 'bookwrap', 'lobby']) document.getElementById(id).style.display = 'none';
         document.getElementById('overlay-extra').innerHTML = '';
         if (!keepLevel) { currentMode = pickMode(); if (soft) for (let i = 0; i < 40 && currentMode === 'boss'; i++) currentMode = pickMode(); }
-        bossAlso = effMode() === 'bosses' && currentMode !== 'boss';
+        bossAlso = !evCur && effMode() === 'bosses' && currentMode !== 'boss';
         const sbMi = (sbCur && sbCur.lv.mi && MISSIONS[sbCur.lv.mi]) ? sbCur.lv.mi : null;
         if (!soft) {
-            MAP_WIDTH = MAP_HEIGHT = sbCur ? sbCur.lv.s * GRID_SIZE : 2400 + 400 * (playersCount() - 1);
+            MAP_WIDTH = MAP_HEIGHT = evCur ? EV_SIDE : sbCur ? sbCur.lv.s * GRID_SIZE : 2400 + 400 * (playersCount() - 1);
             if (dailyCur) { dailyCur.k = 0; mapOpt = MAPS[dailyCur.map] || null; if (!rngBak) rngBak = Math.random; Math.random = mulberry(dailyCur.seed); } else mapOpt = null;
             if (sbCur) sbBuildMap(sbCur.lv); else if (currentMode === 'boss') generateBossMaze(); else generateNormalMaze();
             if (dailyCur) sealPockets();
@@ -1168,12 +1358,20 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             for (const p of spreadPoints(8, 260, { x: PLAYER_SPAWN_X, y: PLAYER_SPAWN_Y })) items.push({ type: 'rgem', x: p.x, y: p.y, collected: false, color: '#ff1744' });
             spawnEnemy(ENEMY_TYPES[13], false, null, null, false, false); spawnN(Math.max(1, numEnemies - 3));
         }
+        if (currentMode === 'hidden') {
+            objText = "🥷 DEFIENDE LA BASE 10 MIN Y DERROTA AL MAESTRO ASESINO"; surviveTimer = EV_TIME; evBossOn = false;
+            const hb = placeHBase(), hx = hb.x + 40, hy = hb.y + 40, hs = k => ({ x: hx - 110 + (k % 2) * 50, y: hy - 30 + 60 * (k >> 1) });
+            { const p = hs(0); player.x = p.x; player.y = p.y; player.lastX = p.x; player.lastY = p.y; }
+            for (const r of remotes) { const p = hs(r.slot || 0); r.x = p.x; r.y = p.y; r.lastX = p.x; r.lastY = p.y; }
+        }
         if (bossAlso) { objText += " + 💀 DESTRUYE AL JEFE"; spawnEnemy(makeBossType(), false, null, null, true, false); }
         if (sbMi && sbCur.lv.u > 0 && (currentMode === 'survive' || currentMode === 'protect')) surviveTimer = sbCur.lv.u * 60;
         if (rngBak) { Math.random = rngBak; rngBak = null; }
-        timeLimit = (dailyCur && dailyCur.time) ? dailyCur.time * 60 : ((sbCur && sbCur.lv.t) ? sbCur.lv.t * 60 : (effMode() === 'timeattack' ? logicalTime() * 60 : 0));
+        timeLimit = evCur ? 0 : (dailyCur && dailyCur.time) ? dailyCur.time * 60 : ((sbCur && sbCur.lv.t) ? sbCur.lv.t * 60 : (effMode() === 'timeattack' ? logicalTime() * 60 : 0));
         if (isPvp() && /^p_/.test(currentMode)) timeLimit = PVP_TIME[currentMode.slice(2)] * 60;
         document.getElementById('objective-text').innerText = objText;
+        horde = null; player.invT = 0; for (const r of remotes) r.invT = 0; if (!soft) sbStk = 0; anom = null;
+        if (prof.evKey && !prof.evOpen && !net.on && !dailyCur && !sbCur && !evCur && !/^p_/.test(currentMode)) spawnAnom();
         fixSpawns(); updateCamera();
         state = soft ? 'playing' : 'starting'; startTimer = soft ? 0 : 120; net.goAt = 0; net.wait = (net.on && net.role === 'host') ? { rtt: {}, t0: performance.now() } : null;
         document.getElementById('countdown-display').style.display = soft ? 'none' : 'block';
@@ -1183,7 +1381,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
     function updateUI() {
         const cont = effMode() === 'continuous', $ = id => document.getElementById(id);
-        const sc = (net.on && net.cfg.src) || ''; $('ui-lvl-label').innerText = (dailyCur || sc === 'daily') ? 'DESAFÍO' : ((sbCur || sc === 'sb') ? 'SANDBOX' : (cont ? 'MISIÓN' : 'NIVEL')); $('ui-level').innerText = dailyCur ? (dailyCur.idx + 1) + '/5' : (sc === 'daily' ? ((net.cfg.si | 0) + 1) + '/5' : ((sbCur || sc === 'sb') ? '🛠' : (cont ? missionNo : level)));
+        const sc = (net.on && net.cfg.src) || ''; $('ui-lvl-label').innerText = (evCur || sc === 'ev') ? 'EVENTO' : (dailyCur || sc === 'daily') ? 'DESAFÍO' : ((sbCur || sc === 'sb') ? 'SANDBOX' : (cont ? 'MISIÓN' : 'NIVEL')); $('ui-level').innerText = (evCur || sc === 'ev') ? '🥷' : dailyCur ? (dailyCur.idx + 1) + '/5' : (sc === 'daily' ? ((net.cfg.si | 0) + 1) + '/5' : ((sbCur || sc === 'sb') ? '🛠' : (cont ? missionNo : level)));
         let t = enemies.filter(e => !e.isAlly && !e.haste && e.sq === undefined).length + pendingSpawns.length;
         switch (currentMode) {
             case 'survive': t = Math.max(0, Math.ceil(surviveTimer / 60)) + " s"; break;
@@ -1197,6 +1395,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             case 'escape_blind': t = "BUSCA LA EVACUACIÓN"; break;
             case 'capture': t = `ZONAS ${zones.filter(z => z.done).length}/${zones.length}`; break;
             case 'demolition': t = `BÚNKERES: ${targets.length}`; break;
+            case 'hidden': { const b = evBase(), m = Math.max(0, Math.ceil(surviveTimer / 60)); t = '🏰 ' + (b ? b.hp + '/' + b.maxHp : '—') + ' · ⏱ ' + Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0') + (evBossOn && bossAliveNow() ? ' · ☠ MAESTRO' : ''); break; }
             case 'minefield': t = "¡CRUZA A LA ZONA VERDE!"; break;
             case 'escort': t = "LLEVA AL ALIADO A LA ZONA VERDE"; break;
             case 'crates': t = keysCollected >= 1 ? "¡VE A LA ZONA VERDE!" : `CAJAS: ${walls.filter(w => w.crate).length}`; break;
@@ -1740,7 +1939,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function killEnemy(id) {
         let idx = enemies.findIndex(e => e.id === id);
         if (idx === -1) return;
-        let e = enemies[idx]; const wasPet = e.owner !== undefined; if (killBy) petRecruit(e, killBy); if (e.sq === undefined) awardKill(e); if (e.isBoss) prof.stats.bosses = (prof.stats.bosses || 0) + 1; createExplosion(e.x, e.y, e.baseColor, e.isBoss ? 50 : 25); if (isPvp()) pvpEnemyDown(e);
+        let e = enemies[idx]; const wasPet = e.owner !== undefined; if (e.type === 'assassin' && e.sq === undefined && !e.noScore && !e.master && !e.hunt && !prof.evKey && !prof.evOpen && !evCur && !dailyCur && !sbCur && (!net.on || net.role === 'host') && Math.random() < 0.10) { prof.evKey = 1; saveProf(); toast('🗝️ ¡El asesino soltó una llave misteriosa!'); floatingTexts.push({ text: '🗝️ LLAVE', x: e.x, y: e.y - 40, life: 100, color: '#ffd740' }); if (!net.on) spawnAnom(); } if (killBy) petRecruit(e, killBy); if (e.sq === undefined) awardKill(e); if (e.isBoss) prof.stats.bosses = (prof.stats.bosses || 0) + 1; createExplosion(e.x, e.y, e.baseColor, e.isBoss ? 50 : 25); if (isPvp()) pvpEnemyDown(e);
         { const dm = { x: e.x, y: e.y, life: 600 }; if (!e.haste && !e.isAlly && !e.isVip) { dm.ty = e.type; dm.life = e.isBoss ? 2600 : 1600; if (e.isBoss) dm.boss = e; } deadMarks.push(dm); }
 
         if (!wasPet && currentMode === 'keys' && keysSpawned < 3 && !e.noScore) {
@@ -1779,7 +1978,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             return;
         }
 
-        player.x = PLAYER_SPAWN_X; player.y = PLAYER_SPAWN_Y;
+        { const hb0 = evBase(); player.x = hb0 ? hb0.x - 70 : PLAYER_SPAWN_X; player.y = hb0 ? hb0.y + 40 : PLAYER_SPAWN_Y; }
         player.lastX = player.x; player.lastY = player.y;
         player.carriedItems = 0; player.invuln = 120; if(currentMode === 'jewel' && items.length > 0) { items[0].collected = false; jewelTaken = false; }
         if(currentMode === 'survive') surviveTimer = 45 * 60;
@@ -1971,6 +2170,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             if (e.type === 'commander') commanderUpdate(e);
             if (e.tesla) teslaUpdate(e);
             if (e.isBoss && e.abs) bossAbilities(e);
+            if (e.master) masterUpdate(e);
             if (e.type === 'assassin' && e.sq === undefined && assassinUpdate(e)) continue;
 
             // SOLUCIÓN AL BUG DE CONGELACIÓN (Hibernación borrada)
@@ -2006,6 +2206,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 
                 targetForAim = (currentMode === 'protect' && theAlly) ? (aDist < pDist ? theAlly : (tp || player)) : ((aDist < pDist && theAlly) ? theAlly : (tp || player));
                 if (!tp && !theAlly) targetForAim = {x: MAP_WIDTH/2, y: MAP_HEIGHT/2};
+                if (e.hunt) { const hb = evBase(); if (hb && (!tp || pDist > 480)) { const bx = hb.x + 40, by = hb.y + 40, an = Math.atan2(e.y - by, e.x - bx); targetForAim = { x: bx + Math.cos(an) * 100, y: by + Math.sin(an) * 100 }; } }
             }
 
             if (e.kamikaze && targetForAim && (e.x - targetForAim.x) ** 2 + (e.y - targetForAim.y) ** 2 < 1700) {
@@ -2061,7 +2262,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 if (e.pathCooldown > 0) e.pathCooldown--;
                 if (e.isAlly && acid.length && e.path && e.path.length && (frameCount + e.aiOffset) % 8 === 0 && pathHitsAcid(e)) { e.path = []; e.pathCooldown = 0; }
 
-                let forceUpdate = (e.sq !== undefined && (frameCount + e.aiOffset) % 40 === 0) ||  ((((currentMode === 'survive' || currentMode === 'protect') || e.chaser) && (frameCount + e.aiOffset) % 30 === 0) || (e.isVip && (frameCount + e.aiOffset) % 20 === 0) || (e.necro && (frameCount + e.aiOffset) % 25 === 0) || (e.type === 'assassin' && (frameCount + e.aiOffset) % 14 === 0) || (e.bodyguard && currentMode === 'vip' && (frameCount + e.aiOffset) % 40 === 0) || (e.isAlly && currentMode === 'escort' && (frameCount + e.aiOffset) % 40 === 0));
+                let forceUpdate = (e.sq !== undefined && (frameCount + e.aiOffset) % 40 === 0) ||  ((((currentMode === 'survive' || currentMode === 'protect') || e.chaser) && (frameCount + e.aiOffset) % 30 === 0) || (e.isVip && (frameCount + e.aiOffset) % 20 === 0) || (e.necro && (frameCount + e.aiOffset) % 25 === 0) || (e.type === 'assassin' && (frameCount + e.aiOffset) % (e.hunt ? 45 : 14) === 0) || (e.bodyguard && currentMode === 'vip' && (frameCount + e.aiOffset) % 40 === 0) || (e.isAlly && currentMode === 'escort' && (frameCount + e.aiOffset) % 40 === 0));
                 let needsPath = (!e.path || e.path.length === 0);
 
                 if (forceUpdate || (needsPath && e.pathCooldown <= 0)) {
@@ -2072,7 +2273,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                         newPath = findPath(e.x, e.y, destX, destY, e.radius, 20000); avoidAcid = null;
                         if (!newPath && usedAv) { e.rvBad = { m: e.rvM, until: frameCount + 120 }; necroRelease(e, 0); e.pickT = frameCount; } // ya no hay ruta que evite al jugador
                     }
-                    else newPath = findPath(e.x, e.y, destX, destY, e.radius, (e.isAlly || e.necro) ? 20000 : 2000);
+                    else newPath = findPath(e.x, e.y, destX, destY, e.radius, (e.isAlly || e.necro || e.hunt) ? 20000 : 2000);
                     if(newPath && newPath.length > 0) {
                         e.path = newPath;
                         let distToFirst = Math.sqrt((e.path[0].x - e.x)**2 + (e.path[0].y - e.y)**2);
@@ -2282,7 +2483,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function damageBunker(w, n, byTm) {
         w.hp -= n; const cx = w.x + w.width / 2, cy = w.y + w.height / 2; createExplosion(cx, cy, '#ffb300', 8);
         if (w.hp <= 0) {
-            createExplosion(cx, cy, '#ff5722', 40); if (w.tm === undefined) { prof.stats.bunkers = (prof.stats.bunkers || 0) + 1; score += 200; floatingTexts.push({ text: '+200', x: cx, y: cy - 30, life: 60, color: '#ff6f00' }); }
+            createExplosion(cx, cy, '#ff5722', 40); if (w.hb) { removeWall(w); targets = targets.filter(t => t !== w); netWallDel([w]); endGame('¡Los asesinos destruyeron tu base!'); return; } if (w.tm === undefined) { prof.stats.bunkers = (prof.stats.bunkers || 0) + 1; score += 200; floatingTexts.push({ text: '+200', x: cx, y: cy - 30, life: 60, color: '#ff6f00' }); }
             removeWall(w); targets = targets.filter(t => t !== w); netWallDel([w]); if (w.tm !== undefined) pvpBaseFall(w, byTm);
         }
         updateUI();
@@ -2474,6 +2675,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     function checkWinConditions() {
         if (isPvp()) { checkPvp(); if (state !== 'playing') return; pvpTick(); return; }
+        if (anom && !net.on && !CUT.on && alivePlayers().some(p => near(p, anom, 55))) { evStart(); return; }
         if (currentMode === 'gems') gemTick();
         if (timeLimit > 0) { timeLimit--; if (timeLimit <= 0) { endGame('¡Se acabó el tiempo!'); return; } if (timeLimit % 60 === 0) updateUI(); }
         const P = alivePlayers();
@@ -2505,6 +2707,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             }
             case 'escape_blind': case 'minefield': if (P.some(p => near(p, escapeZone, 85))) objectiveDone(); break;
             case 'boss': if (!bossAliveNow()) objectiveDone(); break;
+            case 'hidden': evTick(); break;
             case 'carry': {
                 for (const p of P) {
                     for (const it of items) if (!it.collected && p.carriedItems < 1 && near(p, it, p.radius + 15)) { it.collected = true; p.carriedItems++; updateUI(); }
@@ -2598,6 +2801,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const bonus = 500 + level * 100 + Math.max(0, 90 - secs) * 10 + (clean ? 500 : 0) + tb;
         score += bonus;
         if (net.on) { netMissionWin(bonus, secs, clean); return; }
+        if (evCur) { state = 'win'; evWin(secs); return; }
         if (dailyCur) { dailyWin(secs); return; }
         if (sbCur) { sbWin(secs); return; }
         prof.stats.missions++; saveProf(); updateUI();
@@ -2613,6 +2817,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function endGameBase(reason) {
         if (state === 'gameover' || state === 'menu') return; if (net.on) { netEnd(false, reason); return; }
         state = 'gameover';
+        if (evCur) { showOverlay('menu-lose', 'OPERACIÓN FALLIDA', '#ff5252', (reason ? reason + '\n' : '') + 'Operación Sombra · ' + score + ' puntos', 'Reintentar', () => evStart(true), true); return; }
         if (dailyCur) { const dc = dailyCur; showOverlay('menu-lose', 'DESAFÍO FALLIDO', '#ff5252', (reason ? reason + '\n' : '') + dc.nm + ' · ' + score + ' puntos', 'Reintentar', () => startDaily(dc.idx), true); return; }
         if (sbCur) { const sc = sbCur; showOverlay('menu-lose', 'NIVEL FALLIDO', '#ff5252', (reason ? reason + '\n' : '') + sc.lv.nm + ' · ' + score + ' puntos', 'Reintentar', () => startSandbox(sc.lv, sc.test), true); return; }
         const r = finishRun() || { coins: 0 };
@@ -2692,6 +2897,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (const t of targets) {
             if (t.x + t.width < camera.x || t.x > camera.x + viewW || t.y + t.height < camera.y || t.y > camera.y + viewH) continue;
             drawBunkerArt(ctx, t.x, t.y, 80, Math.max(0, t.hp) / t.maxHp);
+            if (t.hb) { ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 5; ctx.strokeRect(t.x - 2, t.y - 2, 84, 84); }
             if (t.spawner) { ctx.strokeStyle = '#ff1744'; ctx.lineWidth = 4; ctx.setLineDash([9, 6]); ctx.strokeRect(t.x - 2, t.y - 2, 84, 84); ctx.setLineDash([]); }
             if (t.tm !== undefined) { ctx.strokeStyle = tmCol(t.tm); ctx.lineWidth = 5; ctx.strokeRect(t.x - 2, t.y - 2, 84, 84); }
             ctx.fillStyle = '#263238'; ctx.fillRect(t.x + 8, t.y - 12, 64, 7); ctx.fillStyle = t.tm !== undefined ? tmCol(t.tm) : '#66bb6a'; ctx.fillRect(t.x + 8, t.y - 12, 64 * Math.max(0, t.hp) / t.maxHp, 7);
@@ -3060,6 +3266,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
     function awardKill(e) {
         if (e.isAlly) return;
+        if (e.sq === undefined && curCls() === 'sombra' && sbStk < 10) sbStk++;
         combo = comboTimer > 0 ? Math.min(5, combo + 1) : 1; comboTimer = 240;
         let base = e.isBoss ? 1000 : e.isVip ? 600 : 100 * (e.maxHp || 1) + (e.speed > 0 ? 50 : 0) + (e.mines ? 50 : 0) + (e.bullet === 'super' ? 50 : 0);
         if (e.noScore) base = 0;
@@ -3098,10 +3305,11 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         pulso: { n: 'Pulso', ic: '🌀', t: 'act', cost: 8000, rk: 9, cd: 900, d: 'Una onda expansiva destruye las balas enemigas en 260 px y daña (hasta 3) y empuja a los enemigos que tengas al lado. Recarga 15 s.' },
         coraza: { n: 'Coraza', ic: '🛡', t: 'act', cost: 9000, rk: 10, cd: 1800, d: 'Te vuelves invulnerable durante 3 s. Recarga 30 s.' },
         reclutador: { n: 'Reclutador', ic: '🤝', t: 'pas', cost: 12000, rk: 12, d: 'Todo enemigo que mates con balas o minas se une a ti (hasta 7) y conserva sus mecánicas. Nace en modo 💣 bomba: si en 8 s no le cambias el modo, explota contra el enemigo más cercano (si es estático, explota a los 8 s). Dispárale para rotar: bomba → 🛡 defensor (te escolta) → ⚔ atacante (caza enemigos) → bomba.' },
-        chaleco: { n: 'Chaleco', ic: '🦺', t: 'pas', cost: 10000, rk: 11, d: 'Absorbes un impacto sin perder vida y la absorción se recupera sola cada 20 s.' }
+        chaleco: { n: 'Chaleco', ic: '🦺', t: 'pas', cost: 10000, rk: 11, d: 'Absorbes un impacto sin perder vida y la absorción se recupera sola cada 20 s.' },
+        sombra: { n: 'Sombra', ic: '🥷', t: 'act', cost: 0, rk: 99, ex: 1, cd: 1200, d: 'EXCLUSIVA del evento oculto. Apunta con el cursor a un enemigo concreto y aparecerá una horda de asesinos aliados que no parará hasta que lo maten. Si no apuntas a nadie, te vuelves invisible 15 s. Pasiva: cada baja del nivel te hace más rápido (hasta +40 %). Recarga 20 s.' }
     };
     let pwActive = false, killBy, killMine = false, pulses = [];
-    function curCls() { try { return (!dailyCur && !(net.on && net.cfg && net.cfg.src === 'daily') && prof.cls && prof.clsOwn && prof.clsOwn[prof.cls] && CLASSES[prof.cls]) ? prof.cls : ''; } catch (e) { return ''; } }
+    function curCls() { try { return (prof.cls && prof.clsOwn && prof.clsOwn[prof.cls] && CLASSES[prof.cls]) ? prof.cls : ''; } catch (e) { return ''; } }
     function buyCls(id) {
         const c = CLASSES[id]; if (!c || prof.clsOwn[id] || prof.coins < c.cost || rankOf(prof.xp) < c.rk) return;
         prof.coins -= c.cost; prof.clsOwn[id] = 1; prof.cls = id; saveProf(); applyProfile(); netProfRefresh(); renderLobby(); toast(c.ic + ' ¡Clase ' + c.n + ' desbloqueada!');
@@ -3113,11 +3321,11 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     function equipCls(id) { if (!prof.clsOwn[id]) return; prof.cls = prof.cls === id ? '' : id; saveProf(); applyProfile(); netProfRefresh(); renderLobby(); }
     function classesHTML(r) {
-        return '<h3>Clase</h3><p class="st">Solo puedes llevar una clase a la vez. Se compran con monedas y exigen rango. No se usan en los desafíos diarios.</p><div class="clsg">' + Object.keys(CLASSES).map(id => {
+        return '<h3>Clase</h3><p class="st">Solo puedes llevar una clase a la vez. Se compran con monedas y exigen rango.</p><div class="clsg">' + Object.keys(CLASSES).map(id => {
             const c = CLASSES[id], own = prof.clsOwn && prof.clsOwn[id], on = prof.cls === id, lock = r < c.rk;
             return `<div class="cl ${on ? 'on' : ''}"><b>${c.ic} ${c.n}</b><small>${c.t === 'act' ? 'ACTIVA' : 'PASIVA'} · ${c.d}</small>` + (own
                 ? `<button onclick="equipCls('${id}')">${on ? 'Equipada · quitar' : 'Equipar'}</button>`
-                : `<button ${lock || prof.coins < c.cost ? 'disabled' : ''} onclick="buyCls('${id}')">${lock ? 'Rango ' + c.rk : 'Comprar · ' + c.cost}</button>`) + '</div>';
+                : `<button ${c.ex || lock || prof.coins < c.cost ? 'disabled' : ''} onclick="buyCls('${id}')">${c.ex ? 'Exclusiva del evento oculto' : lock ? 'Rango ' + c.rk : 'Comprar · ' + c.cost}</button>`) + '</div>';
         }).join('') + '</div>';
     }
     function nearestFoe(x, y) {
@@ -3184,6 +3392,12 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             convTm = undefined; pulses.push({ x: q.x, y: q.y, t: 0 }); createExplosion(q.x, q.y, '#4dd0e1', 20);
             if (net.on && net.role === 'host') netSend({ t: 'pf', x: Math.round(q.x), y: Math.round(q.y) });
             ok = true;
+        } else if (id === 'sombra') {
+            let tg = null, bd = 80 * 80;
+            for (const e of enemies) { if (e.isAlly || e.haste || e.sq !== undefined) continue; const d = (e.x - mx) ** 2 + (e.y - my) ** 2; if (d < bd) { bd = d; tg = e; } }
+            if (tg) { horde = { tg: tg.id, tm: tmv === undefined ? 0 : tmv, by: q.id }; floatingTexts.push({ text: '🎯 ¡OBJETIVO MARCADO!', x: tg.x, y: tg.y - 50, life: 90, color: '#ea80fc' }); createParticles(tg.x, tg.y, '#d500f9', 16); }
+            else { q.invT = 900; createParticles(q.x, q.y, '#b388ff', 18); floatingTexts.push({ text: '👻 INVISIBLE', x: q.x, y: q.y - 40, life: 70, color: '#b388ff' }); }
+            ok = true;
         } else if (id === 'coraza') {
             q.shieldT = 180; q.invuln = Math.max(q.invuln || 0, 180); createParticles(q.x, q.y, '#4dd0e1', 18); ok = true;
         }
@@ -3198,7 +3412,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     function classTick() {
         const id = curCls(), c = CLASSES[id];
-        if (player.abilCd > 0) player.abilCd--; if (player.shieldT > 0) player.shieldT--;
+        if (player.abilCd > 0) player.abilCd--; if (player.shieldT > 0) player.shieldT--; evClassTick();
         if (!player.vest && player.vestT > 0 && --player.vestT <= 0) player.vest = true;
         for (let i = pulses.length - 1; i >= 0; i--) if (++pulses[i].t > 28) pulses.splice(i, 1);
         if (pwActive) { let any = false; for (let i = walls.length - 1; i >= 0; i--) { const w = walls[i]; if (w.pw) { if (--w.life <= 0) { if (net.on && net.role === 'host') netWallDel([w]); removeWall(w); } else any = true; } } pwActive = any; }
@@ -3216,6 +3430,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         }
     }
     function drawClassFx() {
+        drawAnomFx();
         for (const pu of pulses) { const r = 12 + pu.t * 9.5, al = Math.max(0, 1 - pu.t / 28); ctx.save(); ctx.strokeStyle = 'rgba(77,208,225,' + (0.9 * al) + ')'; ctx.lineWidth = 6 * al + 1; ctx.beginPath(); ctx.arc(pu.x, pu.y, r, 0, Math.PI * 2); ctx.stroke(); ctx.fillStyle = 'rgba(77,208,225,' + (0.12 * al) + ')'; ctx.fill(); ctx.restore(); }
         if (player.dead) return;
         const cid = curCls(), cc = CLASSES[cid];
@@ -3285,6 +3500,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     // Defensor: va hasta su dueño y lo escolta (se interpone si hay enemigos cerca de él). Atacante: caza al enemigo más cercano de todo el mapa.
     function petTarget(e) {
+        if (e.horde && horde) { const t = enemies.find(x => x.id === horde.tg); if (t) return { aim: t, dest: { x: t.x, y: t.y }, base: null, hostile: true }; }
         const ow = petOwner(e.owner);
         if (!ow || ow.dead) return { aim: { x: e.x + Math.cos(e.baseAngle || 0) * 100, y: e.y + Math.sin(e.baseAngle || 0) * 100 }, dest: { x: e.x, y: e.y }, base: null, hostile: false, idle: true };
         if (e.role === 'bomb' && !e.bombEnd) e.bombEnd = frameCount + PET_BOMB;
@@ -3413,7 +3629,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function openLobby(tab) {
         if (sbCur && sbCur.test && ed) { sbCur = null; resumeEditor(); return; }
         const wasEd = !!ed; sbCur = null; ed = null; document.body.classList.remove('editing'); document.getElementById('edui').style.display = 'none'; document.getElementById('edmodal').style.display = 'none'; if (wasEd) resizeCanvas();
-        finishRun(); dailyCur = null; if (rngBak) { Math.random = rngBak; rngBak = null; } if (net.on) { net.on = false; remotes = []; } if (typeof tab === 'string') lobbyTab = tab;
+        finishRun(); dailyCur = null; evCur = null; anom = null; horde = null; if (rngBak) { Math.random = rngBak; rngBak = null; } if (net.on) { net.on = false; remotes = []; } if (typeof tab === 'string') lobbyTab = tab;
         state = 'menu'; net.myRdy = false;
         for (const id of ['overlay', 'pause-menu', 'countdown-display', 'picker', 'bookwrap']) document.getElementById(id).style.display = 'none';
         document.getElementById('pause-banner').style.display = 'none'; document.getElementById('lobby').style.display = 'flex';
@@ -3434,7 +3650,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function renderLobby() {
         rankRewards();
         const r = rankOf(prof.xp), cur = 150 * (r - 1) * (r - 1), nxt = 150 * r * r;
-        const tabs = [['play', 'Misión'], ['daily', '📅 Diarios'], ['sandbox', '🛠 Sandbox'], ['party', 'Party'], ['friends', '👥 Amigos'], ['book', '📖 Libro'], ['garage', 'Garaje'], ['ach', '🏅 Logros' + achPending()], ['scores', 'Récords'], ['set', 'Ajustes']];
+        const tabs = [['play', 'Misión'], ['daily', '📅 Diarios'], ['event', '🎭 Eventos'], ['sandbox', '🛠 Sandbox'], ['party', 'Party'], ['friends', '👥 Amigos'], ['book', '📖 Libro'], ['garage', 'Garaje'], ['ach', '🏅 Logros' + achPending()], ['scores', 'Récords'], ['set', 'Ajustes']];
         let h = `<div class="sheet"><div class="top"><div><h1>TANKERS</h1><div class="sub">Rango ${r} · ${esc(prof.name)}</div></div><div class="coins">${prof.coins}<small>monedas</small></div></div>
             <div class="xp"><i style="width:${Math.min(100, (prof.xp - cur) / (nxt - cur) * 100)}%"></i></div>
             <div class="tabs">${tabs.map(t => `<button class="${t[0] === lobbyTab ? 'on' : ''}" onclick="openLobby('${t[0]}')">${t[1]}</button>`).join('')}</div>`;
@@ -3443,6 +3659,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 + Object.keys(MODES).map(k => `<button class="mode ${k === gameMode ? 'on' : ''}" onclick="gameMode='${k}';renderLobby()"><b>${MODES[k][0]}</b><span>${MODES[k][1]}</span><em>Mejor: ${prof.best[k] || 0}</em></button>`).join('')
                 + `</div><button class="go" onclick="beginRun()">Desplegar</button>`;
         } else if (lobbyTab === 'daily') { h += dailyHTML(); }
+        else if (lobbyTab === 'event') { h += eventHTML(); }
         else if (lobbyTab === 'sandbox') { h += sandboxHTML(); }
         else if (lobbyTab === 'friends') { fPingAll(); h += friendsHTML(); } else if (lobbyTab === 'party') { if (net.role === 'host') fPingAll(); h += partyHTML(); }
         else if (lobbyTab === 'book') { h += '<p class="st">Todo lo que necesitas saber sobre cada enemigo. Usa las flechas para pasar de página.</p>' + bookHTML(); }
@@ -3478,7 +3695,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         arena: { n: 'Arena del jefe', sp: 5, dest: 0.25, long: 0.5 }
     };
     const ENEMY_NAMES = ['Centinela', 'Patrullero', 'Cañón Rojo', 'Comandante', 'Minador', 'Fantasma', 'Perforador', 'Repetidor', 'Cerebro', 'Asesino', 'Blindado', 'Francotirador', 'Suicida', 'Prisa', 'Misilero', 'Venenoso', '(Jefe)', 'Nigromante', 'Escudero', 'Mortero', 'Fragmentador', 'Embestidor', 'Furia', 'Esquirla', 'Tesla'];
-    const DAILY_LV = [3, 6, 9, 11, 15], DAILY_LIVES = [3, 3, 3, 3, 2], DAILY_DIFF = [0, 1, 1, 2, 2], DAILY_RW = [40, 70, 110, 160, 250];
+    const DAILY_LV = [5, 8, 11, 14, 18], DAILY_LIVES = [2, 2, 2, 2, 1], DAILY_DIFF = [1, 2, 2, 3, 3], DAILY_RW = [60, 100, 150, 220, 350];
     // Cada día se elige una plantilla de cada nivel de dificultad (según la fecha)
     const DAILY_TIERS = [
         [ // 1 · calentamiento
@@ -3552,7 +3769,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const key = dayKey(), rnd = mulberry(hashStr('tankers-daily-' + key));
         return DAILY_TIERS.map((pool, i) => {
             const t = pool[Math.floor(rnd() * pool.length)];
-            return { ...t, n: t.cnt, level: DAILY_LV[i], lives: DAILY_LIVES[i], diff: DAILY_DIFF[i], reward: DAILY_RW[i], seed: hashStr(key + ':' + i + ':' + t.nm) };
+            return { ...t, n: t.cnt ? Math.ceil(t.cnt * 1.35) + (i >= 2 ? 1 : 0) : t.cnt, time: t.time ? Math.round(t.time * 0.85) : t.time, level: DAILY_LV[i], lives: DAILY_LIVES[i], diff: DAILY_DIFF[i], reward: DAILY_RW[i], seed: hashStr(key + ':' + i + ':' + t.nm) };
         });
     }
     function dailyState() {
@@ -4292,11 +4509,11 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     const vsOk = () => { const n = net.roster.length, v = net.cfg.vs || 'coop'; return v === 'coop' || (v === 'ffa' && n >= 2) || (v === '2v2' && n === 4); };
     const isTeam = id => id === 'player' || id === 'ally' || /^p\d$/.test(id || '');
     const playersCount = () => net.on ? Math.max(1, net.roster.length) : 1;
-    const curDiff = () => dailyCur ? dailyCur.diff : (sbCur ? sbCur.lv.d : (net.on ? net.cfg.diff : (prof.diff || 0)));
+    const curDiff = () => evCur ? 2 : dailyCur ? dailyCur.diff : (sbCur ? sbCur.lv.d : (net.on ? net.cfg.diff : (prof.diff || 0)));
     const spawnPos = sl => pvpSpawns[sl] ? pvpSpawns[sl] : ({ x: PLAYER_SPAWN_X + (sl % 2) * 50, y: PLAYER_SPAWN_Y + (sl >> 1) * 50 });
     const alivePlayers = () => [...(player.dead ? [] : [player]), ...remotes.filter(r => !r.dead)];
     function activeTanks() { return [...alivePlayers(), ...enemies]; }
-    function nearestPlayer(e) { let best = null, bd = Infinity; for (const p of alivePlayers()) { const d = (p.x - e.x) ** 2 + (p.y - e.y) ** 2; if (d < bd) { bd = d; best = p; } } return best; }
+    function nearestPlayer(e) { let best = null, bd = Infinity; for (const p of alivePlayers()) { if (p.invT > 0) continue; const d = (p.x - e.x) ** 2 + (p.y - e.y) ** 2; if (d < bd) { bd = d; best = p; } } return best; }
     function mineFreed(m) { if (m.owner !== 'player') return; if (m.by !== undefined) { const r = remotes.find(q => q.slot === m.by); if (r) r.minesLaid = Math.max(0, r.minesLaid - 1); } else player.minesLaid--; }
 
     function applyRemoteCls(o, cls) {
@@ -4306,7 +4523,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         if (o.cls === 'minero') o.maxMines += 3;
         o.bs = o.speed; o.bd = o.shotDelay; o.bb = o.rebounces;
     }
-    function mkRemote(r) { const o = mkRemote0(r); applyRemoteCls(o, (net.cfg && net.cfg.src === 'daily') ? '' : r.cls); return o; }
+    function mkRemote(r) { const o = mkRemote0(r); applyRemoteCls(o, r.cls); return o; }
     function mkRemote0(r) {
         const up = { speed: 0, reload: 0, mines: 0, bounce: 0, ...(r.up || {}) };
         return { id: 'p' + r.slot, isPlayer: true, type: 'rp', slot: r.slot, name: r.name, radius: 18, baseColor: r.bc, turretColor: r.tc, bc: SLOT_COL[r.slot], speed: 2.5 + up.speed * 0.2, shotDelay: 20 - up.reload * 2, rebounces: 1 + up.bounce, maxMines: 5 + up.mines, minesLaid: 0, lastShotFrame: 0, bullet: 'normal', hp: 1, maxHp: 1, lives: 3, trackDist: 0, dead: false, respawnTimer: 0, invuln: 0, x: 0, y: 0, lastX: 0, lastY: 0, baseAngle: 0, turretAngle: 0, inp: { x: 0, y: 0 }, lastIn: 0, carriedItems: 0, hat: r.hat | 0 };
@@ -4954,7 +5171,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             try { q.conn.send(str); } catch (e) {} } } }
         else if (rtc.client && rtc.client.open) { try { rtc.client.send(str); } catch (e) {} }
     }
-    function myRoster() { return { hat: hatOk(prof.hat | 0) ? (prof.hat | 0) : 0, slot: net.slot, name: prof.name, bc: SKINS[prof.skin][1], tc: SKINS[prof.skin][2], up: prof.up, cls: curCls(), rdy: net.role === 'host' }; }
+    function myRoster() { return { hat: hatOk(prof.hat | 0) ? (prof.hat | 0) : 0, slot: net.slot, name: prof.name, bc: SKINS[prof.skin][1], tc: SKINS[prof.skin][2], up: prof.up, cls: curCls(), ev: prof.evOpen ? 1 : 0, rdy: net.role === 'host' }; }
     function stopHB() { if (net.hb) { clearInterval(net.hb); net.hb = null; } }
     // Durante una ronda no se expulsa a nadie por "silencio": una pestaña minimizada cuenta como jugador quieto
     const inRound = () => state === 'playing' || state === 'starting' || state === 'paused';
@@ -5042,15 +5259,18 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     const allReady = () => net.roster.every(r => r.slot === 0 || r.rdy);
     function startMatch() {
         if (net.role !== 'host' || state !== 'menu' || !allReady() || !vsOk()) return;
-        dailyCur = null; sbCur = null;
+        if (net.cfg.src === 'ev' && !evUnlockedAll()) { toast('Todos los miembros deben haber desbloqueado el evento'); return; }
+        dailyCur = null; sbCur = null; evCur = null;
         if ((net.cfg.vs || 'coop') === 'coop' && net.cfg.src) {
             const i = net.cfg.si | 0;
             if (net.cfg.src === 'daily') { const c = dailyList()[i]; if (c) dailyCur = { ...c, idx: i, k: 0 }; }
-            else { const L = sbList()[i]; if (L) sbCur = { lv: JSON.parse(JSON.stringify(L)), test: false }; }
-            if (!dailyCur && !sbCur) { toast('No se encontró el desafío o nivel elegido'); return; }
+            else if (net.cfg.src === 'sb') { const L = sbList()[i]; if (L) sbCur = { lv: JSON.parse(JSON.stringify(L)), test: false }; }
+            if (net.cfg.src === 'ev') evCur = { nm: 'Operación Sombra' };
+            if (!dailyCur && !sbCur && !evCur) { toast('No se encontró el desafío o nivel elegido'); return; }
         }
         net.on = true; remotes = net.roster.filter(r => r.slot !== 0).map(mkRemote);
         startNewLevel(true);
+        if (evCur) playCut('intro', null);
     }
     function mpKick(slot) { if (net.role !== 'host') return; netSend({ t: 'err', msg: 'El anfitrión te ha expulsado de la party.' }, slot); dropPeer(slot); }
     function lobbyReady() { net.myRdy = !net.myRdy; netSend({ t: 'lr', v: +net.myRdy }); renderLobby(); }
@@ -5063,7 +5283,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     const ezOut = () => [Math.round(escapeZone.x), Math.round(escapeZone.y), escapeZone.active ? 1 : 0, escapeZone.hidden ? 1 : 0, escapeZone.color];
     function netSendStart() {
         net.sentDefs.clear();
-        netSend({ t: 'start', mode: currentMode, level, mn: missionNo, W: MAP_WIDTH, walls: wallsOut(), roster: net.roster, cfg: net.cfg, obj: document.getElementById('objective-text').innerText, lives: player.lives, lv: Object.fromEntries([[0, player.lives], ...remotes.map(r => [r.slot, r.lives])]), sp: pvpSpawns, pts: net.pts, gg: gemGoal, score, ba: bossAlso, cu: sbCur ? [sbCur.lv.k ? 1 : 0, sbCur.lv.e.length, sbCur.lv.u, sbCur.lv.f ? 1 : 0] : null, tl: timeLimit, ez: ezOut(), zn: zonesOut(), tg: targets.map(t => [t.x, t.y, t.hp, t.maxHp, t.tm === undefined ? -1 : t.tm]) });
+        netSend({ t: 'start', mode: currentMode, level, mn: missionNo, W: MAP_WIDTH, walls: wallsOut(), roster: net.roster, cfg: net.cfg, obj: document.getElementById('objective-text').innerText, lives: player.lives, lv: Object.fromEntries([[0, player.lives], ...remotes.map(r => [r.slot, r.lives])]), sp: pvpSpawns, pts: net.pts, gg: gemGoal, score, ba: bossAlso, cu: sbCur ? [sbCur.lv.k ? 1 : 0, sbCur.lv.e.length, sbCur.lv.u, sbCur.lv.f ? 1 : 0] : null, tl: timeLimit, ez: ezOut(), zn: zonesOut(), tg: targets.map(t => [t.x, t.y, t.hp, t.maxHp, t.tm === undefined ? -1 : t.tm, t.spawner ? 1 : 0, t.hb ? 1 : 0]) });
     }
     function netWallDel(list) { if (net.on && net.role === 'host') netSend({ t: 'wd', r: list.map(w => [w.x, w.y]) }); }
 
@@ -5083,7 +5303,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             m.m = mines.map(q => [r1(q.x), r1(q.y), q.owner === 'player' ? 1 : 0, Math.min(q.timer, 9999), q.shock ? 3 : (q.shell ? 2 : (q.perm ? 1 : 0))]);
             m.i = items.filter(i => !i.collected).map(i => [i.type, r1(i.x), r1(i.y), i.color]);
             m.q = pendingSpawns.map(q => [r1(q.x), r1(q.y), q.tm === undefined ? -1 : q.tm]);
-            m.ez = ezOut(); m.zn = zonesOut(); m.tg = targets.map(t => [t.x, t.y, t.hp, t.maxHp, t.tm === undefined ? -1 : t.tm, t.spawner ? 1 : 0]);
+            m.ez = ezOut(); m.zn = zonesOut(); m.tg = targets.map(t => [t.x, t.y, t.hp, t.maxHp, t.tm === undefined ? -1 : t.tm, t.spawner ? 1 : 0, t.hb ? 1 : 0]);
             m.ac = acid.map(a => [r1(a.x), r1(a.y), a.r, a.life, r1(a.ph * 100)]);
             m.dm = deadMarks.map(q => [r1(q.x), r1(q.y), q.life, q.by ? 1 : 0]);
         }
@@ -5130,10 +5350,12 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         mpWinUI(bonus, secs, clean, src, nm, rw, ix);
     }
     function mpWinUI(bonus, secs, clean, src, nm, rw, ix) {
+        if (src === 'ev' && !mpWinUI.cut) { mpWinUI.cut = 1; playCut('outro', () => mpWinUI(bonus, secs, clean, src, nm, rw, ix)); return; } mpWinUI.cut = 0;
         let coins = Math.floor(bonus / 40) + 10, extra = '';
         if (src === 'daily') { const st = dailyState(); if (ix >= 0 && !st.done[ix]) { st.done[ix] = 1; coins += rw + streakTick(); prof.xp += rw * 2; prof.dailyTotal = (prof.dailyTotal || 0) + 1; extra = '\nDesafío del día completado: +' + rw + ' monedas extra'; } else extra = '\nDesafío ya cobrado hoy: sin recompensa extra'; }
+        if (src === 'ev') { const f0 = evFinish(); extra += '\n🥷 Clase «Sombra» ' + (f0 ? 'desbloqueada: mírala en el Garaje.' : 'ya es tuya.'); }
         prof.stats.missions++; prof.trophies = (prof.trophies || 0) + 3; prof.coins += coins; prof.xp += Math.floor(bonus / 2) + 25; saveProf(); updateUI();
-        showOverlay('menu-win', src === 'daily' ? '¡DESAFÍO COMPLETADO!' : (src === 'sb' ? '¡NIVEL COMPLETADO!' : '¡MISIÓN COMPLETADA!'), '', (nm ? nm + '\n' : '') + `Tiempo: ${secs} s · Puntos del equipo: ${score}\nBonus: +${bonus}` + (clean ? ' (+500 sin daño)' : '') + `\nTrofeos +3 · +${coins} monedas` + extra, '', null);
+        showOverlay('menu-win', src === 'ev' ? '¡OPERACIÓN COMPLETADA!' : src === 'daily' ? '¡DESAFÍO COMPLETADO!' : (src === 'sb' ? '¡NIVEL COMPLETADO!' : '¡MISIÓN COMPLETADA!'), '', (nm ? nm + '\n' : '') + `Tiempo: ${secs} s · Puntos del equipo: ${score}\nBonus: +${bonus}` + (clean ? ' (+500 sin daño)' : '') + `\nTrofeos +3 · +${coins} monedas` + extra, '', null);
         document.getElementById('menu-btn').style.display = 'none'; renderRdy();
     }
     function renderRdy() {
@@ -5155,7 +5377,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function mpForceNext() { if (net.role === 'host' && state === 'win') startNewLevel(false); }
 
     function hostHandle(slot, m) {
-        if (m.t === 'prof') { net.roster = net.roster.filter(r => r.slot !== slot); net.roster.push({ slot, name: String(m.name || 'Piloto').slice(0, 12), bc: m.bc, tc: m.tc, up: m.up || {}, cls: CLASSES[m.cls] ? m.cls : '', hat: Math.max(0, Math.min(HATS.length - 1, m.hat | 0)), rdy: false }); net.roster.sort((a, b) => a.slot - b.slot); netLobby(); return; }
+        if (m.t === 'prof') { net.roster = net.roster.filter(r => r.slot !== slot); net.roster.push({ slot, name: String(m.name || 'Piloto').slice(0, 12), bc: m.bc, tc: m.tc, up: m.up || {}, cls: CLASSES[m.cls] ? m.cls : '', hat: Math.max(0, Math.min(HATS.length - 1, m.hat | 0)), ev: m.ev ? 1 : 0, rdy: false }); net.roster.sort((a, b) => a.slot - b.slot); netLobby(); return; }
         if (m.t === '_out') {
             net.roster = net.roster.filter(r => r.slot !== slot); remotes = remotes.filter(r => r.slot !== slot); delete net.pausedBy[slot]; delete net.rdy[slot];
             if (net.on) applyPause(); if (state === 'win') { mpSync(); mpCheckAll(); } netLobby(); return;
@@ -5195,10 +5417,11 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             case 'win': score = d.score; missionNo = d.mn; level = d.lv; state = 'win'; net.rdy = {}; net.pausedBy = {}; mpWinUI(d.bonus, d.secs, d.clean, d.src, d.nm, d.rw, d.ix); break;
             case 'end': score = d.score; gems = d.gems; missionNo = d.mn; netEnd(false, d.reason); break;
             case 'start': {
+                if (d.cfg && d.cfg.src === 'ev' && state === 'menu') setTimeout(() => playCut('intro', null), 100);
                 net.on = true; net.roster = d.roster; net.cfg = d.cfg; currentMode = d.mode; level = d.level; missionNo = d.mn; net.cu = d.cu || null; gemGoal = d.gg; MAP_WIDTH = MAP_HEIGHT = d.W; bossAlso = !!d.ba;
                 setWalls(d.walls); navGrid = []; buildWallGrid(); bullets = []; mines = []; items = []; enemies = []; particles = []; pendingSpawns = []; tracks = []; deadMarks = []; acid = []; net.em.clear(); net.pl = {}; net.bm = new Map();
                 escapeZone = { x: d.ez[0], y: d.ez[1], active: !!d.ez[2], hidden: !!d.ez[3], color: d.ez[4] };
-                zones = d.zn.map(z => ({ x: z[0], y: z[1], r: 70, p: z[2], done: !!z[3], own: z[4] === undefined ? -1 : z[4], ch: z[5] === undefined ? -1 : z[5] })); targets = d.tg.map(t => ({ x: t[0], y: t[1], hp: t[2], maxHp: t[3], width: 80, height: 80, spawner: !!t[5], tm: t[4] >= 0 ? t[4] : undefined }));
+                zones = d.zn.map(z => ({ x: z[0], y: z[1], r: 70, p: z[2], done: !!z[3], own: z[4] === undefined ? -1 : z[4], ch: z[5] === undefined ? -1 : z[5] })); targets = d.tg.map(t => ({ x: t[0], y: t[1], hp: t[2], maxHp: t[3], width: 80, height: 80, spawner: !!t[5], hb: !!t[6], tm: t[4] >= 0 ? t[4] : undefined }));
                 applyProfile(); pvpSpawns = d.sp || {}; net.pts = d.pts || [0, 0, 0, 0]; const sp = spawnPos(net.slot);
                 Object.assign(player, { x: sp.x, y: sp.y, dead: !!(d.lv && d.lv[net.slot] <= 0), hp: 1, maxHp: 1, lives: (d.lv && d.lv[net.slot] !== undefined) ? d.lv[net.slot] : d.lives, minesLaid: 0, invuln: 0, lastShotFrame: 0, slot: net.slot, carriedItems: 0, vest: true, abilCd: 0, shieldT: 0, lmax: 0 }); pwActive = false;
                 score = d.score; combo = 0; gems = 0; timeLimit = d.tl; surviveTimer = 0; objDone = false; jewelTaken = false; keysCollected = 0; itemsDelivered = 0; net.rdy = {}; net.pausedBy = {};
@@ -5246,7 +5469,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                     pendingSpawns = d.q.map(a => ({ x: a[0], y: a[1], tm: a[2] >= 0 ? a[2] : undefined }));
                     escapeZone = { x: d.ez[0], y: d.ez[1], active: !!d.ez[2], hidden: !!d.ez[3], color: d.ez[4] };
                     zones = d.zn ? d.zn.map(z => ({ x: z[0], y: z[1], r: 70, p: z[2], done: !!z[3], own: z[4] === undefined ? -1 : z[4], ch: z[5] === undefined ? -1 : z[5] })) : [];
-                    targets = d.tg ? d.tg.map(t => ({ x: t[0], y: t[1], hp: t[2], maxHp: t[3], width: 80, height: 80, spawner: !!t[5], tm: t[4] >= 0 ? t[4] : undefined })) : [];
+                    targets = d.tg ? d.tg.map(t => ({ x: t[0], y: t[1], hp: t[2], maxHp: t[3], width: 80, height: 80, spawner: !!t[5], hb: !!t[6], tm: t[4] >= 0 ? t[4] : undefined })) : [];
                     acid = (d.ac || []).map(a => ({ x: a[0], y: a[1], r: a[2], life: a[3], max: 360, ph: a[4] / 100 }));
                     deadMarks = (d.dm || []).map(a => ({ x: a[0], y: a[1], life: a[2], by: a[3] ? 1 : 0 }));
                 }
@@ -5447,14 +5670,15 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         return h + (net.up && net.role === 'host' ? '<p class="st">Tienes una party abierta: pulsa «Invitar» y a tu amigo le saldrá un aviso para unirse.</p>' : '<p class="st">Crea una party en la pestaña Party y vuelve aquí para invitar.</p>');
     }
     function mpSrcName() { const k = net.cfg.src, i = net.cfg.si | 0; net.cfg.sn = k === 'daily' ? ((dailyList()[i] || {}).nm || '') : (k === 'sb' ? ((sbList()[i] || {}).nm || '') : ''); }
-    function mpSetSrc(k) { net.cfg.src = k; net.cfg.si = 0; mpSrcName(); netLobby(); }
+    function mpSetSrc(k) { net.cfg.src = k; net.cfg.si = 0; mpSrcName(); if (k === 'ev') net.cfg.sn = 'Operación Sombra'; netLobby(); }
     function mpSetIdx(i) { net.cfg.si = i; mpSrcName(); netLobby(); }
     function mpSrcHTML(host) {
-        const src = net.cfg.src || '', si = net.cfg.si | 0, SN = { '': '🎲 Modos normales', daily: '📅 Desafíos diarios', sb: '🛠 Mis niveles' };
+        const src = net.cfg.src || '', si = net.cfg.si | 0, SN = { '': '🎲 Modos normales', daily: '📅 Desafíos diarios', sb: '🛠 Mis niveles', ev: '🎭 Evento oculto' };
         if (!host) return src ? `<p>Origen: <b>${SN[src]}</b>${net.cfg.sn ? ' · <b>' + esc(net.cfg.sn) + '</b>' : ''}</p>` : '';
-        let h = '<h3>Origen de la misión</h3><div class="tabs">' + Object.keys(SN).map(k => `<button class="${k === src ? 'on' : ''}" onclick="mpSetSrc('${k}')">${SN[k]}</button>`).join('') + '</div>';
+        let h = '<h3>Origen de la misión</h3><div class="tabs">' + Object.keys(SN).filter(k => k !== 'ev' || evUnlockedAll()).map(k => `<button class="${k === src ? 'on' : ''}" onclick="mpSetSrc('${k}')">${SN[k]}</button>`).join('') + '</div>';
         if (src === 'daily') h += '<div class="sbgrid">' + dailyList().map((c, i) => `<button class="mode ${i === si ? 'on' : ''}" onclick="mpSetIdx(${i})"><b>${i + 1}. ${c.ic} ${esc(c.nm)}</b><span>${MISSIONS[c.mode][1]} · 🗺 ${MAPS[c.map].n}</span><span>❤ ${c.lives} vidas${c.time ? ' · ⏱ ' + c.time + ' s' : ''}</span></button>`).join('') + '</div><p class="st">Los enemigos se escalan al número de jugadores y todos cobran la recompensa.</p>';
         else if (src === 'sb') { const l = sbList(); h += l.length ? '<div class="sbgrid">' + l.map((L, i) => `<button class="mode ${i === si ? 'on' : ''}" onclick="mpSetIdx(${i})"><b>${esc(L.nm)}</b><span>Mapa ${L.s}×${L.s} · ❤ ${L.l} · 👾 ${L.e.length} · 🔷 ${L.a.length}</span><span>🎯 ${miName(L.mi)}</span></button>`).join('') + '</div>' : '<p class="st">No tienes niveles guardados: créalos en 🛠 Sandbox.</p>'; }
+        if (src === 'ev') h += '<p class="st">🥷 Operación Sombra: defended la base 10 minutos y derrotad al Maestro Asesino. Solo se puede elegir si todos los miembros lo tienen desbloqueado.</p>';
         return h;
     }
     function partyHTML() {
