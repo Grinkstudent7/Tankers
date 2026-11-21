@@ -1125,19 +1125,27 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (const e of enemies.slice()) if (e.hunt && e.sq === undefined && Math.hypot(e.x - bx, e.y - by) < 150) { e.sab = (e.sab || 0) + 1; if (e.sab % 40 === 0) { damageBunker(b, e.master ? 3 : 1); if (!evBase()) return; } }
         if (surviveTimer <= 0 && evBossOn && !bossAliveNow()) objectiveDone();
     }
-    // Clase Sombra: horda marcada, invisibilidad y velocidad por bajas
+    // Clase Sombra. Pasiva: asesinos aliados que van a por el enemigo que marques con clic (o al más cercano). Además, cada baja te da velocidad.
+    window.addEventListener('mousedown', e => {
+        if (e.button !== 0 || state !== 'playing' || player.dead || net.role === 'client' || CUT.on || curCls() !== 'sombra') return;
+        let t = null, bd = 1e9;
+        for (const en of enemies) { if (en.isAlly || en.haste || en.sq !== undefined) continue; const d = Math.hypot(en.x - mouse.x, en.y - mouse.y); if (d < en.radius + 24 && d < bd) { bd = d; t = en; } }
+        if (t) { horde = { tg: t.id }; floatingTexts.push({ text: '🎯 OBJETIVO MARCADO', x: t.x, y: t.y - 50, life: 70, color: '#ea80fc' }); }
+    });
     function evClassTick() {
-        if (player.invT > 0) player.invT--; for (const r of remotes) if (r.invT > 0) r.invT--;
-        if (horde) {
-            const t = enemies.find(e => e.id === horde.tg);
-            if (!t) { for (const e of enemies) if (e.horde) createExplosion(e.x, e.y, '#d500f9', 12); enemies = enemies.filter(e => !e.horde); pendingSpawns = pendingSpawns.filter(p => !(p.enemy && p.enemy.horde)); horde = null; }
-            else if (frameCount % 40 === 0 && enemies.filter(e => e.horde).length + pendingSpawns.filter(p => p.enemy && p.enemy.horde).length < 14) {
-                const o = petOwner(horde.by) || player; let pos = null;
-                for (let i = 0; i < 8 && !pos; i++) { const x = o.x + (Math.random() - 0.5) * 220, y = o.y + (Math.random() - 0.5) * 220; if (x > BORDER_SIZE + 30 && y > BORDER_SIZE + 30 && x < MAP_WIDTH - BORDER_SIZE - 30 && y < MAP_HEIGHT - BORDER_SIZE - 30 && !wallHit({ x, y, radius: 22 })) pos = { x, y }; }
-                if (pos) {
-                    spawnAtOverride = pos; spawnEnemy(ENEMY_TYPES[9], false, null, null, false, false); spawnAtOverride = null; floatingTexts.pop();
-                    const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps) { Object.assign(ps.enemy, { sq: horde.tm, owner: horde.by, role: 'atk', horde: 1 }); ps.tm = horde.tm; }
-                }
+        if (horde && !enemies.some(e => e.id === horde.tg)) horde = null;
+        for (const e of enemies) if (e.stun > 0 && frameCount % 6 === 0) createParticles(e.x, e.y - 20, '#ffeb3b', 1);
+        if (frameCount % 30 === 0 && state === 'playing') {
+            for (const q of [player, ...remotes]) {
+                if (q.dead || clsOf(q) !== 'sombra') continue;
+                q.sbT = (q.sbT || 0) + 30; if (q.sbT < 360) continue;
+                if (enemies.filter(e => e.horde && e.owner === q.id).length + pendingSpawns.filter(p => p.enemy && p.enemy.horde && p.enemy.owner === q.id).length >= 5) continue;
+                let pos = null;
+                for (let i = 0; i < 8 && !pos; i++) { const x = q.x + (Math.random() - 0.5) * 200, y = q.y + (Math.random() - 0.5) * 200; if (x > BORDER_SIZE + 30 && y > BORDER_SIZE + 30 && x < MAP_WIDTH - BORDER_SIZE - 30 && y < MAP_HEIGHT - BORDER_SIZE - 30 && !wallHit({ x, y, radius: 22 })) pos = { x, y }; }
+                if (!pos) continue; q.sbT = 0;
+                const tm = net.on ? teamOf(q) : 0;
+                spawnAtOverride = pos; spawnEnemy(ENEMY_TYPES[9], false, null, null, false, false); spawnAtOverride = null; floatingTexts.pop();
+                const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps) { Object.assign(ps.enemy, { sq: tm, owner: q.id, role: 'atk', horde: 1 }); ps.tm = tm; }
             }
         }
         if (curCls() === 'sombra') {
@@ -1153,7 +1161,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             ctx.font = '26px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🌀', anom.x, anom.y); ctx.restore();
             if (!player.dead && Math.hypot(anom.x - player.x, anom.y - player.y) > 160) { const a = Math.atan2(anom.y - player.y, anom.x - player.x); ctx.save(); ctx.font = '22px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🌀', player.x + Math.cos(a) * 95, player.y + Math.sin(a) * 95); ctx.restore(); }
         }
-        if (!player.dead && player.invT > 0) { ctx.save(); ctx.strokeStyle = 'rgba(179,136,255,.85)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 12, 0, 6.283); ctx.stroke(); ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#d1c4e9'; ctx.fillText('👻 ' + Math.ceil(player.invT / 60) + 's', player.x, player.y - player.radius - 20); ctx.restore(); }
+        if (horde) { const t = enemies.find(e => e.id === horde.tg); if (t) { ctx.save(); ctx.strokeStyle = 'rgba(213,0,249,.9)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(t.x, t.y, t.radius + 10, 0, 6.283); ctx.stroke(); ctx.beginPath(); ctx.moveTo(t.x - t.radius - 18, t.y); ctx.lineTo(t.x - t.radius - 4, t.y); ctx.moveTo(t.x + t.radius + 4, t.y); ctx.lineTo(t.x + t.radius + 18, t.y); ctx.moveTo(t.x, t.y - t.radius - 18); ctx.lineTo(t.x, t.y - t.radius - 4); ctx.moveTo(t.x, t.y + t.radius + 4); ctx.lineTo(t.x, t.y + t.radius + 18); ctx.stroke(); ctx.restore(); } }
+        for (const e of enemies) if (e.stun > 0) { ctx.save(); ctx.font = '20px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('💫', e.x, e.y - e.radius - 12); ctx.restore(); }
     }
     function evStart(noCut) {
         if (net.role || !(prof.evOpen || prof.evKey)) return;
@@ -1245,66 +1254,86 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 for (let i = 0; i < n; i++) { const a0 = i / n * 6.283, a1 = (i + 1) / n * 6.283, am = (a0 + a1) / 2; face([[x + Math.cos(a0) * r, y, z + Math.sin(a0) * r], [x + Math.cos(a1) * r, y, z + Math.sin(a1) * r], [x + Math.cos(a1) * r, y + hh, z + Math.sin(a1) * r], [x + Math.cos(a0) * r, y + hh, z + Math.sin(a0) * r]], [Math.cos(am), 0, Math.sin(am)], c, em); }
                 const top = []; for (let i = 0; i < 4; i++) top.push([x + Math.cos(i * 1.5708) * r, y + hh, z + Math.sin(i * 1.5708) * r]); face(top, [0, 1, 0], c, em);
             };
+            const cyl = (x, y, z, r, len, ax, c, yaw = 0, n = 12, em = false) => {
+                if (ax === 'y') { prism(x, y - len / 2, z, r, len, c, n, em); return; }
+                const co = Math.cos(yaw), si = Math.sin(yaw), h2 = len / 2, W = (lx, ly, lz) => [x + lx * co + lz * si, y + ly, z - lx * si + lz * co], N = (nx, ny, nz) => [nx * co + nz * si, ny, -nx * si + nz * co];
+                const pt = (i, sgn) => { const t = i / n * 6.283, a = Math.cos(t) * r, b2 = Math.sin(t) * r; return ax === 'z' ? W(a, b2, sgn * h2) : W(sgn * h2, a, b2); };
+                const nm = i => { const t = (i + 0.5) / n * 6.283, a = Math.cos(t), b2 = Math.sin(t); return ax === 'z' ? N(a, b2, 0) : N(0, a, b2); };
+                for (let i = 0; i < n; i++) face([pt(i, -1), pt(i + 1, -1), pt(i + 1, 1), pt(i, 1)], nm(i), c, em);
+                for (const sgn of [-1, 1]) { const ring = []; for (let i = 0; i < n; i++) ring.push(pt(i, sgn)); face(ring, ax === 'z' ? N(0, 0, sgn) : N(sgn, 0, 0), c, em); }
+            };
             // suelo con ruido de color
             for (let gx = -14; gx < 14; gx++) for (let gz = -14; gz < 14; gz++) { const x0 = gx * 160, z0 = gz * 160, v = 0.85 + rnd(gx * 31 + gz * 17) * 0.3, c = ((gx + gz) & 1 ? [34, 44, 40] : [42, 54, 48]).map(q => q * v); face([[x0, 0, z0], [x0, 0, z0 + 160], [x0 + 160, 0, z0 + 160], [x0 + 160, 0, z0]], [0, 1, 0], night ? c : c.map(q => q * 1.5), false, ground); }
-            for (const q of props) { if (q[3] === 0) { box(q[0], 0, q[1], 30 * q[2], 22 * q[2], 26 * q[2], [70, 74, 70], q[2]); } else { box(q[0], 0, q[1], 8 * q[2], 26 * q[2], 8 * q[2], [70, 48, 30]); prism(q[0], 20 * q[2], q[1], 30 * q[2], 34 * q[2], [22, 70, 44], 7); prism(q[0], 44 * q[2], q[1], 20 * q[2], 30 * q[2], [26, 84, 50], 7); } }
-            // tanque (modelo inspirado en el del garaje: orugas con ruedas, casco con glacis, torreta, cañón con freno, antena)
+            // suelo, vegetación y rocas
+            for (const q of props) { if (q[3] === 0) { box(q[0], 0, q[1], 30 * q[2], 22 * q[2], 26 * q[2], [70, 74, 70], q[2]); box(q[0] + 6 * q[2], 0, q[1] - 8 * q[2], 20 * q[2], 30 * q[2], 18 * q[2], [78, 82, 78], q[2] + 0.5); } else { cyl(q[0], 0, q[1], 4.5 * q[2], 24 * q[2], 'y', [70, 48, 30], 0, 8); prism(q[0], 18 * q[2], q[1], 30 * q[2], 26 * q[2], [22, 70, 44], 10); prism(q[0], 38 * q[2], q[1], 22 * q[2], 24 * q[2], [26, 84, 50], 10); prism(q[0], 56 * q[2], q[1], 13 * q[2], 20 * q[2], [30, 96, 56], 10); } }
+            // tanque detallado (orugas con ruedas y eslabones, casco con glacis escalonado, torreta cilíndrica, cañón con freno de boca)
             const tank = (x, z, yaw, s, o) => {
-                const co = Math.cos(yaw), si = Math.sin(yaw), P = (lx, lz) => [x + lx * s * co + lz * s * si, z - lx * s * si + lz * s * co], by = o.y || 0, bc = o.bc, tc = o.tc, dk = [24, 28, 32];
+                const co = Math.cos(yaw), si = Math.sin(yaw), P = (lx, lz) => [x + lx * s * co + lz * s * si, z - lx * s * si + lz * s * co], by = o.y || 0, bc = o.bc, tc = o.tc, dk = [26, 30, 34], gr = [84, 96, 104], mt = [74, 78, 86];
                 for (const sg of [-1, 1]) {
-                    const q = P(sg * 19, 0); box(q[0], by, q[1], 10 * s, 9 * s, 60 * s, dk, yaw);
-                    for (let k = -2; k <= 2; k++) { const wv = P(sg * 19.6, k * 11.5); box(wv[0], by + 0.5 * s, wv[1], 10.5 * s, 8 * s, 8 * s, [84, 96, 104], yaw); }
-                    box(q[0], by + 8.5 * s, q[1], 11.5 * s, 2.2 * s, 54 * s, bc, yaw);
+                    const q = P(sg * 19, 0);
+                    box(q[0], by + 1 * s, q[1], 10 * s, 2 * s, 52 * s, dk, yaw); box(q[0], by + 9 * s, q[1], 10 * s, 2 * s, 52 * s, dk, yaw);
+                    for (let k = -3; k <= 3; k++) { const wv = P(sg * 19, k * 8.4); cyl(wv[0], by + 5 * s, wv[1], 4.2 * s, 10.5 * s, 'x', gr, yaw, 12); cyl(wv[0], by + 5 * s, wv[1], 1.6 * s, 11.6 * s, 'x', [150, 160, 166], yaw, 8); }
+                    for (const e2 of [-1, 1]) { const wv = P(sg * 19, e2 * 29); cyl(wv[0], by + 5 * s, wv[1], 5 * s, 10 * s, 'x', dk, yaw, 12); }
+                    for (let k = -5; k <= 5; k++) { const lk = P(sg * 19, k * 5); box(lk[0], by + 10.2 * s, lk[1], 10.4 * s, 0.9 * s, 3.4 * s, [40, 46, 50], yaw); }
+                    for (let k = -1; k <= 1; k++) { const sp = P(sg * 24, k * 17); box(sp[0], by + 7 * s, sp[1], 1.4 * s, 7 * s, 15 * s, bc, yaw); }
+                    const fd = P(sg * 19, 22); box(fd[0], by + 10.6 * s, fd[1], 12 * s, 1.4 * s, 12 * s, bc, yaw);
                 }
-                box(x, by + 4 * s, z, 28 * s, 8 * s, 54 * s, bc, yaw);
-                const fr = P(0, 19); box(fr[0], by + 9 * s, fr[1], 26 * s, 5 * s, 24 * s, bc, yaw);
-                const bk = P(0, -21); box(bk[0], by + 9 * s, bk[1], 24 * s, 6 * s, 14 * s, dk, yaw);
-                if (o.fire) { const ex = P(0, -30); box(ex[0], by + 10 * s, ex[1], 8 * s, 4 * s, (8 + Math.sin(T * 30) * 3) * s, [255, 140, 0], yaw, true); }
-                const ty = yaw + (o.aim !== undefined ? o.aim : Math.sin(T * 0.7 + x * 0.01) * 0.4), sx = Math.sin(ty), cx = Math.cos(ty);
-                box(x, by + 12 * s, z, 22 * s, 9 * s, 24 * s, tc, ty); box(x - sx * 9 * s, by + 13 * s, z - cx * 9 * s, 16 * s, 6 * s, 12 * s, tc, ty); prism(x + cx * 5 * s, by + 21 * s, z - sx * 5 * s, 4 * s, 3 * s, dk, 8);
-                box(x + sx * 28 * s, by + 14 * s, z + cx * 28 * s, 5 * s, 5 * s, 38 * s, [74, 78, 86], ty); box(x + sx * 48 * s, by + 13.2 * s, z + cx * 48 * s, 8 * s, 7 * s, 7 * s, [40, 44, 50], ty);
-                box(x - cx * 8 * s - sx * 6 * s, by + 21 * s, z + sx * 8 * s - cx * 6 * s, 1.4 * s, 24 * s, 1.4 * s, [210, 210, 210], ty); box(x - cx * 8 * s - sx * 6 * s, by + 44 * s, z + sx * 8 * s - cx * 6 * s, 3 * s, 3 * s, 3 * s, [255, 40, 40], ty, true);
-                if (o.eye) for (const sg of [-1, 1]) box(x + sx * 12.5 * s + cx * 6 * s * sg, by + 15.5 * s, z + cx * 12.5 * s - sx * 6 * s * sg, 5 * s, 3 * s, 2 * s, o.eye, ty, true);
-                if (o.flash) box(x + sx * 58 * s, by + 12 * s, z + cx * 58 * s, 14 * s, 14 * s, 18 * s, [255, 230, 120], ty, true);
-                const hy = by + 21 * s;
-                if (o.hat === 1) { prism(x, hy, z, 9 * s, 5 * s, [229, 57, 53], 8); box(x + sx * 9 * s, hy, z + cx * 9 * s, 12 * s, 1.2 * s, 9 * s, [183, 28, 28], ty); }
-                else if (o.hat === 2) { prism(x, hy, z, 3.4 * s, 4 * s, [245, 240, 220], 8); prism(x, hy + 4 * s, z, 10 * s, 4 * s, [229, 57, 53], 9); }
-                else if (o.hat === 7) { prism(x, hy, z, 10 * s, 1.2 * s, [26, 26, 26], 9); prism(x, hy + 1 * s, z, 7 * s, 14 * s, [33, 33, 33], 9); prism(x, hy + 2 * s, z, 7.3 * s, 3 * s, [211, 47, 47], 9); }
-                else if (o.hat === 8) { prism(x, hy, z, 12 * s, 1.2 * s, [49, 27, 146], 9); prism(x, hy + 1 * s, z, 8 * s, 8 * s, [81, 45, 168], 8); prism(x, hy + 9 * s, z, 5 * s, 7 * s, [94, 53, 177], 8); prism(x, hy + 16 * s, z, 2.4 * s, 6 * s, [126, 87, 194], 8); }
-                else if (o.hat === 9) { prism(x, hy, z, 9 * s, 4 * s, [255, 202, 40], 9); for (let k = 0; k < 5; k++) { const aa = k * 1.2566; box(x + Math.cos(aa) * 7 * s, hy + 4 * s, z + Math.sin(aa) * 7 * s, 3 * s, 6 * s, 3 * s, [255, 213, 79]); } }
-                if (o.ring) for (let k = 0; k < 24; k++) { const aa = k / 24 * 6.283 + T, rr = o.ring + Math.sin(T * 4) * 5; box(x + Math.cos(aa) * rr - 3, 1, z + Math.sin(aa) * rr - 3, 6, 3, 6, o.rc || [213, 0, 249], 0, true); }
+                box(x, by + 5 * s, z, 28 * s, 6 * s, 54 * s, bc, yaw); box(x, by + 10.5 * s, z, 26 * s, 3.5 * s, 50 * s, bc, yaw);
+                for (let k = 0; k < 3; k++) { const g2 = P(0, 19 + k * 3.2); box(g2[0], by + (10.5 - k * 2.2) * s, g2[1], 26 * s, 2.2 * s, (6 - k) * s, bc, yaw); }
+                const bk = P(0, -22); box(bk[0], by + 11 * s, bk[1], 22 * s, 4 * s, 14 * s, dk, yaw); for (let k = -2; k <= 2; k++) { const gp = P(k * 4, -22); box(gp[0], by + 15 * s, gp[1], 2 * s, 0.8 * s, 12 * s, [12, 14, 16], yaw); }
+                for (const sg of [-1, 1]) { const ex = P(sg * 8, -30); cyl(ex[0], by + 11 * s, ex[1], 2.2 * s, 8 * s, 'z', [50, 44, 40], yaw, 8); }
+                const rb = P(0, -29); box(rb[0], by + 6 * s, rb[1], 14 * s, 5 * s, 4 * s, tc, yaw);
+                if (o.stripe) for (const sg of [-1, 1]) { const st = P(sg * 14.2, 4); box(st[0], by + 6.5 * s, st[1], 0.6 * s, 2.4 * s, 40 * s, o.stripe, yaw); }
+                const ty = yaw + (o.aim || 0), sx = Math.sin(ty), cx = Math.cos(ty), tb = by + 14 * s;
+                prism(x, tb, z, 13 * s, 3 * s, [dk[0], dk[1], dk[2]], 14); prism(x, tb + 3 * s, z, 11.5 * s, 5.5 * s, tc, 14); prism(x, tb + 8.5 * s, z, 9.5 * s, 1.5 * s, tc, 14);
+                box(x + sx * 12 * s, tb + 4 * s, z + cx * 12 * s, 14 * s, 7 * s, 8 * s, tc, ty); box(x - sx * 10 * s, tb + 3.5 * s, z - cx * 10 * s, 15 * s, 6 * s, 8 * s, tc, ty);
+                cyl(x + cx * 5 * s, tb + 9 * s, z - sx * 5 * s, 3.4 * s, 2.6 * s, 'y', dk, 0, 10); prism(x + cx * 5 * s, tb + 9 * s, z - sx * 5 * s, 3.4 * s, 2.6 * s, dk, 10); prism(x - cx * 5 * s, tb + 9.4 * s, z + sx * 5 * s, 2.4 * s, 1.6 * s, mt, 8);
+                cyl(x + sx * 31 * s, tb + 5.5 * s, z + cx * 31 * s, 2.4 * s, 38 * s, 'z', mt, ty, 12); cyl(x + sx * 49 * s, tb + 5.5 * s, z + cx * 49 * s, 3.3 * s, 6 * s, 'z', [44, 48, 54], ty, 12); cyl(x + sx * 17 * s, tb + 5.5 * s, z + cx * 17 * s, 3.2 * s, 6 * s, 'z', [60, 64, 70], ty, 12);
+                box(x - cx * 10 * s - sx * 8 * s, tb + 9 * s, z + sx * 10 * s - cx * 8 * s, 1.2 * s, 26 * s, 1.2 * s, [200, 200, 200], ty);
+                if (o.flash) cyl(x + sx * 58 * s, tb + 5.5 * s, z + cx * 58 * s, 5 * s, 14 * s, 'z', [255, 220, 110], ty, 8, true);
+                const hy = tb + 11 * s;
+                if (o.hat === 1) { prism(x, hy, z, 9 * s, 5 * s, [229, 57, 53], 12); box(x + sx * 9 * s, hy, z + cx * 9 * s, 12 * s, 1.2 * s, 9 * s, [183, 28, 28], ty); }
+                else if (o.hat === 2) { prism(x, hy, z, 3.4 * s, 4 * s, [245, 240, 220], 10); prism(x, hy + 4 * s, z, 10 * s, 4 * s, [229, 57, 53], 12); }
+                else if (o.hat === 7) { prism(x, hy, z, 10 * s, 1.2 * s, [26, 26, 26], 12); prism(x, hy + 1 * s, z, 7 * s, 14 * s, [33, 33, 33], 12); prism(x, hy + 2 * s, z, 7.3 * s, 3 * s, [211, 47, 47], 12); }
+                else if (o.hat === 8) { prism(x, hy, z, 12 * s, 1.2 * s, [49, 27, 146], 12); prism(x, hy + 1 * s, z, 8 * s, 8 * s, [81, 45, 168], 10); prism(x, hy + 9 * s, z, 5 * s, 7 * s, [94, 53, 177], 10); prism(x, hy + 16 * s, z, 2.4 * s, 6 * s, [126, 87, 194], 10); }
+                else if (o.hat === 9) { prism(x, hy, z, 9 * s, 4 * s, [255, 202, 40], 12); for (let k = 0; k < 5; k++) { const aa = k * 1.2566; box(x + Math.cos(aa) * 7 * s, hy + 4 * s, z + Math.sin(aa) * 7 * s, 3 * s, 6 * s, 3 * s, [255, 213, 79]); } }
+                if (o.spikes) for (let k = -2; k <= 2; k++) for (const sg of [-1, 1]) { const sp = P(sg * 12, k * 9); box(sp[0], by + 14 * s, sp[1], 2 * s, 9 * s, 2 * s, [40, 40, 46], yaw); }
             };
             const dir = (x, z, tx2, tz2) => Math.atan2(tx2 - x, tz2 - z);
-            // base
-            box(0, 0, 0, 110, 34, 110, [70, 84, 92]); box(0, 34, 0, 80, 22, 80, [96, 110, 118]); prism(0, 56, 0, 26, 30, [120, 134, 142], 10); box(0, 86, 0, 6, 40, 6, [200, 200, 200]); box(0, 126, 0, 12, 12, 12, [0, 229, 255], 0, true);
-            for (const q of [[-80, -80], [80, -80], [-80, 80], [80, 80]]) { box(q[0], 0, q[1], 22, 40, 22, [60, 70, 76]); box(q[0], 40, q[1], 10, 8, 10, [0, 229, 255], 0, true); }
-            [[-80, -80], [80, 80]].forEach((q, j) => { const ba = T * 0.6 + j * 3.14; for (let k = 1; k <= 7; k++) box(q[0] + Math.cos(ba) * k * 45, 46 + k * 18, q[1] + Math.sin(ba) * k * 45, 7, 7, 7, [220, 240, 255], 0, true); });
-            for (let k = -3; k <= 3; k++) { box(k * 30, 0, -140, 26, 14, 12, [110, 100, 80]); box(k * 30, 0, 140, 26, 14, 12, [110, 100, 80]); }
-            // portal
+            // base: cimientos, nave de hormigón con tejado escalonado, torre de mando, antena, torres de esquina y sacos de arena
+            const CON = [104, 116, 124], CON2 = [88, 100, 108], RF = [60, 70, 78];
+            box(0, 0, 0, 150, 8, 150, [64, 70, 72]); box(0, 8, 0, 120, 30, 120, CON); box(0, 38, 0, 126, 5, 126, RF); box(0, 43, 0, 100, 8, 100, CON2); box(0, 51, 0, 106, 4, 106, RF);
+            for (const sg of [-1, 1]) for (let k = -2; k <= 2; k++) { box(k * 22, 20, sg * 60.6, 12, 8, 1.2, [120, 220, 255], 0, true); box(sg * 60.6, 20, k * 22, 1.2, 8, 12, [120, 220, 255], 0, true); }
+            box(0, 8, 61, 26, 22, 3, [40, 46, 50]); box(0, 8, -61, 26, 22, 3, [40, 46, 50]);
+            prism(0, 55, 0, 25, 6, [124, 136, 144], 16); prism(0, 61, 0, 21, 26, CON, 16); prism(0, 87, 0, 24, 5, RF, 16); prism(0, 92, 0, 15, 8, [120, 134, 142], 16);
+            for (let k = 0; k < 8; k++) { const aa = k / 8 * 6.283 + 0.39; box(Math.cos(aa) * 21.3 - 3, 72, Math.sin(aa) * 21.3 - 3, 6, 7, 6, [120, 220, 255], aa, true); }
+            cyl(0, 105, 0, 1.6, 40, 'y', [210, 210, 210], 0, 6); prism(0, 100, 0, 1.6, 40, [210, 210, 210], 6); box(-2.5, 140, -2.5, 5, 5, 5, [255, 60, 60], 0, true);
+            box(-14, 100, 12, 22, 2, 2, [180, 190, 196]); box(-24, 94, 12, 3, 16, 3, [150, 160, 166]);
+            for (const q of [[-76, -76], [76, -76], [-76, 76], [76, 76]]) { box(q[0] - 11, 0, q[1] - 11, 22, 46, 22, CON2); box(q[0] - 14, 46, q[1] - 14, 28, 5, 28, RF); box(q[0] - 12, 51, q[1] - 12, 24, 5, 24, [88, 98, 104]); box(q[0] - 5, 56, q[1] - 5, 10, 8, 10, [120, 220, 255], 0, true); const ga = Math.atan2(q[0], q[1]); cyl(q[0] + Math.sin(ga) * 14, 53.5, q[1] + Math.cos(ga) * 14, 1.8, 22, 'z', [50, 54, 60], ga, 8); }
+            for (let k = -6; k <= 6; k++) for (const sg of [-1, 1]) { box(k * 15 - 7, 0, sg * 118 - 4, 14, 10, 8, [112, 100, 78]); box(k * 15 - 5, 10, sg * 118 - 3, 11, 7, 6, [122, 110, 86]); }
+            for (const sg of [-1, 1]) for (let k = -2; k <= 2; k++) { box(sg * 118 - 4, 0, k * 22 - 7, 8, 10, 14, [112, 100, 78]); }
+            for (const q of [[-130, -40], [130, 40]]) { box(q[0] - 1.5, 0, q[1] - 1.5, 3, 62, 3, [60, 64, 68]); box(q[0] - 7, 62, q[1] - 4, 14, 4, 8, [255, 244, 200], 0, true); }
+            // portal: arco de piedra con panel de energía fijo
             if (night) {
-                const dl = Math.hypot(PX, PZ), lx = -(-PZ) / dl, lz = (-PX) / dl; // lateral
-                for (let k = 0; k < 20; k++) { const aa = k / 20 * 6.283 + T * 0.8, rr = 190; box(PX + lx * Math.cos(aa) * rr - 6, 210 + Math.sin(aa) * rr - 6, PZ + lz * Math.cos(aa) * rr - 6, 14, 14, 14, k % 2 ? [213, 0, 249] : [0, 229, 255], 0, true); }
-                box(PX - 6, 24, PZ - 6, 12, 360, 12, [120, 30, 200], 0, true);
+                const dl = Math.hypot(PX, PZ), lx = PZ / dl, lz = -PX / dl, py = Math.atan2(-lz, lx);
+                for (const sg of [-1, 1]) { box(PX + lx * sg * 130 - 14, 0, PZ + lz * sg * 130 - 14, 28, 230, 28, [48, 44, 56], py); box(PX + lx * sg * 130 - 20, 230, PZ + lz * sg * 130 - 20, 40, 14, 40, [60, 56, 70], py); }
+                box(PX - 150, 230, PZ - 22, 300, 30, 44, [52, 48, 62], py); box(PX - 110, 0, PZ - 4, 220, 230, 6, [150, 50, 220], py, true);
             }
             // jugador y aliados
-            const pOpt = { bc: PB, tc: PT, hat, fire: prof.up.speed > 0 };
+            const pOpt = { bc: PB, tc: PT, hat };
             if (night) {
-                tank(120, 190, dir(120, 190, -300, -280), 1.15, { ...pOpt, aim: 0, flash: li === 4 && Math.floor(T * 6) % 2 === 0 });
-                if (li >= 3) for (let k = 0; k < 3; k++) { const ax = -40 + k * 110, az = 250 - Math.abs(k - 1) * 40, sp = Math.min(1, lt / 600); tank(ax, az, dir(ax, az, -300, -280), 1, { bc: [250, 250, 250], tc: [225, 225, 225], y: (1 - sp) * 120, flash: li === 4 && (Math.floor(T * 7) + k) % 3 === 0, aim: 0 }); }
-                for (let k = 0; k < 12; k++) { const m = march(k, li === 4 ? 0.06 : 0.03), x = m[0], z = m[1]; tank(x, z, dir(x, z, 0, 0), 1, { bc: [24, 24, 28], tc: [10, 10, 12], eye: [255, 30, 30], aim: 0, fire: true, flash: li === 4 && (Math.floor(T * 5) + k) % 4 === 0 }); }
-                tank(BX, BZ, dir(BX, BZ, 0, 0), bs, { bc: [14, 14, 16], tc: [0, 0, 0], eye: [255, 214, 0], ring: 110, rc: [213, 0, 249], aim: 0, fire: true });
-                for (let k = 0; k < 14; k++) { const aa = k / 14 * 6.283 - T; box(BX + Math.cos(aa) * 120 - 3, 2, BZ + Math.sin(aa) * 120 - 3, 6, 6 + (k % 3) * 8, 6, [213, 0, 249], 0, true); }
-                for (let k = 0; k < 6; k++) { const aa = k * 1.047 + T * 1.5; box(BX + Math.cos(aa) * 80 - 5, 20 + (k * 17 + T * 40) % 120, BZ + Math.sin(aa) * 80 - 5, 10, 10, 10, [213, 0, 249], 0, true); }
+                tank(120, 190, dir(120, 190, -300, -280), 1.15, { ...pOpt, flash: li === 4 && Math.floor(T * 6) % 2 === 0 });
+                if (li >= 3) for (let k = 0; k < 3; k++) { const ax = -40 + k * 110, az = 250 - Math.abs(k - 1) * 40, sp = Math.min(1, lt / 600); tank(ax, az, dir(ax, az, -300, -280), 1, { bc: [250, 250, 250], tc: [225, 225, 225], y: (1 - sp) * 120, flash: li === 4 && (Math.floor(T * 7) + k) % 3 === 0 }); }
+                for (let k = 0; k < 12; k++) { const m = march(k, li === 4 ? 0.06 : 0.03), x = m[0], z = m[1]; tank(x, z, dir(x, z, 0, 0), 1, { bc: [26, 26, 30], tc: [14, 14, 16], stripe: [160, 20, 20], flash: li === 4 && (Math.floor(T * 5) + k) % 4 === 0 }); }
+                tank(BX, BZ, dir(BX, BZ, 0, 0), bs, { bc: [14, 14, 16], tc: [4, 4, 6], stripe: [110, 30, 160], spikes: 1 });
             } else {
-                tank(BX, BZ, 0.8, bs, { bc: [18, 18, 20], tc: [18, 18, 20] });
-                if (li === 0) { const t = Math.min(lt / 1000, 2.6); for (let k = 0; k < 26; k++) { const aa = rnd(k) * 6.283, rr = t * (60 + rnd(k + 7) * 160), yy = 30 + (rnd(k + 3) * 260) * t - 90 * t * t; box(BX + Math.cos(aa) * rr - 5, Math.max(2, yy), BZ + Math.sin(aa) * rr - 5, 10, 10, 10, k % 3 ? [255, 120, 20] : [50, 50, 54], 0, k % 3 > 0); } }
-                for (let k = 0; k < 5; k++) box(BX + Math.sin(T + k) * 12 - 8, 40 + (T * 30 + k * 26) % 140, BZ + Math.cos(T * 1.3 + k) * 12 - 8, 16, 16, 16, [66, 66, 70]);
-                tank(100, 200, Math.PI * 0.9, 1.15, { ...pOpt, aim: 0 });
-                for (let k = 0; k < 3; k++) tank(-90 + k * 90, 270, Math.PI, 1, { bc: [250, 250, 250], tc: [225, 225, 225], y: Math.max(0, Math.sin(T * 5 + k)) * 6, aim: 0 });
-                if (li >= 2) { tank(60, 190, Math.PI * 0.2 + T * 0.4, 1.4, { bc: [30, 18, 70], tc: [90, 50, 170], eye: [213, 0, 249], ring: 95, aim: 0.3, fire: true }); for (let k = 0; k < 10; k++) { const aa = k * 0.628 + T * 2; box(60 + Math.cos(aa) * 70 - 3, 6 + (k * 23 + T * 60) % 160, 190 + Math.sin(aa) * 70 - 3, 6, 6, 6, [213, 0, 249], 0, true); } }
+                tank(BX, BZ, 0.8, bs, { bc: [22, 22, 24], tc: [22, 22, 24], spikes: 1 });
+                for (let k = 0; k < 4; k++) box(BX - 10 + (k % 2) * 8, 38 + k * 26, BZ - 10 + (k >> 1) * 8, 20 - k * 2, 22, 20 - k * 2, [62, 62, 66]);
+                box(BX + 40, 0, BZ + 10, 26, 6, 26, [255, 110, 20], 0, true);
+                tank(100, 200, Math.PI * 0.9, 1.15, pOpt);
+                for (let k = 0; k < 3; k++) tank(-90 + k * 90, 270, Math.PI, 1, { bc: [250, 250, 250], tc: [225, 225, 225] });
+                if (li >= 2) tank(60, 190, Math.PI * 0.2, 1.4, { bc: [30, 18, 70], tc: [90, 50, 170], stripe: [213, 0, 249] });
             }
-            // chispas / brasas
-            for (let k = 0; k < 40; k++) box(Math.sin(k * 12.9) * 500 + Math.sin(T + k) * 20, (T * 22 + k * 31) % 260, Math.cos(k * 7.7) * 500, 3, 3, 3, night ? [255, 140, 40] : [255, 220, 150], 0, true);
             polys.sort((q1, q2) => q2.d - q1.d);
             for (const arr of [ground, polys]) for (const q of arr) { g.fillStyle = q.c; g.strokeStyle = q.c; g.lineWidth = 1; g.beginPath(); g.moveTo(q.p[0][0], q.p[0][1]); for (let i = 1; i < q.p.length; i++) g.lineTo(q.p[i][0], q.p[i][1]); g.closePath(); g.fill(); g.stroke(); }
             const vg = g.createRadialGradient(w / 2, h / 2, h * 0.3, w / 2, h / 2, h * 0.95); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.6)'); g.fillStyle = vg; g.fillRect(0, 0, w, h);
@@ -2251,6 +2280,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 if (e.fz > 0) { e.fz--; e.chaser = true; e.speed = e.spd0 * 2.1; e.cooldown = 55; e.fan = 3; }
                 else { e.chaser = false; e.speed = e.spd0 * 0.7; e.cooldown = e.cd0 + 40; e.fan = 1; }
             }
+            if (e.stun > 0) { e.stun--; continue; }
             if (e.buffT > 0 && --e.buffT === 0) endBuff(e);
             if (e.charger && chargerUpdate(e)) continue;
             if (e.type === 'commander') commanderUpdate(e);
@@ -3392,7 +3422,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         coraza: { n: 'Coraza', ic: '🛡', t: 'act', cost: 9000, rk: 10, cd: 1800, d: 'Te vuelves invulnerable durante 3 s. Recarga 30 s.' },
         reclutador: { n: 'Reclutador', ic: '🤝', t: 'pas', cost: 12000, rk: 12, d: 'Todo enemigo que mates con balas o minas se une a ti (hasta 7) y conserva sus mecánicas. Nace en modo 💣 bomba: si en 8 s no le cambias el modo, explota contra el enemigo más cercano (si es estático, explota a los 8 s). Dispárale para rotar: bomba → 🛡 defensor (te escolta) → ⚔ atacante (caza enemigos) → bomba.' },
         chaleco: { n: 'Chaleco', ic: '🦺', t: 'pas', cost: 10000, rk: 11, d: 'Absorbes un impacto sin perder vida y la absorción se recupera sola cada 20 s.' },
-        sombra: { n: 'Sombra', ic: '🥷', t: 'act', cost: 0, rk: 99, ex: 1, cd: 1200, d: 'EXCLUSIVA del evento oculto. Apunta con el cursor a un enemigo concreto y aparecerá una horda de asesinos aliados que no parará hasta que lo maten. Si no apuntas a nadie, te vuelves invisible 15 s. Pasiva: cada baja del nivel te hace más rápido (hasta +40 %). Recarga 20 s.' }
+        sombra: { n: 'Sombra', ic: '🥷', t: 'act', cost: 0, rk: 99, ex: 1, cd: 720, d: 'EXCLUSIVA del evento oculto. Activa: te teletransportas detrás del enemigo marcado (o del más cercano a tu cursor), sin importar la distancia, y lo aturdes 3 s (1,5 s a un jefe). Pasiva: aparecen asesinos aliados (hasta 5) que van a por el enemigo que marques con clic; sin marca, atacan al más cercano. Cada baja te hace más rápido (hasta +40 %). Recarga 12 s.' }
     };
     let pwActive = false, killBy, killMine = false, pulses = [];
     function curCls() { try { return (prof.cls && prof.clsOwn && prof.clsOwn[prof.cls] && CLASSES[prof.cls]) ? prof.cls : ''; } catch (e) { return ''; } }
@@ -3479,11 +3509,17 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             if (net.on && net.role === 'host') netSend({ t: 'pf', x: Math.round(q.x), y: Math.round(q.y) });
             ok = true;
         } else if (id === 'sombra') {
-            let tg = null, bd = 80 * 80;
-            for (const e of enemies) { if (e.isAlly || e.haste || e.sq !== undefined) continue; const d = (e.x - mx) ** 2 + (e.y - my) ** 2; if (d < bd) { bd = d; tg = e; } }
-            if (tg) { horde = { tg: tg.id, tm: tmv === undefined ? 0 : tmv, by: q.id }; floatingTexts.push({ text: '🎯 ¡OBJETIVO MARCADO!', x: tg.x, y: tg.y - 50, life: 90, color: '#ea80fc' }); createParticles(tg.x, tg.y, '#d500f9', 16); }
-            else { q.invT = 900; createParticles(q.x, q.y, '#b388ff', 18); floatingTexts.push({ text: '👻 INVISIBLE', x: q.x, y: q.y - 40, life: 70, color: '#b388ff' }); }
-            ok = true;
+            let tg = horde && enemies.find(e => e.id === horde.tg); if (!tg) tg = nearestFoe(mx, my);
+            if (tg) {
+                const b0 = (tg.baseAngle || 0) + Math.PI; let pos = null;
+                for (let k = 0; k < 14 && !pos; k++) { const a = b0 + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 0.45, d = tg.radius + q.radius + 20, x = tg.x + Math.cos(a) * d, y = tg.y + Math.sin(a) * d; if (x > BORDER_SIZE + 22 && y > BORDER_SIZE + 22 && x < MAP_WIDTH - BORDER_SIZE - 22 && y < MAP_HEIGHT - BORDER_SIZE - 22 && !wallHit({ x, y, radius: q.radius + 2 }, q.id)) pos = { x, y }; }
+                if (pos) {
+                    createParticles(q.x, q.y, '#b388ff', 16); q.x = pos.x; q.y = pos.y; q.lastX = pos.x; q.lastY = pos.y; createParticles(pos.x, pos.y, '#b388ff', 16); q.invuln = Math.max(q.invuln || 0, 30);
+                    tg.stun = (tg.isBoss || tg.master) ? 90 : 180; floatingTexts.push({ text: '💫 ¡ATURDIDO!', x: tg.x, y: tg.y - 50, life: 70, color: '#ffeb3b' });
+                    if (q !== player && net.on) netSend({ t: 'tp', x: Math.round(pos.x), y: Math.round(pos.y) }, q.slot);
+                    ok = true;
+                }
+            }
         } else if (id === 'coraza') {
             q.shieldT = 180; q.invuln = Math.max(q.invuln || 0, 180); createParticles(q.x, q.y, '#4dd0e1', 18); ok = true;
         }
@@ -3586,7 +3622,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     // Defensor: va hasta su dueño y lo escolta (se interpone si hay enemigos cerca de él). Atacante: caza al enemigo más cercano de todo el mapa.
     function petTarget(e) {
-        if (e.horde && horde) { const t = enemies.find(x => x.id === horde.tg); if (t) return { aim: t, dest: { x: t.x, y: t.y }, base: null, hostile: true }; }
+        if (e.horde) { const ow0 = petOwner(e.owner), t = (horde && enemies.find(x => x.id === horde.tg)) || (ow0 ? nearestFoe(ow0.x, ow0.y) : null); if (t) return { aim: t, dest: { x: t.x, y: t.y }, base: null, hostile: true }; }
         const ow = petOwner(e.owner);
         if (!ow || ow.dead) return { aim: { x: e.x + Math.cos(e.baseAngle || 0) * 100, y: e.y + Math.sin(e.baseAngle || 0) * 100 }, dest: { x: e.x, y: e.y }, base: null, hostile: false, idle: true };
         if (e.role === 'bomb' && !e.bombEnd) e.bombEnd = frameCount + PET_BOMB;
