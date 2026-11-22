@@ -1061,7 +1061,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function placeHBase() {
         const G = GRID_SIZE, c = Math.floor(gridCols / 2) - 1, r = Math.floor(gridRows / 2) - 1;
         for (const w of walls.slice()) if (w.x < (c + 4) * G && w.x + w.width > (c - 2) * G && w.y < (r + 4) * G && w.y + w.height > (r - 2) * G && w.x > BORDER_SIZE && w.y > BORDER_SIZE) removeWall(w);
-        const hp = 28 + 6 * (playersCount() - 1), b = { x: c * G, y: r * G, width: G * 2, height: G * 2, destructible: false, target: true, hb: true, hp, maxHp: hp };
+        const hp = 34 + 6 * (playersCount() - 1), b = { x: c * G, y: r * G, width: G * 2, height: G * 2, destructible: false, target: true, hb: true, hp, maxHp: hp };
         walls.push(b); paintWall(b, b); refreshNav(b.x, b.y, b.width, b.height); targets.push(b);
         return b;
     }
@@ -1118,8 +1118,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const bx = b.x + 40, by = b.y + 40; surviveTimer = Math.max(0, surviveTimer - 1); const el = EV_TIME - surviveTimer;
         if (frameCount % 15 === 0) updateUI();
         const hunters = enemies.filter(e => e.hunt && !e.master).length + pendingSpawns.filter(p => p.enemy && p.enemy.hunt && !p.enemy.master).length;
-        const pf = Math.min(1.8, 0.85 + 0.2 * (playersCount() - 1)), cap = Math.floor(Math.min(24, 7 + Math.floor(el / 1500)) * pf);
-        if (el > 900 && hunters < cap && frameCount % Math.round(Math.max(28, 100 - Math.floor(el / 900) * 6) * 1.11 / pf) === 0) evSpawnHunter();
+        const pf = Math.min(1.6, 0.7 + 0.2 * (playersCount() - 1)), cap = Math.floor(Math.min(20, 6 + Math.floor(el / 1800)) * pf);
+        if (el > 1500 && hunters < cap && frameCount % Math.round(Math.max(28, 100 - Math.floor(el / 900) * 6) * 1.11 / pf) === 0) evSpawnHunter();
         if (el > 0 && el % 1200 === 0 && enemies.filter(e => e.hally).length + pendingSpawns.filter(p => p.enemy && p.enemy.hally).length < 2 + playersCount()) evSpawnAlly();
         // Materiales de reparación: recógelos (📦) y llévalos a la base
         if (frameCount % Math.round(600 / pf) === 0 && items.filter(i => i.type === 'supply' && !i.collected).length < 3 + playersCount()) {
@@ -1133,7 +1133,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         }
         items = items.filter(i => !i.collected);
         if (!evBossOn && el > 18000) { evBossOn = true; evSpawnMaster(); }
-        for (const e of enemies.slice()) if (e.hunt && e.sq === undefined && Math.hypot(e.x - bx, e.y - by) < 150) { e.sab = (e.sab || 0) + 1; if (e.sab % 40 === 0) { damageBunker(b, e.master ? 3 : 1); if (!evBase()) return; } }
+        for (const e of enemies.slice()) if (e.hunt && e.sq === undefined && Math.hypot(e.x - bx, e.y - by) < 150) { e.sab = (e.sab || 0) + 1; if (e.sab % 55 === 0) { damageBunker(b, e.master ? 3 : 1); if (!evBase()) return; } }
         if (surviveTimer <= 0 && evBossOn && !bossAliveNow()) objectiveDone();
     }
     // Clase Sombra. Pasiva: asesinos aliados que van a por el enemigo que marques con clic (o al más cercano). Además, cada baja te da velocidad.
