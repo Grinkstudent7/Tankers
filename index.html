@@ -1118,11 +1118,11 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const bx = b.x + 40, by = b.y + 40; surviveTimer = Math.max(0, surviveTimer - 1); const el = EV_TIME - surviveTimer;
         if (frameCount % 15 === 0) updateUI();
         const hunters = enemies.filter(e => e.hunt && !e.master).length + pendingSpawns.filter(p => p.enemy && p.enemy.hunt && !p.enemy.master).length;
-        const cap = Math.floor(Math.min(26, 7 + Math.floor(el / 1500) + 3 * (playersCount() - 1)) * 0.9);
-        if (el > 900 && hunters < cap && frameCount % Math.round(Math.max(28, 100 - Math.floor(el / 900) * 6) * 1.11) === 0) evSpawnHunter();
-        if (el > 0 && el % 1200 === 0 && enemies.filter(e => e.hally).length + pendingSpawns.filter(p => p.enemy && p.enemy.hally).length < 4) evSpawnAlly();
+        const pf = Math.min(1.8, 0.85 + 0.2 * (playersCount() - 1)), cap = Math.floor(Math.min(24, 7 + Math.floor(el / 1500)) * pf);
+        if (el > 900 && hunters < cap && frameCount % Math.round(Math.max(28, 100 - Math.floor(el / 900) * 6) * 1.11 / pf) === 0) evSpawnHunter();
+        if (el > 0 && el % 1200 === 0 && enemies.filter(e => e.hally).length + pendingSpawns.filter(p => p.enemy && p.enemy.hally).length < 2 + playersCount()) evSpawnAlly();
         // Materiales de reparación: recógelos (📦) y llévalos a la base
-        if (frameCount % 600 === 0 && items.filter(i => i.type === 'supply' && !i.collected).length < 4) {
+        if (frameCount % Math.round(600 / pf) === 0 && items.filter(i => i.type === 'supply' && !i.collected).length < 3 + playersCount()) {
             let pos = null; for (let i = 0; i < 20 && !pos; i++) { const a = Math.random() * 6.283, d = 450 + Math.random() * 850, x = bx + Math.cos(a) * d, y = by + Math.sin(a) * d; if (x > BORDER_SIZE + 40 && y > BORDER_SIZE + 40 && x < MAP_WIDTH - BORDER_SIZE - 40 && y < MAP_HEIGHT - BORDER_SIZE - 40 && !wallHit({ x, y, radius: 20 })) pos = { x, y }; }
             if (pos) items.push({ type: 'supply', x: pos.x, y: pos.y, collected: false, color: '#ff9800' });
         }
@@ -1211,7 +1211,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const title = night ? ['OPERACIÓN SOMBRA', 'Defiende la base · 10 minutos'] : ['MISIÓN CUMPLIDA', 'Operación Sombra'];
         let li = 0, lt = 0, T = 0, fin = false, endT = -1, flash = 1, lastLi = -1, last = performance.now(); const cam = { x: 600, y: 300, z: 600, tx: 0, ty: 40, tz: 0 };
         const end = () => { if (fin) return; fin = true; CUT.on = false; wrap.remove(); document.removeEventListener('keydown', kd); if (paused && state === 'paused') state = 'playing'; if (done) done(); };
-        const next = () => { li++; lt = 0; if (li >= S.length) { li = S.length - 1; endT = T; } };
+        const lineT = { 0: 0 }, next = () => { if (li + 1 >= S.length) { if (endT < 0) endT = T; return; } li++; lt = 0; lineT[li] = T; };
         const adv = () => { if (endT >= 0) return; const n = S[li][2].length * 22; if (lt < n) lt = n; else next(); };
         const kd = e => { if (e.key === 'Escape') end(); else if (e.key === ' ' || e.key === 'Enter') adv(); };
         document.addEventListener('keydown', kd); wrap.addEventListener('click', adv); wrap.querySelector('.sk').addEventListener('click', e => { e.stopPropagation(); end(); });
@@ -1333,6 +1333,20 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             for (let k = -6; k <= 6; k++) for (const sg of [-1, 1]) { box(k * 15, 0, sg * 118, 14, 10, 8, [112, 100, 78]); box(k * 15, 10, sg * 118, 11, 7, 6, [122, 110, 86]); }
             for (const sg of [-1, 1]) for (let k = -3; k <= 3; k++) { box(sg * 118, 0, k * 15, 8, 10, 14, [112, 100, 78]); box(sg * 118, 10, k * 15, 6, 7, 11, [122, 110, 86]); }
             for (const q of [[-135, -45], [135, 45]]) { box(q[0], 0, q[1], 3, 62, 3, [60, 64, 68]); box(q[0], 62, q[1], 14, 4, 8, [255, 244, 200], 0, true); }
+            if (Math.hypot(cx0, cam.z) < 1100) {
+                // escalera y puerta, franjas de peligro, ventilación, parabólica, anexo, depósito y torre de comunicaciones
+                for (let k = 0; k < 3; k++) box(-18, k * 3, 66 + (2 - k) * 4, 36, 3, 4, [90, 98, 104]);
+                box(-10, 8, 63.2, 20, 18, 1.4, [30, 36, 40]); box(-12, 26, 63, 24, 2, 3, RF);
+                for (let k = 0; k < 14; k++) box(-70 + k * 10.5, 8, 74.4, 5.2, 0.8, 1.5, k % 2 ? [255, 214, 0] : [30, 30, 30]);
+                for (let k = 0; k < 3; k++) box(-34 + k * 26, 51, -20, 14, 5, 14, [70, 78, 84]);
+                prism(30, 55, -34, 11, 2, [150, 160, 166], 12); box(29, 55, -35, 2, 14, 2, [120, 126, 130]); prism(30, 69, -34, 3, 2, [200, 210, 216], 8);
+                box(100, 0, -20, 46, 24, 70, CON2); box(97, 24, -23, 52, 4, 76, RF); for (let k = 0; k < 3; k++) box(76.4, 12, -40 + k * 22, 1.4, 6, 12, [120, 220, 255], 0, true); box(76.4, 0, -4, 1.4, 16, 20, [40, 46, 50]);
+                for (const zz of [-92, -78]) box(104, 0, zz - 3, 14, 10, 6, [120, 100, 60]);
+                cyl(-106, 14, 20, 12, 52, 'z', [112, 120, 126], 0, 14); for (const zz of [0, 38]) box(-114, 0, zz + 2, 16, 6, 6, [60, 66, 70]);
+                for (const q2 of [[-112, -112], [-100, -112], [-112, -100], [-100, -100]]) box(q2[0] - 1.5, 0, q2[1] - 1.5, 3, 130, 3, [160, 166, 170]);
+                for (let k = 1; k <= 4; k++) { box(-114, k * 28, -112, 18, 2, 2, [150, 156, 160]); box(-114, k * 28, -100, 18, 2, 2, [150, 156, 160]); }
+                box(-114, 130, -112, 18, 4, 14, [90, 96, 100]); box(-107, 134, -108, 4, 4, 4, [255, 60, 60], 0, true);
+            }
             // portal: arco de piedra con panel de energía fijo
             if (night) {
                 const dl = Math.hypot(PX, PZ), lx = PZ / dl, lz = -PX / dl, py = Math.atan2(-lz, lx);
@@ -1343,7 +1357,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             const pOpt = { bc: PB, tc: PT, hat };
             if (night) {
                 tank(120, 190, dir(120, 190, -300, -280), 1.15, { ...pOpt, flash: li === 4 && Math.floor(T * 6) % 2 === 0 });
-                if (li >= 3) for (let k = 0; k < 3; k++) { const ax = -40 + k * 110, az = 250 - Math.abs(k - 1) * 40, sp = Math.min(1, lt / 600); tank(ax, az, dir(ax, az, -300, -280), 1, { bc: [250, 250, 250], tc: [225, 225, 225], y: (1 - sp) * 120, flash: li === 4 && (Math.floor(T * 7) + k) % 3 === 0 }); }
+                if (li >= 3) for (let k = 0; k < 3; k++) { const ax = -40 + k * 110, az = 250 - Math.abs(k - 1) * 40, sp = Math.min(1, (T - (lineT[3] === undefined ? T : lineT[3])) / 0.6); tank(ax, az, dir(ax, az, -300, -280), 1, { bc: [250, 250, 250], tc: [225, 225, 225], y: (1 - sp) * 120, flash: li === 4 && (Math.floor(T * 7) + k) % 3 === 0 }); }
                 for (let k = 0; k < 12; k++) { const m = march(k, li === 4 ? 0.06 : 0.03), x = m[0], z = m[1]; tank(x, z, dir(x, z, 0, 0), 1, { bc: [26, 26, 30], tc: [14, 14, 16], stripe: [160, 20, 20], flash: li === 4 && (Math.floor(T * 5) + k) % 4 === 0 }); }
                 tank(BX, BZ, dir(BX, BZ, 0, 0), bs, { bc: [14, 14, 16], tc: [4, 4, 6], stripe: [110, 30, 160], spikes: 1 });
             } else {
@@ -1367,7 +1381,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         }
         const frame = now => {
             if (fin) return; const dt = Math.min(60, now - last); last = now; T += dt / 1000; if (endT < 0) lt += dt;
-            const L = S[li]; who.textContent = L[0]; who.style.color = L[1]; wrap.querySelector('.bx').style.borderLeftColor = L[1]; tx.textContent = L[2].slice(0, Math.floor(lt / 22));
+            const L = S[li]; who.textContent = L[0]; who.style.color = L[1]; wrap.querySelector('.bx').style.borderLeftColor = L[1]; wrap.querySelector('.bx').style.opacity = endT >= 0 ? Math.max(0, 1 - (T - endT) / 0.5) : 1; tx.textContent = L[2].slice(0, Math.floor(lt / 22));
             if (endT < 0 && lt > L[2].length * 22 + 2400) next();
             let fd = 0; const t0 = performance.now(); try { fd = render(); window.__cutMs = (window.__cutMs || 0) * 0.9 + (performance.now() - t0) * 0.1; } catch (e) { console.error(e); end(); return; }
             if (endT >= 0 && T - endT >= 0.75) { end(); return; }
@@ -3033,7 +3047,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (const t of targets) {
             if (t.x + t.width < camera.x || t.x > camera.x + viewW || t.y + t.height < camera.y || t.y > camera.y + viewH) continue;
             drawBunkerArt(ctx, t.x, t.y, 80, Math.max(0, t.hp) / t.maxHp);
-            if (t.hb) { ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 5; ctx.strokeRect(t.x - 2, t.y - 2, 84, 84); }
+            if (t.hb) { ctx.save(); const bx0 = t.x, by0 = t.y, cx0b = bx0 + 40, cy0b = by0 + 40, pc = t.hp / t.maxHp; ctx.fillStyle = 'rgba(0,229,255,.10)'; ctx.fillRect(bx0 - 14, by0 - 14, 108, 108); ctx.fillStyle = '#263238'; ctx.fillRect(bx0, by0, 80, 80); ctx.fillStyle = '#455a64'; ctx.fillRect(bx0 + 6, by0 + 6, 68, 68); ctx.strokeStyle = '#78909c'; ctx.lineWidth = 1.5; ctx.strokeRect(bx0 + 12, by0 + 12, 56, 56); ctx.beginPath(); ctx.moveTo(cx0b, by0 + 12); ctx.lineTo(cx0b, by0 + 68); ctx.moveTo(bx0 + 12, cy0b); ctx.lineTo(bx0 + 68, cy0b); ctx.stroke(); for (const cc of [[bx0 + 9, by0 + 9, -1, -1], [bx0 + 71, by0 + 9, 1, -1], [bx0 + 9, by0 + 71, -1, 1], [bx0 + 71, by0 + 71, 1, 1]]) { ctx.fillStyle = '#607d8b'; ctx.beginPath(); ctx.arc(cc[0], cc[1], 8, 0, 6.283); ctx.fill(); ctx.strokeStyle = '#263238'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cc[0], cc[1]); ctx.lineTo(cc[0] + cc[2] * 12, cc[1] + cc[3] * 12); ctx.stroke(); ctx.fillStyle = '#00e5ff'; ctx.beginPath(); ctx.arc(cc[0], cc[1], 3.5, 0, 6.283); ctx.fill(); } ctx.fillStyle = pc > 0.5 ? '#00e5ff' : pc > 0.25 ? '#ffca28' : '#ff5252'; ctx.beginPath(); ctx.arc(cx0b, cy0b, 12, 0, 6.283); ctx.fill(); ctx.strokeStyle = '#263238'; ctx.lineWidth = 3; ctx.stroke(); ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.beginPath(); ctx.arc(cx0b - 3, cy0b - 3, 4, 0, 6.283); ctx.fill(); ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 4; ctx.strokeRect(bx0 - 2, by0 - 2, 84, 84); ctx.setLineDash([8, 8]); ctx.strokeStyle = '#ffd600'; ctx.lineWidth = 3; ctx.strokeRect(bx0 - 9, by0 - 9, 98, 98); ctx.restore(); }
             if (t.spawner) { ctx.strokeStyle = '#ff1744'; ctx.lineWidth = 4; ctx.setLineDash([9, 6]); ctx.strokeRect(t.x - 2, t.y - 2, 84, 84); ctx.setLineDash([]); }
             if (t.tm !== undefined) { ctx.strokeStyle = tmCol(t.tm); ctx.lineWidth = 5; ctx.strokeRect(t.x - 2, t.y - 2, 84, 84); }
             ctx.fillStyle = '#263238'; ctx.fillRect(t.x + 8, t.y - 12, 64, 7); ctx.fillStyle = t.tm !== undefined ? tmCol(t.tm) : '#66bb6a'; ctx.fillRect(t.x + 8, t.y - 12, 64 * Math.max(0, t.hp) / t.maxHp, 7);
