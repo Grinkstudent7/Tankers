@@ -75,7 +75,7 @@ canvas{cursor:crosshair}
 #lobby button.on{background:#1c2326;color:#fff}
 #lobby .tabs{display:flex;gap:8px;margin-bottom:16px}
 #lobby .nm{display:block;margin-bottom:14px;font-weight:600}
-#lobby .nm input{font:inherit;padding:6px 8px;border:2px solid #1c2326;margin-left:8px;background:#fff}
+#lobby .nm input{font:inherit;padding:6px 8px;border:2px solid #1c2326;margin-left:8px;background:#fff;color:#1c2326;caret-color:#1c2326;color-scheme:light}
 #lobby .modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:18px}
 #lobby .mode{display:flex;flex-direction:column;gap:6px;text-align:left;min-height:150px}
 #lobby .mode b{font:700 22px 'Barlow Condensed','Arial Narrow',sans-serif}
@@ -237,7 +237,7 @@ body.dark .menu-default{background:rgba(0,0,0,.88);color:#eceff1}
 body.dark p.desc{color:#cfd8dc}
 body.dark #lobby.gar{background-color:#000}
 body.dark #lobby.gar .sheet{background:#12181b}
-body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .nm input{background:#1c2326;color:#eceff1;border-color:#455a64}
+body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .nm input{background:#1c2326;color:#eceff1;border-color:#455a64;color-scheme:dark;caret-color:#eceff1}
 </style>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>if (typeof Peer === 'undefined') document.write('<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"><\/script>');</script>
@@ -1180,7 +1180,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const nm = document.createElement('b'); nm.textContent = it[0]; nm.style.cssText = 'color:' + String(it[1]).replace(/[^#\w]/g, '') + ';letter-spacing:1px;text-transform:uppercase;margin-right:8px'; SAY.el.appendChild(nm); SAY.el.appendChild(document.createTextNode(it[2]));
         setTimeout(sayNext, it[3]);
     }
-    // ===== Clase Frost (solo diciembre) =====
+    // ===== Clase Frost (disponible permanentemente) =====
     const isDec = () => !!window.evForceDec || new Date().getMonth() === 11;
     const frostFx = [], iceTrail = [];
     function yetiRadar(on) {
@@ -1393,7 +1393,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             intro: ['OPERACIÓN SOMBRA', [['Vigía de las Sombras', VG, 'Escúchame, viajero. Ese portal es la única entrada a nuestros hogares: el reino de las sombras.'], ['Tú', TQ, '¿Qué ocurre? ¿Por qué se abrió aquí, en pleno campo de batalla?'], ['Vigía de las Sombras', VG, 'El Maestro Sombra quiere cruzarlo y devorar la esencia de nuestro mundo. Si la base cae, el portal se rompe y nuestros hogares con él.'], ['Tú', TQ, 'Entonces la defenderé. ¿Cuánto tiempo necesitas?'], ['Vigía de las Sombras', VG, 'Diez minutos. Resiste a las criaturas que lleguen y repara la entrada con cajas 📦. Cuando el Maestro aparezca, derrótalo y toma su esencia.']]],
             outro: ['MISIÓN CUMPLIDA', [['Vigía de las Sombras', VG, 'Lo lograste. Has recogido la esencia de las sombras: el portal vuelve a estar a salvo.'], ['Tú', TQ, '¿Y el Maestro Sombra?'], ['Vigía de las Sombras', VG, 'Ya no volverá. Mi pueblo te lo agradece: la clase «Sombra» te ha elegido. Úsala bien.']]],
             xintro: ['OPERACIÓN KRAMPUS', [['Pipa', PI, '¡Por fin! El portal gélido te ha traído hasta nuestra ciudad nevada. Soy Pipa, la elfa jefa.'], ['Tú', TQ, '¿Qué está pasando aquí?'], ['Pipa', PI, 'Krampus quiere arruinar la Navidad. Sus criaturas atacan a los ciudadanos antes de que reciban sus regalos.'], ['Tú', TQ, '¿Y qué puedo hacer yo?'], ['Pipa', PI, 'Fabrica juguetes en el taller 🧸, empaquétalos en cajas 📦 y entrégaselos a los tanques ciudadanos. Cada regalo los cura, y tres seguidos desatan un villancico que congela a los malos.'], ['Pipa', PI, 'Si pierdes a demasiados ciudadanos, se acabó. Y cuidado con los gnomos: ¡roban regalos!']]],
-            xoutro: ['FELIZ NAVIDAD', [['Pipa', PI, '¡Krampus ha caído! Los ciudadanos están a salvo y todos tendrán su regalo.'], ['Tú', TQ, 'Ha sido una noche movidita…'], ['Pipa', PI, 'Gracias, héroe. El portal gélido volverá a abrirse cada diciembre.']]]
+            xoutro: ['FELIZ NAVIDAD', [['Pipa', PI, '¡Krampus ha caído! Los ciudadanos están a salvo y todos tendrán su regalo.'], ['Tú', TQ, 'Ha sido una noche movidita…'], ['Pipa', PI, 'Gracias, héroe. El portal gélido permanecerá abierto. Podrás volver cuando quieras.']]]
         }[kind] || ['', []];
         const S = SC[1];
         const wrap = document.createElement('div'); wrap.style.cssText = 'position:fixed;inset:0;z-index:300;background:#000;color:#fff;font-family:Barlow,"Segoe UI",sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6%;transition:opacity .6s;touch-action:none';
@@ -1427,14 +1427,14 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     function xmWin(secs) {
         const first = !prof.xmOpen, newYeti = !(prof.clsOwn && prof.clsOwn.yeti); prof.xmOpen = 1; prof.clsOwn.yeti = 1; prof.xmWins = (prof.xmWins || 0) + 1; prof.coins += 400; prof.xp += 500; saveProf(); updateUI();
-        playCut('xoutro', () => { state = 'win'; showOverlay('menu-win', '¡FELIZ NAVIDAD!', '', 'Tiempo: ' + secs + ' s · Puntos: ' + score + '\n+400 monedas' + (newYeti ? '\n🧊 Clase exclusiva «Yeti» desbloqueada (Garaje).' : '') + (first ? '\n🎄 Operación Krampus disponible en Eventos durante diciembre.' : ''), 'Volver al menú', () => openLobby('event')); });
+        playCut('xoutro', () => { state = 'win'; showOverlay('menu-win', '¡FELIZ NAVIDAD!', '', 'Tiempo: ' + secs + ' s · Puntos: ' + score + '\n+400 monedas' + (newYeti ? '\n🧊 Clase exclusiva «Yeti» desbloqueada (Garaje).' : '') + (first ? '\n🎄 Operación Krampus desbloqueada permanentemente en Eventos.' : ''), 'Volver al menú', () => openLobby('event')); });
     }
     function eventHTML() {
-        const open = !!prof.evOpen, solo = !net.role, dec = isDec();
+        const open = !!prof.evOpen, solo = !net.role;
         return '<h3>🎭 Eventos</h3><div class="modes"><button class="mode ' + (open ? 'on' : '') + '" ' + (open && solo ? '' : 'disabled') + ' onclick="evStart()"><b>🥷 Operación Sombra</b><span>Mapa enorme: defiende la base 10 minutos, repárala con cajas 📦 y derrota al Maestro Sombra para tomar la esencia de las sombras.</span><em>'
             + (open ? (solo ? 'Desbloqueado · también en party si todos lo tienen (elige «Evento oculto» como origen)' : 'Desbloqueado · inícialo desde la party') : 'Bloqueado: un asesino puede soltar una llave (10 %) y debes hallar la anomalía 🌀 en una misión.') + '</em></button>'
-            + '<button class="mode ' + (prof.xmOpen && dec ? 'on' : '') + '" ' + (prof.xmOpen && dec && solo ? '' : 'disabled') + ' onclick="xmStart()"><b>🎄 Operación Krampus</b><span>Fabrica juguetes, empaquétalos y entrégalos a los ciudadanos mientras proteges la ciudad de las criaturas de Krampus. Solo en solitario.</span><em>'
-            + (!dec ? 'Solo disponible en diciembre.' : prof.xmOpen ? 'Desbloqueado' : 'En diciembre, congela una anomalía 🌀 con la clase Frost y entra en el portal gélido.') + '</em></button></div>'
+            + '<button class="mode ' + (prof.xmOpen ? 'on' : '') + '" ' + (prof.xmOpen && solo ? '' : 'disabled') + ' onclick="xmStart()"><b>🎄 Operación Krampus</b><span>Fabrica juguetes, empaquétalos y entrégalos a los ciudadanos mientras proteges la ciudad de las criaturas de Krampus. Solo en solitario.</span><em>'
+            + (prof.xmOpen ? 'Desbloqueado permanentemente' : 'Desbloquea Frost o Yeti y congela una anomalía 🌀 para entrar por el portal gélido. Disponible todo el año.') + '</em></button></div>'
             + '<p class="st">' + (!open && prof.evKey ? '🗝️ Tienes la llave: busca la anomalía 🌀 en tus misiones.' : 'Superar Operación Sombra da la clase exclusiva «Sombra».') + '</p>';
     }
     function startNewLevel(reset, keepLevel = false, soft = false) {
@@ -1567,7 +1567,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         if (isPvp() && /^p_/.test(currentMode)) timeLimit = PVP_TIME[currentMode.slice(2)] * 60;
         document.getElementById('objective-text').innerText = objText;
         horde = null; player.invT = 0; for (const r of remotes) r.invT = 0; if (!soft) sbStk = 0; anom = null;
-        if (((prof.evKey && !prof.evOpen) || (isDec() && curCls() === 'escarcha' && Math.random() < 0.4)) && !net.on && !dailyCur && !sbCur && !evCur && !xmCur && !/^p_/.test(currentMode)) spawnAnom();
+        if (((prof.evKey && !prof.evOpen) || ((curCls() === 'escarcha' || curCls() === 'yeti') && Math.random() < 0.4)) && !net.on && !dailyCur && !sbCur && !evCur && !xmCur && !/^p_/.test(currentMode)) spawnAnom();
         fixSpawns(); updateCamera();
         state = soft ? 'playing' : 'starting'; startTimer = soft ? 0 : 120; net.goAt = 0; net.wait = (net.on && net.role === 'host') ? { rtt: {}, t0: performance.now() } : null;
         document.getElementById('countdown-display').style.display = soft ? 'none' : 'block';
@@ -2876,7 +2876,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     function checkWinConditions() {
         if (isPvp()) { checkPvp(); if (state !== 'playing') return; pvpTick(); return; }
-        if (anom && !net.on && !CUT.on && alivePlayers().some(p => near(p, anom, 55))) { if (anom.frozen) { xmStart(); return; } if (prof.evKey && !prof.evOpen) { evStart(); return; } if (!anom.hint || frameCount - anom.hint > 200) { anom.hint = frameCount; floatingTexts.push({ text: '🌀 Portal inestable: congélalo con Frost', x: player.x, y: player.y - 50, life: 90, color: '#80d8ff' }); } }
+        if (anom && !net.on && !CUT.on && alivePlayers().some(p => near(p, anom, 55))) { if (anom.frozen) { xmStart(); return; } if (prof.evKey && !prof.evOpen) { evStart(); return; } if (!anom.hint || frameCount - anom.hint > 200) { anom.hint = frameCount; floatingTexts.push({ text: '🌀 Portal inestable: congélalo con Frost o Yeti', x: player.x, y: player.y - 50, life: 90, color: '#80d8ff' }); } }
         if (currentMode === 'gems') gemTick();
         if (timeLimit > 0) { timeLimit--; if (timeLimit <= 0) { endGame('¡Se acabó el tiempo!'); return; } if (timeLimit % 60 === 0) updateUI(); }
         const P = alivePlayers();
@@ -3515,7 +3515,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         chaleco: { n: 'Chaleco', ic: '🦺', t: 'pas', cost: 10000, rk: 11, d: 'Absorbes un impacto sin perder vida y la absorción se recupera sola cada 20 s.' },
         sombra: { n: 'Sombra', ic: '🥷', t: 'act', cost: 0, rk: 99, ex: 1, cd: 720, d: 'EXCLUSIVA del evento oculto. Activa: si apuntas con el cursor a un enemigo (o ya lo tienes marcado), te teletransportas detrás de él sin importar la distancia y lo aturdes 3 s (1,5 s a un jefe); si no apuntas a nadie, te vuelves invisible 15 s para los enemigos. Pasiva: aparecen asesinos aliados (hasta 5) que van a por el enemigo marcado: mantén pulsado 1 s sobre un enemigo para marcarlo y 1 s sobre el suelo para cancelar la marca; sin marca, atacan al más cercano. Cada baja te hace más rápido (hasta +40 %). Recarga 12 s.' },
         escarcha: { n: 'Frost', ic: '❄️', t: 'act', cost: 0, rk: 1, cd: 900, d: 'DESBLOQUEADA PERMANENTEMENTE y gratuita. Activa: congela durante 3 s (1,5 s a jefes) a los enemigos en un radio de 230 px. Pasiva: tus proyectiles ralentizan a los enemigos. Con la habilidad tambien puedes congelar portales anomalos. Recarga 15 s.' },
-        yeti: { n: 'Yeti', ic: '🧊', t: 'act', cost: 0, rk: 99, ex: 1, exn: 'Exclusiva: gana Operación Krampus', cd: 1500, d: 'Tus balas dejan un rastro de hielo: los enemigos que lo pisan se congelan 1 s y quedan con frío 30 s. Activa: todos los enemigos con frío se congelan 20 s (1 punto de daño a cada uno). Un radar te muestra donde estan los congelados. Recarga 25 s.' }
+        yeti: { n: 'Yeti', ic: '🧊', t: 'act', cost: 0, rk: 99, ex: 1, exn: 'Exclusiva: gana Operación Krampus', cd: 1500, d: 'Tus balas dejan un rastro de hielo: los enemigos que lo pisan se congelan 1 s y quedan con frío 30 s. Activa: todos los enemigos con frío se congelan 20 s (1 punto de daño a cada uno) y también congela un portal gélido cercano. Un radar te muestra dónde están los congelados. Recarga 25 s.' }
     };
     let pwActive = false, killBy, killMine = false, pulses = [];
     function curCls() { try { return (prof.cls && prof.clsOwn && prof.clsOwn[prof.cls] && CLASSES[prof.cls]) ? prof.cls : ''; } catch (e) { return ''; } }
@@ -3602,10 +3602,17 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             if (net.on && net.role === 'host') netSend({ t: 'pf', x: Math.round(q.x), y: Math.round(q.y) });
             ok = true;
         } else if (id === 'yeti') {
-            let n = 0;
+            let n = 0, portalFrozen = false;
             for (const e of enemies.slice()) { if (!(e.cold > 0)) continue; e.stun = (e.isBoss || e.master || e.krampus) ? 600 : 1200; e.frz = 1; e.cold = 0; n++; e.hp -= 1; if (e.hp <= 0) killEnemy(e.id); }
-            if (n) { frostFx.push({ x: q.x, y: q.y, t: 0 }); floatingTexts.push({ text: '🧊 ¡CONGELADOS: ' + n + '!', x: q.x, y: q.y - 50, life: 90, color: '#80d8ff' }); ok = true; }
-            else floatingTexts.push({ text: 'Nadie tiene frío todavía', x: q.x, y: q.y - 40, life: 60, color: '#b3e5fc' });
+            if (anom && !anom.frozen && Math.hypot(anom.x - q.x, anom.y - q.y) < 230) {
+                anom.frozen = true; portalFrozen = true;
+                floatingTexts.push({ text: '❄️ ¡PORTAL GÉLIDO DESBLOQUEADO!', x: anom.x, y: anom.y - 40, life: 120, color: '#80d8ff' });
+            }
+            if (n || portalFrozen) {
+                frostFx.push({ x: q.x, y: q.y, t: 0 });
+                if (n) floatingTexts.push({ text: '🧊 ¡CONGELADOS: ' + n + '!', x: q.x, y: q.y - 50, life: 90, color: '#80d8ff' });
+                ok = true;
+            } else floatingTexts.push({ text: 'No hay enemigos con frío ni portal cercano', x: q.x, y: q.y - 40, life: 60, color: '#b3e5fc' });
         } else if (id === 'escarcha') {
             for (const e of enemies) { if (e.isAlly || e.haste || e.sq !== undefined) continue; if (Math.hypot(e.x - q.x, e.y - q.y) < 230 + e.radius) { e.stun = (e.isBoss || e.master || e.krampus) ? 90 : 180; e.frz = 1; } }
             frostFx.push({ x: q.x, y: q.y, t: 0 }); createParticles(q.x, q.y, '#80d8ff', 24);
@@ -5837,6 +5844,9 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
     // --- pestaña Party ---
     // ===== Amigos: código fijo por jugador, invitaciones directas a la party y apodos =====
+    // Frost queda desbloqueada de forma permanente en todos los perfiles, incluidos los ya existentes.
+    prof.clsOwn = prof.clsOwn || {}; prof.clsOwn.escarcha = 1;
+    if (!prof.cls || !CLASSES[prof.cls] || !prof.clsOwn[prof.cls]) prof.cls = 'escarcha';
     if (!prof.fid) prof.fid = Array.from({ length: 6 }, () => CODE_CH[Math.floor(Math.random() * CODE_CH.length)]).join('');
     prof.friends = prof.friends || []; saveProf();
     const friendOn = {}; let fpeer = null, fPend = null; const FPID = f => 'tankers-f-' + f, frList = () => prof.friends;
