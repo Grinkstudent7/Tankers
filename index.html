@@ -3458,6 +3458,9 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     let prof = loadProf();
     function saveProf() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(prof)); } catch (e) {} }
+    // Frost queda desbloqueada permanentemente para este perfil, incluso en partidas guardadas antiguas.
+    prof.clsOwn = { ...(prof.clsOwn || {}), escarcha: 1 };
+    saveProf();
     function rankOf(xp) { return Math.floor(Math.sqrt(xp / 150)) + 1; }
     function esc(s) { return String(s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';'); }
 
@@ -3511,7 +3514,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         reclutador: { n: 'Reclutador', ic: '🤝', t: 'pas', cost: 12000, rk: 12, d: 'Todo enemigo que mates con balas o minas se une a ti (hasta 7) y conserva sus mecánicas. Nace en modo 💣 bomba: si en 8 s no le cambias el modo, explota contra el enemigo más cercano (si es estático, explota a los 8 s). Dispárale para rotar: bomba → 🛡 defensor (te escolta) → ⚔ atacante (caza enemigos) → bomba.' },
         chaleco: { n: 'Chaleco', ic: '🦺', t: 'pas', cost: 10000, rk: 11, d: 'Absorbes un impacto sin perder vida y la absorción se recupera sola cada 20 s.' },
         sombra: { n: 'Sombra', ic: '🥷', t: 'act', cost: 0, rk: 99, ex: 1, cd: 720, d: 'EXCLUSIVA del evento oculto. Activa: si apuntas con el cursor a un enemigo (o ya lo tienes marcado), te teletransportas detrás de él sin importar la distancia y lo aturdes 3 s (1,5 s a un jefe); si no apuntas a nadie, te vuelves invisible 15 s para los enemigos. Pasiva: aparecen asesinos aliados (hasta 5) que van a por el enemigo marcado: mantén pulsado 1 s sobre un enemigo para marcarlo y 1 s sobre el suelo para cancelar la marca; sin marca, atacan al más cercano. Cada baja te hace más rápido (hasta +40 %). Recarga 12 s.' },
-        escarcha: { n: 'Frost', ic: '❄️', t: 'act', cost: 0, rk: 1, dec: 1, cd: 900, d: 'GRATIS y solo en diciembre. Activa: congela durante 3 s (1,5 s a jefes) a los enemigos en un radio de 230 px. Pasiva: tus proyectiles ralentizan a los enemigos. Con la habilidad tambien puedes congelar portales anomalos. Recarga 15 s.' },
+        escarcha: { n: 'Frost', ic: '❄️', t: 'act', cost: 0, rk: 1, cd: 900, d: 'DESBLOQUEADA PERMANENTEMENTE y gratuita. Activa: congela durante 3 s (1,5 s a jefes) a los enemigos en un radio de 230 px. Pasiva: tus proyectiles ralentizan a los enemigos. Con la habilidad tambien puedes congelar portales anomalos. Recarga 15 s.' },
         yeti: { n: 'Yeti', ic: '🧊', t: 'act', cost: 0, rk: 99, ex: 1, exn: 'Exclusiva: gana Operación Krampus', cd: 1500, d: 'Tus balas dejan un rastro de hielo: los enemigos que lo pisan se congelan 1 s y quedan con frío 30 s. Activa: todos los enemigos con frío se congelan 20 s (1 punto de daño a cada uno). Un radar te muestra donde estan los congelados. Recarga 25 s.' }
     };
     let pwActive = false, killBy, killMine = false, pulses = [];
