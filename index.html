@@ -979,6 +979,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function pickMode() {
         if (isPvp()) return 'p_' + pvpPick();
         if (evCur) return 'hidden';
+        if (xmCur) return 'xmas';
         if (dailyCur) return dailyCur.mode;
         if (sbCur) return (sbCur.lv.mi && MISSIONS[sbCur.lv.mi]) ? sbCur.lv.mi : 'custom';
         const gm = effMode();
@@ -1054,7 +1055,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
 
     // ===== Evento oculto «Operación Sombra» =====
-    let evCur = null, anom = null, horde = null, sbStk = 0, evBossOn = false;
+    let evCur = null, anom = null, horde = null, sbStk = 0, evBossOn = false, evMP = null, evEss = null;
     const EV_TIME = 600 * 60, EV_SIDE = 4400, CUT = { on: false };
     const evBase = () => targets.find(t => t.hb) || null;
     const evUnlockedAll = () => !!prof.evOpen && (!net.on || net.roster.every(r => r.ev));
@@ -1069,16 +1070,25 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (let i = 0; i < 25; i++) { const p = findFreeSpawn(false); if (Math.hypot(p.x - player.x, p.y - player.y) > 700 || i === 24) { anom = { x: p.x, y: p.y }; break; } }
         floatingTexts.push({ text: '🌀 ¡ANOMALÍA DETECTADA!', x: player.x, y: player.y - 60, life: 150, color: '#ea80fc' });
     }
+    const EVT_POOL = [[1, 0], [3, 0], [7, 1], [10, 2], [11, 3], [12, 4], [14, 5]]; // [índice de tipo normal, minuto desde el que aparece]
+    const freeAround = (cx, cy, d0, d1, rad) => { for (let i = 0; i < 16; i++) { const a = Math.random() * 6.283, d = d0 + Math.random() * (d1 - d0), x = cx + Math.cos(a) * d, y = cy + Math.sin(a) * d; if (x > BORDER_SIZE + 40 && y > BORDER_SIZE + 40 && x < MAP_WIDTH - BORDER_SIZE - 40 && y < MAP_HEIGHT - BORDER_SIZE - 40 && !wallHit({ x, y, radius: rad })) return { x, y }; } return null; };
+    // Antes del Maestro solo llegan criaturas normales; los asesinos solo aparecen si él los invoca.
     function evSpawnHunter() {
-        const hb = evBase(); let pos = null;
-        if (hb) for (let i = 0; i < 14 && !pos; i++) { const a = Math.random() * 6.283, d = 900 + Math.random() * 700, x = hb.x + 40 + Math.cos(a) * d, y = hb.y + 40 + Math.sin(a) * d; if (x > BORDER_SIZE + 40 && y > BORDER_SIZE + 40 && x < MAP_WIDTH - BORDER_SIZE - 40 && y < MAP_HEIGHT - BORDER_SIZE - 40 && !wallHit({ x, y, radius: 24 })) pos = { x, y }; }
-        spawnAtOverride = pos; spawnEnemy(ENEMY_TYPES[9], false, null, null, false, false); spawnAtOverride = null;
-        const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps) { ps.enemy.hunt = true; if (ps.enemy.cooldown) ps.enemy.cooldown = Math.round(ps.enemy.cooldown * 1.35); }
+        const hb = evBase(), pos = hb ? freeAround(hb.x + 40, hb.y + 40, 900, 1600, 24) : null;
+        const min = (EV_TIME - surviveTimer) / 3600, pool = EVT_POOL.filter(q => q[1] <= min + 1), ty = ENEMY_TYPES[pool[Math.floor(Math.random() * pool.length)][0]];
+        spawnAtOverride = pos; spawnEnemy(ty, false, null, null, false, false); spawnAtOverride = null;
+        const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps) { ps.enemy.hunt = true; if (ps.enemy.cooldown) ps.enemy.cooldown = Math.round(ps.enemy.cooldown * 1.2); }
+    }
+    function evSpawnAssassin(x, y) {
+        spawnAtOverride = { x, y }; spawnEnemy(ENEMY_TYPES[9], false, null, null, false, false); spawnAtOverride = null; floatingTexts.pop();
+        const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps) { ps.enemy.hunt = true; ps.enemy.summ = 1; if (ps.enemy.cooldown) ps.enemy.cooldown = Math.round(ps.enemy.cooldown * 1.35); }
     }
     function evSpawnMaster() {
-        spawnEnemy({ ...ENEMY_TYPES[9], baseColor: '#0a0a0a', turretColor: '#000000', speed: 1.6, cooldown: playersCount() <= 1 ? 110 : 80, hp: 22 + 8 * (playersCount() - 1), radius: 34 }, false, null, null, true, false);
+        spawnEnemy({ ...ENEMY_TYPES[9], baseColor: '#0a0a0a', turretColor: '#000000', speed: 1.5, cooldown: playersCount() <= 1 ? 110 : 80, hp: 22 + 8 * (playersCount() - 1), radius: 34 }, false, null, null, true, false);
         const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps) { Object.assign(ps.enemy, { master: true, hunt: true, mt: 0, baseColor: '#0a0a0a', turretColor: '#000000' }); }
-        floatingTexts.push({ text: '☠ ¡EL MAESTRO ASESINO LLEGA!', x: player.x, y: player.y - 70, life: 180, color: '#ea80fc' });
+        floatingTexts.push({ text: '☠ ¡EL MAESTRO SOMBRA LLEGA!', x: player.x, y: player.y - 70, life: 180, color: '#ea80fc' });
+        evSay('Maestro Sombra', '#ea80fc', 'Así que tú eres el guardián de esa puerta…', 3300); evSay('Tú', '#4dd0e1', 'Nadie cruzará mientras yo respire.', 3000);
+        evSay('Maestro Sombra', '#ea80fc', 'Entonces mis sombras te lo demostrarán.', 3300); evSay('Tú', '#4dd0e1', '¡Que vengan!', 2400);
     }
     function evSpawnAlly() {
         const hb = evBase(); if (!hb) return; const bx = hb.x + 40, by = hb.y + 40; let pos = null;
@@ -1089,40 +1099,28 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         Object.assign(ps.enemy, { baseColor: '#ffffff', turretColor: '#e0e0e0', hp: 4, maxHp: 4, radius: 20, speed: 1.3, cooldown: 70, sq: 0, role: 'atk', hally: 1 }); ps.tm = 0;
         floatingTexts.push({ text: '⚪ ¡REFUERZOS!', x: bx, y: by - 70, life: 90, color: '#ffffff' });
     }
-    function evBullet(e, a, sp) {
-        bullets.push({ x: e.x + Math.cos(a) * (e.radius + 6), y: e.y + Math.sin(a) * (e.radius + 6), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, radius: 5, color: '#d500f9', shooterId: e.id, bounces: 1, dead: false, life: 420, bid: ++BID });
+    function evBullet(e, a, sp, col) {
+        bullets.push({ x: e.x + Math.cos(a) * (e.radius + 6), y: e.y + Math.sin(a) * (e.radius + 6), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, radius: 5, color: col || '#d500f9', shooterId: e.id, bounces: 1, dead: false, life: 420, bid: ++BID });
     }
-    // Maestro Asesino: Paso sombra (se teletransporta tras ti), Lluvia de cuchillas, Emboscada y, a media vida, minas y más ritmo
+    // Maestro Sombra: va directo a la base y solo se fija en ti al lanzar sus ataques (no se teletransporta)
     function masterUpdate(e) {
-        e.mt = (e.mt || 0) + 1; const rage = e.hp <= e.maxHp / 2, tp = nearestPlayer(e), kk = playersCount() <= 1 ? 1.5 : 1, M1 = Math.round((rage ? 200 : 300) * kk), M2 = Math.round((rage ? 330 : 480) * kk), M3 = Math.round((rage ? 600 : 900) * kk);
-        if (rage && !e.rg) { e.rg = 1; floatingTexts.push({ text: '¡FURIA DEL MAESTRO!', x: e.x, y: e.y - 60, life: 90, color: '#ff1744' }); }
-        if (tp && e.mt % M1 === 0) {
-            const a = Math.atan2(tp.y - e.y, tp.x - e.x) + Math.PI;
-            for (let d = 150; d >= 70; d -= 20) {
-                const x = tp.x + Math.cos(a) * d, y = tp.y + Math.sin(a) * d;
-                if (x > BORDER_SIZE + 40 && y > BORDER_SIZE + 40 && x < MAP_WIDTH - BORDER_SIZE - 40 && y < MAP_HEIGHT - BORDER_SIZE - 40 && !wallHit({ x, y, radius: e.radius + 4 })) {
-                    createParticles(e.x, e.y, '#d500f9', 20); e.x = x; e.y = y; e.lastX = x; e.lastY = y; createParticles(x, y, '#d500f9', 20);
-                    floatingTexts.push({ text: '¡PASO SOMBRA!', x, y: y - 50, life: 60, color: '#ea80fc' }); break;
-                }
-            }
-        }
+        e.mt = (e.mt || 0) + 1; const rage = e.hp <= e.maxHp / 2, tp = nearestPlayer(e) || alivePlayers()[0], kk = playersCount() <= 1 ? 1.5 : 1;
+        if (!tp) return;
+        const M2 = Math.round((rage ? 330 : 480) * kk), M3 = Math.round((rage ? 600 : 900) * kk), S1 = Math.round(1000 * kk), S2 = Math.round(720 * kk), S3 = Math.round(860 * kk);
+        if (rage && !e.rg) { e.rg = 1; floatingTexts.push({ text: '¡FURIA DEL MAESTRO!', x: e.x, y: e.y - 60, life: 90, color: '#ff1744' }); evSay('Maestro Sombra', '#ea80fc', '¡Basta de juegos! ¡Sombras, a mí!', 3000); evSay('Tú', '#4dd0e1', 'Sigues en pie… pero no por mucho.', 3000); }
         if (e.mt % M2 === Math.floor(M2 / 2)) {
             const n = rage ? 12 : 8, o = Math.random() * 6.28; for (let k = 0; k < n; k++) evBullet(e, o + k * 6.283 / n, 3.2);
             floatingTexts.push({ text: '¡LLUVIA DE CUCHILLAS!', x: e.x, y: e.y - 50, life: 60, color: '#ea80fc' });
         }
-        if (e.mt % M3 === Math.floor(M3 / 2)) { for (let k = 0; k < (rage ? 4 : 3); k++) evSpawnHunter(); floatingTexts.push({ text: '¡EMBOSCADA!', x: e.x, y: e.y - 50, life: 60, color: '#ff5252' }); }
-        // Espiral mortal: chorro de cuchillas que gira (más brazos en furia)
-        const S1 = Math.round(1000 * kk), S2 = Math.round(720 * kk), S3 = Math.round(860 * kk);
+        if (e.mt % M3 === Math.floor(M3 / 2)) { const n = rage ? 4 : 3; for (let k = 0; k < n; k++) { const a = k / n * 6.283 + Math.random(); evSpawnAssassin(e.x + Math.cos(a) * 90, e.y + Math.sin(a) * 90); } floatingTexts.push({ text: '¡SOMBRAS, A MÍ!', x: e.x, y: e.y - 50, life: 60, color: '#ff5252' }); }
         if (e.mt % S1 === Math.floor(S1 / 3)) { e.spi = rage ? 210 : 150; floatingTexts.push({ text: '¡ESPIRAL MORTAL!', x: e.x, y: e.y - 50, life: 70, color: '#ea80fc' }); }
         if (e.spi > 0) { e.spi--; if (e.mt % 6 === 0) { const a0 = e.mt * 0.21; evBullet(e, a0, 2.4); evBullet(e, a0 + Math.PI, 2.4); if (rage) { evBullet(e, a0 + 1.571, 2.4); evBullet(e, a0 + 4.712, 2.4); } } }
-        // Muro de cuchillas: una fila de balas con un hueco por el que colarse
-        if (tp && e.mt % S2 === Math.floor(S2 * 0.7)) {
+        if (e.mt % S2 === Math.floor(S2 * 0.7)) {
             const a = Math.atan2(tp.y - e.y, tp.x - e.x), px = -Math.sin(a), py = Math.cos(a), gp = Math.floor(Math.random() * 9) - 4;
             for (let k = -6; k <= 6; k++) { if (Math.abs(k - gp) <= 1) continue; bullets.push({ x: e.x + px * k * 34 + Math.cos(a) * 40, y: e.y + py * k * 34 + Math.sin(a) * 40, vx: Math.cos(a) * 2.3, vy: Math.sin(a) * 2.3, radius: 5, color: '#d500f9', shooterId: e.id, bounces: 0, dead: false, life: 520, bid: ++BID }); }
             floatingTexts.push({ text: '¡MURO DE CUCHILLAS!', x: e.x, y: e.y - 50, life: 60, color: '#ea80fc' });
         }
-        // Meteoros de sombra: minas avisadas alrededor de ti que estallan a los pocos segundos
-        if (tp && e.mt % S3 === Math.floor(S3 * 0.45)) {
+        if (e.mt % S3 === Math.floor(S3 * 0.45)) {
             for (let k = 0; k < (rage ? 7 : 5); k++) { const a = Math.random() * 6.283, d = Math.random() * 130, x = tp.x + Math.cos(a) * d, y = tp.y + Math.sin(a) * d; if (!wallHit({ x, y, radius: 12 })) mines.push({ x, y, timer: 80 + k * 9, owner: 'enemy', radius: 12, shell: true, by: e.id }); }
             floatingTexts.push({ text: '¡METEOROS DE SOMBRA!', x: tp.x, y: tp.y - 60, life: 70, color: '#ff80ab' });
         }
@@ -1132,14 +1130,13 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const b = evBase(); if (!b || objDone) return;
         const bx = b.x + 40, by = b.y + 40; surviveTimer = Math.max(0, surviveTimer - 1); const el = EV_TIME - surviveTimer;
         if (frameCount % 15 === 0) updateUI();
-        const hunters = enemies.filter(e => e.hunt && !e.master).length + pendingSpawns.filter(p => p.enemy && p.enemy.hunt && !p.enemy.master).length;
-        const np = playersCount(), pf = np <= 1 ? 0.45 : Math.min(1.5, 0.6 + 0.25 * (np - 1)), cap = Math.max(3, Math.floor(Math.min(18, 5 + Math.floor(el / 2400)) * pf));
-        if (el > 1500 && hunters < cap && frameCount % Math.round(Math.max(28, 100 - Math.floor(el / 900) * 6) * 1.11 / pf) === 0) evSpawnHunter();
-        if (el > 0 && el % (np <= 1 ? 900 : 1200) === 0 && enemies.filter(e => e.hally).length + pendingSpawns.filter(p => p.enemy && p.enemy.hally).length < 2 + playersCount()) evSpawnAlly();
+        const hunters = enemies.filter(e => e.hunt && !e.master && !e.summ).length + pendingSpawns.filter(p => p.enemy && p.enemy.hunt && !p.enemy.master && !p.enemy.summ).length;
+        const np = playersCount(), pf = np <= 1 ? 0.45 : Math.min(1.5, 0.6 + 0.25 * (np - 1)), cap = Math.max(3, Math.floor(Math.min(18, 5 + Math.floor(el / 2400)) * pf * 1.2));
+        if (!evBossOn && el > 1500 && hunters < cap && frameCount % Math.round(Math.max(28, 100 - Math.floor(el / 900) * 6) * 1.05 / pf) === 0) evSpawnHunter();
+        if (el % (np <= 1 ? 900 : 1200) === 0 && el > 0 && enemies.filter(e => e.hally).length + pendingSpawns.filter(p => p.enemy && p.enemy.hally).length < 2 + np) evSpawnAlly();
         // Materiales de reparación: recógelos (📦) y llévalos a la base
-        if (frameCount % Math.round(600 / Math.max(1, pf)) === 0 && items.filter(i => i.type === 'supply' && !i.collected).length < 3 + playersCount()) {
-            let pos = null; for (let i = 0; i < 20 && !pos; i++) { const a = Math.random() * 6.283, d = 450 + Math.random() * 850, x = bx + Math.cos(a) * d, y = by + Math.sin(a) * d; if (x > BORDER_SIZE + 40 && y > BORDER_SIZE + 40 && x < MAP_WIDTH - BORDER_SIZE - 40 && y < MAP_HEIGHT - BORDER_SIZE - 40 && !wallHit({ x, y, radius: 20 })) pos = { x, y }; }
-            if (pos) items.push({ type: 'supply', x: pos.x, y: pos.y, collected: false, color: '#ff9800' });
+        if (frameCount % Math.round(600 / Math.max(1, pf)) === 0 && items.filter(i => i.type === 'supply' && !i.collected).length < 3 + np) {
+            const pos = freeAround(bx, by, 450, 1300, 20); if (pos) items.push({ type: 'supply', x: pos.x, y: pos.y, collected: false, color: '#ff9800' });
         }
         for (const p of [player, ...remotes]) {
             if (p.dead) continue;
@@ -1150,9 +1147,158 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         if (particles.length > 110) particles.splice(0, particles.length - 110);
         if (tracks.length > 140) tracks.splice(0, tracks.length - 140);
         if (floatingTexts.length > 10) floatingTexts.splice(0, floatingTexts.length - 10);
-        if (!evBossOn && el > 25200) { evBossOn = true; evSpawnMaster(); }
-        for (const e of enemies.slice()) if (e.hunt && e.sq === undefined && Math.hypot(e.x - bx, e.y - by) < 150) { e.sab = (e.sab || 0) + 1; if (e.sab % 70 === 0) { damageBunker(b, e.master ? 2 : 1); if (!evBase()) return; } }
-        if (surviveTimer <= 0 && evBossOn && !bossAliveNow()) objectiveDone();
+        if (el === 360) evSay('Vigía', '#80cbc4', 'Resiste, viajero: esa base es nuestra única entrada. Repárala con las cajas 📦.', 4200);
+        if (el === 14400) evSay('Vigía', '#80cbc4', 'Noto su presencia… el Maestro Sombra está cerca. ¡Prepárate!', 4000);
+        if (!evBossOn && el > 27000) { evBossOn = true; evSpawnMaster(); }
+        if (evBossOn) {
+            const m = enemies.find(e => e.master);
+            if (m) evMP = { x: m.x, y: m.y };
+            else if (!evEss && evMP && !pendingSpawns.some(p => p.enemy && p.enemy.master)) {
+                evEss = { x: evMP.x, y: evMP.y }; items.push({ type: 'gem', x: evEss.x, y: evEss.y, collected: false, ess: true, color: '#d500f9' });
+                enemies = enemies.filter(e => !e.summ); evSay('Maestro Sombra', '#ea80fc', 'Imposible… mi esencia…', 2800); evSay('Vigía', '#80cbc4', '¡Rápido! Recoge la esencia de las sombras antes de que se desvanezca.', 4200);
+            }
+        }
+        if (evEss) for (const p of [player, ...remotes]) if (!p.dead && near(p, evEss, 42)) { items = items.filter(i => !i.ess); evEss = null; floatingTexts.push({ text: '✨ ESENCIA DE LAS SOMBRAS', x: p.x, y: p.y - 50, life: 120, color: '#ea80fc' }); objectiveDone(); break; }
+        for (const e of enemies.slice()) {
+            if (!e.hunt || e.sq !== undefined) continue; const d = Math.hypot(e.x - bx, e.y - by);
+            if (e.kamikaze && d < 80) { damageBunker(b, 3); createExplosion(e.x, e.y, '#ff5722', 24); killEnemy(e.id); if (!evBase()) return; continue; }
+            if (d < 150) { e.sab = (e.sab || 0) + 1; if (e.sab % 70 === 0) { damageBunker(b, e.master ? 2 : 1); if (!evBase()) return; } }
+        }
+    }
+    // ===== Diálogos dentro de la partida =====
+    const SAY = { q: [], busy: false, el: null };
+    function evSay(w, c, t, d = 3800, bc = true) {
+        if (bc && net.on && net.role === 'host') netSend({ t: 'say', w, c, x: t, d });
+        SAY.q.push([w, c, t, d]); if (!SAY.busy) sayNext();
+    }
+    function sayNext() {
+        const it = SAY.q.shift();
+        if (!it) { SAY.busy = false; if (SAY.el) SAY.el.style.display = 'none'; return; }
+        SAY.busy = true;
+        if (!SAY.el) { SAY.el = document.createElement('div'); SAY.el.style.cssText = 'position:fixed;top:64px;left:50%;transform:translateX(-50%);z-index:90;width:max-content;max-width:84%;background:rgba(8,10,18,.88);border-left:5px solid #fff;border-radius:6px;padding:8px 16px;color:#fff;font:600 17px Barlow,sans-serif;pointer-events:none'; document.body.appendChild(SAY.el); }
+        SAY.el.style.display = 'block'; SAY.el.style.borderLeftColor = it[1]; SAY.el.textContent = '';
+        const nm = document.createElement('b'); nm.textContent = it[0]; nm.style.cssText = 'color:' + String(it[1]).replace(/[^#\w]/g, '') + ';letter-spacing:1px;text-transform:uppercase;margin-right:8px'; SAY.el.appendChild(nm); SAY.el.appendChild(document.createTextNode(it[2]));
+        setTimeout(sayNext, it[3]);
+    }
+    // ===== Clase Frost (solo diciembre) =====
+    const isDec = () => !!window.evForceDec || new Date().getMonth() === 11;
+    const frostFx = [], iceTrail = [];
+    function yetiRadar(on) {
+        let c = window.__yr;
+        if (!on) { if (c) c.style.display = 'none'; return; }
+        if (!c) { c = window.__yr = document.createElement('canvas'); c.width = c.height = 132; c.style.cssText = 'position:fixed;right:14px;bottom:96px;z-index:80;pointer-events:none;border-radius:50%;background:rgba(10,24,40,.55);border:2px solid #4dd0e1'; document.body.appendChild(c); }
+        c.style.display = 'block'; const g2 = c.getContext('2d'); g2.clearRect(0, 0, 132, 132);
+        g2.strokeStyle = 'rgba(128,216,255,.35)'; g2.lineWidth = 1; for (const r of [20, 42, 62]) { g2.beginPath(); g2.arc(66, 66, r, 0, 6.283); g2.stroke(); }
+        g2.beginPath(); g2.moveTo(66, 4); g2.lineTo(66, 128); g2.moveTo(4, 66); g2.lineTo(128, 66); g2.stroke();
+        g2.fillStyle = '#fff'; g2.beginPath(); g2.arc(66, 66, 3, 0, 6.283); g2.fill();
+        for (const e of enemies) { if (!(e.cold > 0 || e.frz)) continue; let dx = (e.x - player.x) / 1000 * 62, dy = (e.y - player.y) / 1000 * 62; const m = Math.hypot(dx, dy); if (m > 60) { dx *= 60 / m; dy *= 60 / m; } g2.fillStyle = e.frz ? '#ffffff' : '#4dd0e1'; g2.beginPath(); g2.arc(66 + dx, 66 + dy, e.frz ? 4.5 : 3.5, 0, 6.283); g2.fill(); }
+    }
+    function frostTick() {
+        const yeti = curCls() === 'yeti' && state === 'playing'; yetiRadar(yeti);
+        for (let i = iceTrail.length - 1; i >= 0; i--) if (--iceTrail[i].t <= 0) iceTrail.splice(i, 1);
+        if (!yeti && !iceTrail.length) { /* nada que hacer */ }
+        for (const b of bullets) { if (b.dead || b.vx === undefined) continue; const ow = petOwner(b.shooterId); if (!ow || clsOf(ow) !== 'yeti') continue; b.tr = (b.tr || 0) + 1; if (b.tr % 3 === 0) { iceTrail.push({ x: b.x, y: b.y, t: 600 }); if (iceTrail.length > 420) iceTrail.shift(); } }
+        if (iceTrail.length) for (const e of enemies) {
+            if (e.isAlly || e.haste || e.sq !== undefined) continue;
+            for (const t of iceTrail) if ((e.x - t.x) ** 2 + (e.y - t.y) ** 2 < (e.radius + 8) ** 2) { e.cold = 1800; if (!(e.frzImm > 0)) { e.stun = Math.max(e.stun || 0, 60); e.frz = 1; e.frzImm = 130; } break; }
+        }
+        for (const e of enemies) {
+            if (e.cold > 0) e.cold--; if (e.frzImm > 0) e.frzImm--;
+            if (e.slowT > 0 && --e.slowT === 0 && e.sp0 !== undefined) { e.speed = e.sp0; e.sp0 = undefined; }
+            if (e.frz && !(e.stun > 0)) e.frz = 0;
+        }
+        if (curCls() !== 'escarcha') return;
+        for (const b of bullets) { if (b.dead || !isTeam(b.shooterId)) continue; for (const e of enemies) { if (e.isAlly || e.sq !== undefined || e.slowT > 0 || e.haste) continue; if (Math.hypot(e.x - b.x, e.y - b.y) < e.radius + b.radius + 3) { e.slowT = 150; e.sp0 = e.speed; e.speed = e.speed * 0.5; createParticles(e.x, e.y, '#80d8ff', 4); } } }
+    }
+    // ===== Evento navideño: Operación Krampus (en solitario) =====
+    let xmCur = null, xmSt = [], xmT = 0, xmBoss = false, xmJoy = 0, xmWave = 0, xmC = { x: 0, y: 0 }, xmBlast = [];
+    const XM_SIDE = 3600, XM_T = {
+        gnomo: { ...ENEMY_TYPES[1], baseColor: '#43a047', turretColor: '#c62828', speed: 1.8, cooldown: 110, radius: 15 },
+        cascanueces: { ...ENEMY_TYPES[10], baseColor: '#b71c1c', turretColor: '#ffd600', speed: 0.8, bullet: 'super', rebounces: 0, cooldown: 170, hp: 3 },
+        bomba: { ...ENEMY_TYPES[12], baseColor: '#fafafa', turretColor: '#90caf9', speed: 2.1, hp: 2 }
+    };
+    const xmCits = () => enemies.filter(e => e.cit);
+    function xmSetup() {
+        const G = GRID_SIZE, cx = Math.floor(gridCols / 2) * G, cy = Math.floor(gridRows / 2) * G; xmC = { x: cx, y: cy };
+        for (const w of walls.slice()) if (w.x < cx + 320 && w.x + w.width > cx - 320 && w.y < cy + 260 && w.y + w.height > cy - 260 && w.x > BORDER_SIZE && w.y > BORDER_SIZE) removeWall(w);
+        xmSt = [{ k: 'taller', x: cx - 175, y: cy - 30, e: '🧸', n: 'TALLER' }, { k: 'pack', x: cx + 175, y: cy - 30, e: '📦', n: 'EMPAQUETADO' }];
+        iceTrail.length = 0; xmT = 0; xmBoss = false; xmJoy = 0; xmWave = 0; xmBlast = []; SAY.q.length = 0;
+        player.x = cx; player.y = cy + 100; player.lastX = player.x; player.lastY = player.y; player.toys = 0; player.box = 0;
+        for (let i = 0; i < 6; i++) {
+            const a = i / 6 * 6.283; spawnAtOverride = { x: cx + Math.cos(a) * 200, y: cy + Math.sin(a) * 150 }; spawnEnemy(ENEMY_TYPES[10], false, null, null, false, false); spawnAtOverride = null; floatingTexts.pop();
+            const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps) { Object.assign(ps.enemy, { baseColor: '#2e7d32', turretColor: '#c62828', hp: 3, maxHp: 3, radius: 19, speed: 0.9, cooldown: 150, sq: 0, role: 'def', cit: 1, wpT: 0 }); ps.tm = 0; }
+        }
+        evSay('Pipa', '#ff8a80', 'Taller 🧸 → Empaquetado 📦 → entrega el regalo a un ciudadano.', 4200);
+    }
+    function xmSpawnOne(name, x, y) {
+        const pos = (x === undefined) ? freeAround(xmC.x, xmC.y, 1100, 1500, 24) : { x, y };
+        spawnAtOverride = pos; spawnEnemy(XM_T[name], false, null, null, false, false); spawnAtOverride = null; if (x !== undefined) floatingTexts.pop();
+        const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps) ps.enemy.xm = name;
+    }
+    function xmSpawnWave(n) {
+        const live = enemies.filter(e => e.xm).length + pendingSpawns.filter(p => p.enemy && p.enemy.xm).length, cnt = Math.min(Math.min(9, 2 + Math.floor(n * 0.8)), Math.max(0, 14 - live));
+        const kinds = ['gnomo', 'gnomo']; if (n >= 2) kinds.push('bomba'); if (n >= 3) kinds.push('cascanueces', 'gnomo'); if (n >= 5) kinds.push('bomba', 'cascanueces');
+        for (let i = 0; i < cnt; i++) xmSpawnOne(kinds[Math.floor(Math.random() * kinds.length)]);
+        floatingTexts.push({ text: '🎄 OLEADA ' + n, x: player.x, y: player.y - 70, life: 90, color: '#ff8a80' });
+    }
+    function xmSpawnKrampus() {
+        const pos = freeAround(xmC.x, xmC.y, 1200, 1500, 40);
+        spawnAtOverride = pos; spawnEnemy({ ...ENEMY_TYPES[10], baseColor: '#4e342e', turretColor: '#b71c1c', speed: 0.9, cooldown: 100, bullet: 'super', rebounces: 0, radius: 36 }, false, null, null, true, false); spawnAtOverride = null;
+        const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps) Object.assign(ps.enemy, { krampus: 1, xm: 'krampus', hp: 22, maxHp: 22, mt: 0, baseColor: '#4e342e', turretColor: '#b71c1c' });
+        floatingTexts.push({ text: '👹 ¡KRAMPUS!', x: player.x, y: player.y - 70, life: 180, color: '#ff7043' });
+        evSay('Krampus', '#ff7043', '¡Nadie recibirá regalos esta noche!', 3200); evSay('Pipa', '#ff8a80', '¡Es Krampus! Protege a los ciudadanos y derrótalo.', 3600);
+    }
+    function krampusUpdate(e) {
+        e.mt = (e.mt || 0) + 1; const rage = e.hp <= e.maxHp / 2, k = rage ? 0.7 : 1, cits = xmCits(), t = cits.length ? cits[Math.floor(Math.random() * cits.length)] : null;
+        if (rage && !e.rg) { e.rg = 1; e.speed *= 1.35; evSay('Krampus', '#ff7043', '¡GRRRAAAH! ¡Arderéis con el carbón!', 3000); }
+        if (t && e.mt % Math.round(380 * k) === 0) { const a = Math.atan2(t.y - e.y, t.x - e.x); for (let i = -1; i <= 1; i++) evBullet(e, a + i * 0.12, 2.6, '#ff9800'); floatingTexts.push({ text: '⛓ ¡CADENAS!', x: e.x, y: e.y - 50, life: 60, color: '#ffb74d' }); }
+        if (e.mt % Math.round(560 * k) === 200) { for (const c of cits.slice(0, rage ? 5 : 3)) xmBlast.push({ x: c.x + (Math.random() - 0.5) * 50, y: c.y + (Math.random() - 0.5) * 50, t: 110, r: 55 }); xmBlast.push({ x: player.x, y: player.y, t: 110, r: 55 }); floatingTexts.push({ text: '🪨 ¡LLUVIA DE CARBÓN!', x: e.x, y: e.y - 50, life: 70, color: '#ff7043' }); }
+        if (e.mt % Math.round(780 * k) === 400) { const n = 14, o = Math.random() * 6.28; for (let i = 0; i < n; i++) evBullet(e, o + i * 6.283 / n, 2.8, '#ff5252'); floatingTexts.push({ text: '¡LÁTIGO!', x: e.x, y: e.y - 50, life: 60, color: '#ff5252' }); }
+        if (e.mt % Math.round(1100 * k) === 700) { for (let i = 0; i < 3; i++) xmSpawnOne('gnomo', e.x + Math.cos(i * 2.1) * 70, e.y + Math.sin(i * 2.1) * 70); floatingTexts.push({ text: '¡AULLIDO! 🧌', x: e.x, y: e.y - 50, life: 70, color: '#aed581' }); }
+    }
+    function xmCarol() {
+        floatingTexts.push({ text: '🎶 ¡VILLANCICO!', x: player.x, y: player.y - 60, life: 100, color: '#fff59d' });
+        for (const c of xmCits()) c.hp = Math.min(5, c.hp + 1);
+        for (const e of enemies) if (!e.cit && !e.isAlly && !e.haste && e.sq === undefined) { e.stun = e.isBoss ? 70 : 140; e.frz = 1; }
+    }
+    function xmTick() {
+        if (objDone) return; xmT++;
+        const cits = xmCits(), alive = cits.length + pendingSpawns.filter(p => p.enemy && p.enemy.cit).length;
+        if (frameCount % 15 === 0) updateUI();
+        for (const c of cits) if (!c.wp || frameCount > c.wpT) { const a = Math.random() * 6.283, r = 150 + Math.random() * 430; c.wp = { x: xmC.x + Math.cos(a) * r, y: xmC.y + Math.sin(a) * r * 0.8 }; c.wpT = frameCount + 240 + Math.random() * 240; }
+        const p = player;
+        if (!p.dead) {
+            if (p.box && !(p.carriedItems > 0)) p.box = 0;
+            let act = false;
+            for (const s of xmSt) if (Math.hypot(p.x - s.x, p.y - s.y) < 62) {
+                if (s.k === 'taller' && !p.box && (p.toys || 0) < 2) { act = true; p.xmP = (p.xmP || 0) + 1; if (p.xmP >= 130) { p.xmP = 0; p.toys = (p.toys || 0) + 1; floatingTexts.push({ text: '🧸 +1 juguete', x: p.x, y: p.y - 40, life: 60, color: '#ffb74d' }); } }
+                else if (s.k === 'pack' && (p.toys || 0) >= 2 && !p.box) { act = true; p.xmP = (p.xmP || 0) + 1; if (p.xmP >= 90) { p.xmP = 0; p.toys -= 2; p.box = 1; p.carriedItems = 1; floatingTexts.push({ text: '📦 ¡Regalo listo!', x: p.x, y: p.y - 40, life: 70, color: '#81d4fa' }); } }
+            }
+            if (!act) p.xmP = 0;
+            if (p.box) for (const c of cits) if (Math.hypot(p.x - c.x, p.y - c.y) < 54) { p.box = 0; p.carriedItems = 0; c.hp = Math.min(5, c.hp + 2); c.maxHp = Math.max(c.maxHp, c.hp); xmJoy++; score += 300; createExplosion(c.x, c.y, '#69f0ae', 14); floatingTexts.push({ text: '🎁 ¡Gracias!', x: c.x, y: c.y - 36, life: 70, color: '#69f0ae' }); if (xmJoy % 3 === 0) xmCarol(); break; }
+        }
+        const interval = Math.max(900, 1700 - xmWave * 70);
+        if (xmT > 420 && (xmT - 420) % interval === 0) { xmWave++; xmSpawnWave(xmWave); }
+        if (!xmBoss && xmT > 16200) { xmBoss = true; xmSpawnKrampus(); }
+        if (xmBoss && !bossAliveNow() && !pendingSpawns.some(q => q.enemy && q.enemy.krampus)) { objectiveDone(); return; }
+        for (const e of enemies.slice()) {
+            if (!e.xm) continue;
+            if (e.xm === 'bomba') for (const c of cits) if (Math.hypot(e.x - c.x, e.y - c.y) < 34) { createExplosion(e.x, e.y, '#90caf9', 24); c.hp -= 2; if (c.hp <= 0) killEnemy(c.id); killEnemy(e.id); break; }
+            if (e.xm === 'gnomo' && p.box && !p.dead && Math.hypot(e.x - p.x, e.y - p.y) < 30) { p.box = 0; p.carriedItems = 0; floatingTexts.push({ text: '🧌 ¡Un gnomo robó el regalo!', x: p.x, y: p.y - 40, life: 90, color: '#aed581' }); killEnemy(e.id); }
+        }
+        for (const bl of xmBlast.slice()) { if (--bl.t > 0) continue; xmBlast.splice(xmBlast.indexOf(bl), 1); createExplosion(bl.x, bl.y, '#ff7043', 26); for (const c of xmCits()) if (Math.hypot(c.x - bl.x, c.y - bl.y) < bl.r + c.radius) { c.hp -= 2; if (c.hp <= 0) killEnemy(c.id); } if (!p.dead && Math.hypot(p.x - bl.x, p.y - bl.y) < bl.r + p.radius) playerDamage(player); }
+        if (particles.length > 110) particles.splice(0, particles.length - 110);
+        if (tracks.length > 140) tracks.splice(0, tracks.length - 140);
+        if (alive <= 2) endGame('¡Demasiados ciudadanos perdidos!');
+    }
+    function drawXmFx() {
+        ctx.save();
+        for (const s of xmSt) { ctx.fillStyle = s.k === 'taller' ? 'rgba(255,112,67,.25)' : 'rgba(79,195,247,.25)'; ctx.strokeStyle = s.k === 'taller' ? '#ff7043' : '#4fc3f7'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(s.x, s.y, 50, 0, 6.283); ctx.fill(); ctx.stroke(); ctx.font = '34px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(s.e, s.x, s.y); ctx.font = 'bold 12px sans-serif'; ctx.fillStyle = '#37474f'; ctx.fillText(s.n, s.x, s.y + 64); }
+        if (!player.dead && player.xmP > 0) { const need = (player.toys || 0) >= 2 ? 90 : 130; ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(player.x, player.y, 28, -Math.PI / 2, -Math.PI / 2 + 6.283 * Math.min(1, player.xmP / need)); ctx.stroke(); }
+        for (const c of enemies) if (c.cit) { ctx.font = '16px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🎄', c.x, c.y - c.radius - 14); ctx.font = 'bold 11px sans-serif'; ctx.fillStyle = '#c62828'; ctx.fillText('♥'.repeat(Math.max(0, Math.min(5, Math.ceil(c.hp)))), c.x, c.y + c.radius + 14); }
+        for (const bl of xmBlast) { ctx.strokeStyle = 'rgba(255,87,34,.9)'; ctx.lineWidth = 3; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.arc(bl.x, bl.y, bl.r, 0, 6.283); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = 'rgba(255,87,34,' + (0.25 * (1 - bl.t / 110)) + ')'; ctx.fill(); }
+        ctx.fillStyle = 'rgba(255,255,255,.85)'; for (let i = 0; i < 45; i++) { const x = player.x + ((i * 137 + frameCount * (0.4 + (i % 3) * 0.3)) % 1100) - 550, y = player.y + ((i * 89 + frameCount * (0.9 + (i % 4) * 0.4)) % 700) - 350; ctx.beginPath(); ctx.arc(x, y, 1.6 + (i % 3) * 0.5, 0, 6.283); ctx.fill(); }
+        ctx.restore();
     }
     // Clase Sombra. Pasiva: asesinos aliados que van a por el enemigo que marques con clic (o al más cercano). Además, cada baja te da velocidad.
     // Marcar objetivo: mantén pulsado 2 s sobre un enemigo; mantén pulsado 2 s sobre el suelo para cancelar
@@ -1173,6 +1319,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         }
     }
     function evClassTick() {
+        frostTick();
         sbHoldTick();
         if (player.invT > 0) player.invT--; for (const r of remotes) if (r.invT > 0) r.invT--;
         if (horde && !enemies.some(e => e.id === horde.tg)) horde = null;
@@ -1204,18 +1351,24 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         c.strokeStyle = '#00e5ff'; c.lineWidth = 4; c.strokeRect(bx0 - 2, by0 - 2, 84, 84); c.setLineDash([8, 8]); c.strokeStyle = '#ffd600'; c.lineWidth = 3; c.strokeRect(bx0 - 9, by0 - 9, 98, 98); c.restore();
     }
     function drawAnomFx() {
+        if (xmCur) drawXmFx();
+        for (const e of enemies) if ((e.master || e.krampus) && !player.dead) { const d = Math.hypot(e.x - player.x, e.y - player.y); if (d > 160) { const a = Math.atan2(e.y - player.y, e.x - player.x), ax = player.x + Math.cos(a) * 90, ay = player.y + Math.sin(a) * 90, col = e.krampus ? '#ff7043' : '#d500f9'; ctx.save(); ctx.translate(ax, ay); ctx.rotate(a); ctx.fillStyle = col; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(15, 0); ctx.lineTo(-8, -10); ctx.lineTo(-8, 10); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore(); ctx.save(); ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = col; ctx.fillText((e.krampus ? '👹 ' : '☠ ') + Math.round(d / 40) + ' m', ax, ay - 16); ctx.restore(); } }
+        if (evEss) { const a = Math.atan2(evEss.y - player.y, evEss.x - player.x), d = Math.hypot(evEss.x - player.x, evEss.y - player.y); ctx.save(); ctx.fillStyle = 'rgba(213,0,249,.35)'; ctx.beginPath(); ctx.arc(evEss.x, evEss.y, 24 + Math.sin(frameCount * 0.1) * 4, 0, 6.283); ctx.fill(); ctx.font = '22px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('✨', evEss.x, evEss.y); if (d > 160) ctx.fillText('✨', player.x + Math.cos(a) * 90, player.y + Math.sin(a) * 90); ctx.restore(); }
+        if (iceTrail.length) { ctx.save(); for (const t of iceTrail) { ctx.fillStyle = 'rgba(144,224,255,' + Math.min(0.55, t.t / 300) + ')'; ctx.beginPath(); ctx.arc(t.x, t.y, 8, 0, 6.283); ctx.fill(); } ctx.restore(); }
+        for (const e of enemies) if (e.cold > 0 && !(e.stun > 0)) { ctx.save(); ctx.strokeStyle = 'rgba(77,208,225,.8)'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + 5, 0, 6.283); ctx.stroke(); ctx.font = '14px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('🥶', e.x, e.y - e.radius - 10); ctx.restore(); }
+        for (let i = frostFx.length - 1; i >= 0; i--) { const f = frostFx[i]; f.t += 1; if (f.t > 40) { frostFx.splice(i, 1); continue; } ctx.save(); ctx.strokeStyle = 'rgba(128,216,255,' + (1 - f.t / 40) + ')'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(f.x, f.y, 230 * (f.t / 40), 0, 6.283); ctx.stroke(); ctx.fillStyle = 'rgba(179,229,252,' + (0.22 * (1 - f.t / 40)) + ')'; ctx.fill(); ctx.restore(); }
         for (const e of enemies) if (e.master) { ctx.save(); ctx.fillStyle = 'rgba(70,0,110,' + (0.14 + 0.05 * Math.sin(frameCount * 0.1)) + ')'; ctx.beginPath(); ctx.arc(e.x, e.y, e.radius + 22, 0, 6.283); ctx.fill(); ctx.restore(); }
         if (anom) {
             const t = frameCount * 0.05; ctx.save();
-            for (let k = 0; k < 3; k++) { ctx.strokeStyle = 'rgba(' + (k ? 213 : 179) + ',0,249,' + (0.75 - k * 0.2) + ')'; ctx.lineWidth = 4 - k; ctx.beginPath(); ctx.arc(anom.x + Math.sin(t * 3 + k) * 3, anom.y, 22 + k * 10 + Math.sin(t + k) * 4, 0, 6.283); ctx.stroke(); }
+            for (let k = 0; k < 3; k++) { ctx.strokeStyle = anom.frozen ? 'rgba(128,216,255,' + (0.85 - k * 0.2) + ')' : 'rgba(' + (k ? 213 : 179) + ',0,249,' + (0.75 - k * 0.2) + ')'; ctx.lineWidth = 4 - k; ctx.beginPath(); ctx.arc(anom.x + Math.sin(t * 3 + k) * 3, anom.y, 22 + k * 10 + Math.sin(t + k) * 4, 0, 6.283); ctx.stroke(); }
             ctx.fillStyle = 'rgba(0,229,255,.55)'; for (let k = 0; k < 4; k++) ctx.fillRect(anom.x - 30 + ((frameCount * 7 + k * 53) % 60), anom.y - 20 + k * 11, 14, 3);
-            ctx.font = '26px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🌀', anom.x, anom.y); ctx.restore();
+            ctx.font = '26px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(anom.frozen ? '❄️' : '🌀', anom.x, anom.y); ctx.restore();
             if (!player.dead && Math.hypot(anom.x - player.x, anom.y - player.y) > 160) { const a = Math.atan2(anom.y - player.y, anom.x - player.x); ctx.save(); ctx.font = '22px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🌀', player.x + Math.cos(a) * 95, player.y + Math.sin(a) * 95); ctx.restore(); }
         }
         if (horde) { const t = enemies.find(e => e.id === horde.tg); if (t) { ctx.save(); ctx.strokeStyle = 'rgba(213,0,249,.9)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(t.x, t.y, t.radius + 10, 0, 6.283); ctx.stroke(); ctx.beginPath(); ctx.moveTo(t.x - t.radius - 18, t.y); ctx.lineTo(t.x - t.radius - 4, t.y); ctx.moveTo(t.x + t.radius + 4, t.y); ctx.lineTo(t.x + t.radius + 18, t.y); ctx.moveTo(t.x, t.y - t.radius - 18); ctx.lineTo(t.x, t.y - t.radius - 4); ctx.moveTo(t.x, t.y + t.radius + 4); ctx.lineTo(t.x, t.y + t.radius + 18); ctx.stroke(); ctx.restore(); } }
         if (!player.dead && player.invT > 0) { ctx.save(); ctx.strokeStyle = 'rgba(179,136,255,.85)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 12, 0, 6.283); ctx.stroke(); ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#d1c4e9'; ctx.fillText('👻 ' + Math.ceil(player.invT / 60) + 's', player.x, player.y - player.radius - 20); ctx.restore(); }
         if (sbDown && sbP.n > 0 && curCls() === 'sombra') { const t = sbP.id === 'ground' ? null : enemies.find(e => e.id === sbP.id), px = t ? t.x : mouse.x, py = t ? t.y : mouse.y, rr = t ? t.radius + 16 : 22; ctx.save(); ctx.lineWidth = 5; ctx.strokeStyle = t ? '#d500f9' : '#ff8a80'; ctx.beginPath(); ctx.arc(px, py, rr, -Math.PI / 2, -Math.PI / 2 + 6.283 * Math.min(1, sbP.n / 60)); ctx.stroke(); ctx.font = '13px sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = t ? '#ea80fc' : '#ff8a80'; ctx.fillText(t ? 'Marcando…' : (horde ? 'Cancelando…' : ''), px, py - rr - 8); ctx.restore(); }
-        for (const e of enemies) if (e.stun > 0) { ctx.save(); ctx.font = '20px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('💫', e.x, e.y - e.radius - 12); ctx.restore(); }
+        for (const e of enemies) if (e.stun > 0) { ctx.save(); ctx.font = '20px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(e.frz ? '❄️' : '💫', e.x, e.y - e.radius - 12); ctx.restore(); }
     }
     function evStart(noCut) {
         if (net.role || !(prof.evOpen || prof.evKey)) return;
@@ -1231,123 +1384,66 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const first = evFinish(); updateUI();
         playCut('outro', () => { state = 'win'; showOverlay('menu-win', '¡OPERACIÓN COMPLETADA!', '', 'Tiempo: ' + secs + ' s · Puntos: ' + score + '\n+' + (first ? 500 : 200) + ' monedas' + (first ? '\n🥷 Clase exclusiva «Sombra» desbloqueada (Garaje).\n🎭 Evento disponible en la pestaña Eventos.' : ''), 'Volver al menú', () => openLobby('event')); });
     }
-    function eventHTML() {
-        const open = !!prof.evOpen, solo = !net.role;
-        return '<h3>🎭 Eventos</h3><div class="modes"><button class="mode ' + (open ? 'on' : '') + '" ' + (open && solo ? '' : 'disabled') + ' onclick="evStart()"><b>🥷 Operación Sombra</b><span>Mapa enorme: defiende tu base 10 minutos de la horda de asesinos y derrota al Maestro Asesino. Con cutscenes 3D.</span><em>'
-            + (open ? (solo ? 'Desbloqueado · también en party si todos lo tienen (elige «Evento oculto» como origen)' : 'Desbloqueado · inícialo desde la party') : 'Bloqueado: un asesino puede soltar una llave (10 %) y debes hallar la anomalía 🌀 en una misión.') + '</em></button></div>'
-            + '<p class="st">' + (!open && prof.evKey ? '🗝️ Tienes la llave: busca la anomalía 🌀 en tus misiones.' : 'Superarlo da la clase exclusiva «Sombra».') + '</p>';
-    }
-    // ===== Cutscenes 2D (mismo estilo que las partidas: suelo cuadriculado, muros y tanques del juego) =====
+    // ===== Conversaciones sobre fondo negro (sustituyen a las cutscenes) =====
     function playCut(kind, done) {
         if (CUT.on) { if (done) done(); return; } CUT.on = true;
         const paused = !net.on && state === 'playing'; if (paused) state = 'paused';
-        const wrap = document.createElement('div'); wrap.style.cssText = 'position:fixed;inset:0;z-index:300;background:#000;color:#fff;font-family:Barlow,"Segoe UI",sans-serif;touch-action:none';
-        wrap.innerHTML = '<canvas style="position:absolute;inset:0;width:100%;height:100%"></canvas><div class="bx" style="position:absolute;left:5%;right:5%;bottom:13%;background:rgba(8,10,18,.82);border-left:5px solid #b388ff;border-radius:6px;padding:12px 18px;min-height:70px"><b class="who" style="font-size:19px;letter-spacing:2px;text-transform:uppercase"></b><div class="tx" style="font-size:19px;margin-top:5px;line-height:1.35"></div><small style="position:absolute;right:12px;bottom:5px;opacity:.55">Toca para avanzar</small></div><button class="sk" style="position:absolute;top:14px;right:14px;margin:0;padding:8px 16px;font-size:15px;background:#37474f;z-index:2">Saltar ⏭</button>';
+        const TQ = '#4dd0e1', VG = '#80cbc4', PI = '#ff8a80';
+        const SC = {
+            intro: ['OPERACIÓN SOMBRA', [['Vigía de las Sombras', VG, 'Escúchame, viajero. Ese portal es la única entrada a nuestros hogares: el reino de las sombras.'], ['Tú', TQ, '¿Qué ocurre? ¿Por qué se abrió aquí, en pleno campo de batalla?'], ['Vigía de las Sombras', VG, 'El Maestro Sombra quiere cruzarlo y devorar la esencia de nuestro mundo. Si la base cae, el portal se rompe y nuestros hogares con él.'], ['Tú', TQ, 'Entonces la defenderé. ¿Cuánto tiempo necesitas?'], ['Vigía de las Sombras', VG, 'Diez minutos. Resiste a las criaturas que lleguen y repara la entrada con cajas 📦. Cuando el Maestro aparezca, derrótalo y toma su esencia.']]],
+            outro: ['MISIÓN CUMPLIDA', [['Vigía de las Sombras', VG, 'Lo lograste. Has recogido la esencia de las sombras: el portal vuelve a estar a salvo.'], ['Tú', TQ, '¿Y el Maestro Sombra?'], ['Vigía de las Sombras', VG, 'Ya no volverá. Mi pueblo te lo agradece: la clase «Sombra» te ha elegido. Úsala bien.']]],
+            xintro: ['OPERACIÓN KRAMPUS', [['Pipa', PI, '¡Por fin! El portal gélido te ha traído hasta nuestra ciudad nevada. Soy Pipa, la elfa jefa.'], ['Tú', TQ, '¿Qué está pasando aquí?'], ['Pipa', PI, 'Krampus quiere arruinar la Navidad. Sus criaturas atacan a los ciudadanos antes de que reciban sus regalos.'], ['Tú', TQ, '¿Y qué puedo hacer yo?'], ['Pipa', PI, 'Fabrica juguetes en el taller 🧸, empaquétalos en cajas 📦 y entrégaselos a los tanques ciudadanos. Cada regalo los cura, y tres seguidos desatan un villancico que congela a los malos.'], ['Pipa', PI, 'Si pierdes a demasiados ciudadanos, se acabó. Y cuidado con los gnomos: ¡roban regalos!']]],
+            xoutro: ['FELIZ NAVIDAD', [['Pipa', PI, '¡Krampus ha caído! Los ciudadanos están a salvo y todos tendrán su regalo.'], ['Tú', TQ, 'Ha sido una noche movidita…'], ['Pipa', PI, 'Gracias, héroe. El portal gélido volverá a abrirse cada diciembre.']]]
+        }[kind] || ['', []];
+        const S = SC[1];
+        const wrap = document.createElement('div'); wrap.style.cssText = 'position:fixed;inset:0;z-index:300;background:#000;color:#fff;font-family:Barlow,"Segoe UI",sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6%;transition:opacity .6s;touch-action:none';
+        const ttl = document.createElement('div'); ttl.textContent = SC[0]; ttl.style.cssText = 'position:absolute;top:8%;font:700 34px "Barlow Condensed","Arial Narrow",sans-serif;letter-spacing:6px;color:#b0bec5'; wrap.appendChild(ttl);
+        const log = document.createElement('div'); log.style.cssText = 'width:min(760px,100%);display:flex;flex-direction:column;gap:18px'; wrap.appendChild(log);
+        const hint = document.createElement('small'); hint.textContent = 'Toca para avanzar'; hint.style.cssText = 'position:absolute;bottom:6%;opacity:.45'; wrap.appendChild(hint);
+        const sk = document.createElement('button'); sk.textContent = 'Saltar ⏭'; sk.style.cssText = 'position:absolute;top:14px;right:14px;margin:0;padding:8px 16px;font-size:15px;background:#37474f'; wrap.appendChild(sk);
         document.body.appendChild(wrap);
-        const night = kind === 'intro', cv = wrap.querySelector('canvas'), g = cv.getContext('2d'), who = wrap.querySelector('.who'), tx = wrap.querySelector('.tx'), bxEl = wrap.querySelector('.bx');
-        const CY = '#4dd0e1', YE = '#ffd54f', PU = '#ea80fc';
-        const S = night ? [['Comandante', CY, 'Base, aquí Comandante. Los sensores detectan actividad extraña en el sector.'], ['Radio', YE, 'Una anomalía ha abierto un portal en el horizonte. Una horda de asesinos avanza hacia vosotros.'], ['Maestro Asesino', PU, 'Diez minutos. Es todo lo que necesito para borrar vuestra base del mapa.'], ['Comandante', CY, 'Mantened la posición. Enviaremos refuerzos blancos cada veinte segundos.'], ['Radio', YE, 'Contacto inminente. ¡Todas las unidades, abran fuego!']]
-            : [['Comandante', CY, '¡El Maestro Asesino ha caído! La base sigue en pie.'], ['Radio', YE, 'El portal se cierra. La horda se ha desvanecido con la primera luz del día.'], ['Comandante', CY, 'Te has ganado un lugar entre las sombras: aquí tienes la clase exclusiva «Sombra».'], ['Comandante', CY, 'Descansa, soldado. Volveremos a necesitarte.']];
-        const title = night ? ['OPERACIÓN SOMBRA', 'Defiende la base · 10 minutos'] : ['MISIÓN CUMPLIDA', 'Operación Sombra'];
-        let li = 0, lt = 0, T = 0, fin = false, endT = -1, flash = 1, lastLi = -1, last = performance.now();
-        const lineT = { 0: 0 }, cam = { x: 0, y: 0, z: 1.2 }, pk = [], parts = []; let dtS = 0; for (let k = 0; k < 12; k++) pk[k] = -(70 + k * 55);
-        const end = () => { if (fin) return; fin = true; CUT.on = false; wrap.remove(); document.removeEventListener('keydown', kd); if (paused && state === 'paused') state = 'playing'; if (done) done(); };
-        const next = () => { if (li + 1 >= S.length) { if (endT < 0) endT = T; return; } li++; lt = 0; lineT[li] = T; };
-        const adv = () => { if (endT >= 0) return; const n = S[li][2].length * 22; if (lt < n) lt = n; else next(); };
-        const kd = e => { if (e.key === 'Escape') end(); else if (e.key === ' ' || e.key === 'Enter') adv(); };
-        document.addEventListener('keydown', kd); wrap.addEventListener('click', adv); wrap.querySelector('.sk').addEventListener('click', e => { e.stopPropagation(); end(); });
-        const rnd = i => { const v = Math.sin(i * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
-        const sk = SKINS[prof.skin] || SKINS[0], PBc = sk[1], PTc = sk[2];
-        const BX = 300, BY = -220, PX = -760, PY = -480, plen = Math.hypot(PX, PY), nx = -PY / plen, ny = PX / plen;
-        // escenario: muros y cajas repartidos lejos de la base y del camino del portal
-        const walls = []; for (let i = 0; i < 46; i++) {
-            const x = Math.round((rnd(i) - 0.5) * 2200 / 40) * 40, y = Math.round((rnd(i + 50) - 0.5) * 1500 / 40) * 40, hor = rnd(i + 90) > 0.5, len = 80 + Math.round(rnd(i + 130) * 4) * 40;
-            const cx = x + (hor ? len / 2 : 18), cy = y + (hor ? 18 : len / 2); const t = Math.max(0, Math.min(1, ((cx - PX) * -PX + (cy - PY) * -PY) / (plen * plen))), dd = Math.hypot(cx - (PX - PX * t), cy - (PY - PY * t));
-            if (Math.hypot(cx, cy) < 260 || dd < 150 || Math.hypot(cx - BX, cy - BY) < 150 || Math.hypot(cx - PX, cy - PY) < 200) continue;
-            walls.push({ x, y, w: hor ? len : 36, h: hor ? 36 : len, crate: i % 5 === 0 });
-        }
-        const ang = (x1, y1, x2, y2) => Math.atan2(y2 - y1, x2 - x1);
-        const tk = (x, y, a, bc, tc, type, boss, ally, aim) => drawTank(x, y, bc, tc, a, aim === undefined ? a : aim, type, boss, false, false, 1, 1, ally, g);
-        const RK = k => 122 + (k % 3) * 17, ENT = Math.atan2(PY, PX), SA = k => k / 12 * 6.283 + 0.3;
-        const PI = []; for (let k = 0; k < 12; k++) { const R = RK(k), sx = PX + nx * (rnd(k) - 0.5) * 60, sy = PY + ny * (rnd(k) - 0.5) * 60, ex = Math.cos(ENT) * R, ey = Math.sin(ENT) * R; let d = SA(k) - ENT; d = Math.atan2(Math.sin(d), Math.cos(d)); PI[k] = { R, sx, sy, ex, ey, d, L1: Math.hypot(ex - sx, ey - sy), L2: Math.abs(d) * R }; }
-        const ptAt = (k, s) => { const q = PI[k]; if (s <= q.L1) { const t = s / q.L1; return [q.sx + (q.ex - q.sx) * t, q.sy + (q.ey - q.sy) * t, Math.atan2(q.ey - q.sy, q.ex - q.sx)]; } const a = ENT + Math.sign(q.d || 1) * Math.min(s - q.L1, q.L2) / q.R; return [Math.cos(a) * q.R, Math.sin(a) * q.R, a + Math.sign(q.d || 1) * Math.PI / 2]; };
-        const posOf = k => { const q = PI[k], tot = q.L1 + q.L2, s = Math.max(0, Math.min(tot, pk[k])), p = ptAt(k, s); return [p[0], p[1], s / tot, p[2]]; };
-        const tkp = (x, y, a, aim) => { HAT_DRAW = prof.hat | 0; tk(x, y, a, PBc, PTc, 'player', false, false, aim); HAT_DRAW = 0; };
-        function render() {
-            const w = Math.min(1280, cv.clientWidth) | 0, h = Math.round(w * cv.clientHeight / Math.max(1, cv.clientWidth)); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
-            const D = night ? [[0, 0, 1.25 - Math.min(0.2, lt / 30000)], [PX * 0.62, PY * 0.62, 0.8], [BX, BY, 1.7], [-50, 20, 0.95], [0, 0, 0.55]][li]
-                : [[BX, BY, 1.6], [0, 0, 0.9], [0, 80, 1.8], [0, 20, 0.7]][li];
-            if (li !== lastLi) { lastLi = li; flash = 1; cam.x = D[0]; cam.y = D[1]; cam.z = D[2]; }
-            cam.x += (D[0] - cam.x) * 0.08; cam.y += (D[1] - cam.y) * 0.08; cam.z += (D[2] - cam.z) * 0.08;
-            const shk = (night && li === 2) || (!night && li === 0 && lt < 1500) ? 4 : 0;
-            g.fillStyle = '#eceff1'; g.fillRect(0, 0, w, h);
-            g.save(); g.translate(w / 2 + (Math.random() - 0.5) * shk, h / 2 + (Math.random() - 0.5) * shk); g.scale(cam.z, cam.z); g.translate(-cam.x, -cam.y);
-            const x0 = cam.x - w / 2 / cam.z, x1 = cam.x + w / 2 / cam.z, y0 = cam.y - h / 2 / cam.z, y1 = cam.y + h / 2 / cam.z;
-            g.strokeStyle = '#d5dde2'; g.lineWidth = 1 / cam.z; g.beginPath(); for (let x = Math.floor(x0 / 40) * 40; x <= x1; x += 40) { g.moveTo(x, y0); g.lineTo(x, y1); } for (let y = Math.floor(y0 / 40) * 40; y <= y1; y += 40) { g.moveTo(x0, y); g.lineTo(x1, y); } g.stroke();
-            for (const q of walls) { if (q.x > x1 || q.x + q.w < x0 || q.y > y1 || q.y + q.h < y0) continue; g.fillStyle = q.crate ? '#8d6e63' : '#607d8b'; g.fillRect(q.x, q.y, q.w, q.h); g.strokeStyle = q.crate ? '#5d4037' : '#455a64'; g.lineWidth = 2; g.strokeRect(q.x, q.y, q.w, q.h); }
-            if (night) { // huellas del camino y portal
-                g.strokeStyle = 'rgba(96,125,139,.45)'; g.lineWidth = 3; g.setLineDash([10, 8]); for (const o of [-18, 18]) { g.beginPath(); g.moveTo(PX + nx * o, PY + ny * o); g.lineTo(nx * o * 0.4, ny * o * 0.4); g.stroke(); } g.setLineDash([]);
-                const pg2 = g.createRadialGradient(PX, PY, 10, PX, PY, 120); pg2.addColorStop(0, '#12002a'); pg2.addColorStop(0.55, '#7b1fa2'); pg2.addColorStop(1, 'rgba(213,0,249,0)'); g.fillStyle = pg2; g.beginPath(); g.arc(PX, PY, 120, 0, 6.283); g.fill();
-                g.strokeStyle = '#d500f9'; g.lineWidth = 5; g.beginPath(); g.arc(PX, PY, 62, 0, 6.283); g.stroke();
-            }
-            drawHB(g, -40, -40, 1);
-            const pOpt = { b: PBc, t: PTc };
-            if (night) {
-                const aim = ang(-80, 60, PX, PY);
-                tkp(-80, 70, aim);
-                if (li >= 3) for (let k = 0; k < 3; k++) { const ax = -150 - (k % 2) * 30, ay = -10 + k * 62, sp = Math.min(1, (T - (lineT[3] === undefined ? T : lineT[3])) / 0.6); g.save(); g.globalAlpha = sp; tk(ax, ay, aim, '#fafafa', '#e0e0e0', 'normal', false, false); g.restore(); if (sp < 1) { g.strokeStyle = 'rgba(0,229,255,' + (1 - sp) + ')'; g.lineWidth = 4; g.beginPath(); g.arc(ax, ay, 14 + (1 - sp) * 60, 0, 6.283); g.stroke(); } }
-                g.strokeStyle = 'rgba(96,125,139,.4)'; g.lineWidth = 3; g.setLineDash([9, 8]);
-                for (let k = 0; k < 12; k++) { const sc = Math.min(PI[k].L1 + PI[k].L2, Math.max(0, pk[k])); if (sc <= 0) continue; for (const o of [-9, 9]) { g.beginPath(); for (let s = 0; ; s += 30) { const ss = Math.min(s, sc), pt = ptAt(k, ss), x = pt[0] + Math.cos(pt[2] + 1.5708) * o, y = pt[1] + Math.sin(pt[2] + 1.5708) * o; if (s === 0) g.moveTo(x, y); else g.lineTo(x, y); if (ss >= sc) break; } g.stroke(); } }
-                g.setLineDash([]);
-                for (let k = 0; k < 12; k++) {
-                    const m = posOf(k); if (pk[k] < 0) continue; const arrived = m[2] >= 1, a = arrived ? ang(m[0], m[1], 0, 0) : m[3];
-                    g.save(); g.globalAlpha = Math.min(1, pk[k] / 40 + 0.15); tk(m[0], m[1], a, '#212121', '#000000', 'assassin', false, false); g.restore();
-                    if (arrived && li === 4) {
-                        const ph = Math.floor(T * 4 + k * 1.7) % 5;
-                        if (ph === 0) { g.fillStyle = '#ffeb3b'; g.beginPath(); g.arc(m[0] + Math.cos(a) * 28, m[1] + Math.sin(a) * 28, 7, 0, 6.283); g.fill(); }
-                        const pr = ((T * 3 + k * 0.37) % 1); g.fillStyle = '#ff5252'; g.beginPath(); g.arc(m[0] + (0 - m[0]) * pr * 0.62, m[1] + (0 - m[1]) * pr * 0.62, 3.5, 0, 6.283); g.fill();
-                        if (ph === 1) { const dm = Math.hypot(m[0], m[1]) || 1, ex = -m[0] / dm * 38, ey = -m[1] / dm * 38; g.fillStyle = 'rgba(255,140,0,.7)'; g.beginPath(); g.arc(m[0] + ex * 1.5 + ey * 0.3, m[1] + ey * 1.5 - ex * 0.3, 9, 0, 6.283); g.fill(); }
-                    }
-                }
-                if (li === 4) { const pulse = 0.5 + 0.5 * Math.sin(T * 6); g.strokeStyle = 'rgba(0,229,255,' + (0.35 + 0.35 * pulse) + ')'; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, 70 + pulse * 6, 0, 6.283); g.stroke(); }
-                tk(BX, BY, ang(BX, BY, 0, 0), '#0a0a0a', '#000000', 'assassin', true, false);
-                g.fillStyle = 'rgba(80,0,120,.14)'; g.beginPath(); g.arc(BX, BY, 70 + Math.sin(T * 2) * 4, 0, 6.283); g.fill();
-            } else {
-                tk(BX, BY, 0.8, '#0a0a0a', '#000000', 'assassin', true, false); g.fillStyle = 'rgba(30,30,34,.75)'; for (let k = 0; k < 5; k++) { g.beginPath(); g.arc(BX - 18 + k * 10, BY - 34 - k * 9 - ((T * 8) % 10), 14 + k * 3, 0, 6.283); g.fill(); }
-                if (li === 0) { const e3 = Math.min(1, lt / 1100); g.strokeStyle = 'rgba(255,120,0,' + (1 - e3) + ')'; g.lineWidth = 8; g.beginPath(); g.arc(BX, BY, 20 + e3 * 150, 0, 6.283); g.stroke(); g.fillStyle = 'rgba(255,200,60,' + (0.6 * (1 - e3)) + ')'; g.beginPath(); g.arc(BX, BY, 10 + e3 * 70, 0, 6.283); g.fill(); }
-                if (li === 1) { g.fillStyle = '#69f0ae'; g.font = 'bold 22px sans-serif'; g.textAlign = 'center'; for (let k = 0; k < 6; k++) g.fillText('+', -50 + k * 20 + Math.sin(T * 2 + k) * 4, 60 - ((T * 22 + k * 13) % 80)); }
-                g.strokeStyle = '#b71c1c'; g.lineWidth = 6; g.beginPath(); g.moveTo(BX - 28, BY - 28); g.lineTo(BX + 28, BY + 28); g.moveTo(BX + 28, BY - 28); g.lineTo(BX - 28, BY + 28); g.stroke();
-                tkp(-60, 70, Math.PI * 0.9);
-                for (let k = 0; k < 3; k++) tk(-140 - (k % 2) * 30, -10 + k * 62, 0, '#fafafa', '#e0e0e0', 'normal', false, false);
-                if (li >= 2) { const gl = g.createRadialGradient(0, 100, 10, 0, 100, 90); gl.addColorStop(0, 'rgba(179,136,255,.55)'); gl.addColorStop(1, 'rgba(179,136,255,0)'); g.fillStyle = gl; g.beginPath(); g.arc(0, 100, 90, 0, 6.283); g.fill(); tk(0, 100, -Math.PI / 2, '#311b92', '#b388ff', 'normal', false, false); }
-            }
-            g.restore();
-            g.fillStyle = night ? 'rgba(12,16,48,.3)' : 'rgba(255,170,90,.14)'; g.fillRect(0, 0, w, h);
-            const vg = g.createRadialGradient(w / 2, h / 2, h * 0.35, w / 2, h / 2, h * 0.95); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.5)'); g.fillStyle = vg; g.fillRect(0, 0, w, h);
-            const bar = h * 0.1; g.fillStyle = '#1c262b'; g.fillRect(0, 0, w, bar); g.fillRect(0, h - bar, w, bar); g.textAlign = 'center'; g.fillStyle = '#ff9800'; g.font = '700 ' + Math.round(bar * 0.34) + 'px Barlow,sans-serif'; g.fillText('EVENTO 🥷  ' + (night ? 'DEFIENDE LA BASE · 10 MIN' : 'OPERACIÓN COMPLETADA'), w / 2, h - bar * 0.38);
-            if (T < 3.4 && li === 0) { const al = Math.max(0, Math.min(1, T / 0.6, (3.4 - T) / 0.6)); g.save(); g.globalAlpha = al; g.textAlign = 'center'; g.fillStyle = '#fff'; g.font = '700 ' + Math.round(h * 0.09) + "px 'Barlow Condensed','Arial Narrow',sans-serif"; g.fillText(title[0], w / 2, h * 0.4); g.font = Math.round(h * 0.035) + 'px Barlow,sans-serif'; g.fillStyle = '#d1c4e9'; g.fillText(title[1], w / 2, h * 0.4 + h * 0.07); g.restore(); }
-            if (!night && li === 2) { g.save(); g.globalAlpha = Math.min(1, lt / 500); g.textAlign = 'center'; g.fillStyle = '#ea80fc'; g.font = '700 ' + Math.round(h * 0.06) + "px 'Barlow Condensed','Arial Narrow',sans-serif"; g.fillText('CLASE DESBLOQUEADA · 🥷 SOMBRA', w / 2, bar + h * 0.09); g.restore(); }
-            if (flash > 0) { g.fillStyle = 'rgba(255,255,255,' + (flash * 0.5) + ')'; g.fillRect(0, 0, w, h); flash = Math.max(0, flash - 0.08); }
-            let fade = Math.max(0, 1 - T / 0.9); if (endT >= 0) fade = Math.max(fade, Math.min(1, (T - endT) / 0.7)); if (fade > 0) { g.fillStyle = 'rgba(0,0,0,' + fade + ')'; g.fillRect(0, 0, w, h); }
-        }
-        const frame = now => {
-            if (fin) return; const dt = Math.min(60, now - last); last = now; dtS = dt / 1000; T += dtS; for (let k = 0; k < 12; k++) pk[k] += dtS * (night ? (li === 4 ? 270 : li >= 1 ? 62 : 0) : 0); if (endT < 0) lt += dt;
-            const L = S[li]; who.textContent = L[0]; who.style.color = L[1]; bxEl.style.borderLeftColor = L[1]; bxEl.style.opacity = endT >= 0 ? Math.max(0, 1 - (T - endT) / 0.5) : 1; tx.textContent = L[2].slice(0, Math.floor(lt / 22));
-            if (endT < 0 && lt > L[2].length * 22 + 2400) next();
-            try { render(); } catch (e) { console.error(e); end(); return; }
-            if (endT >= 0 && T - endT >= 0.75) { end(); return; }
-            requestAnimationFrame(frame);
+        let li = -1, el = null, full = '', n = 0, tm = null, fin = false;
+        const end = () => { if (fin) return; fin = true; clearInterval(tm); clearTimeout(auto); document.removeEventListener('keydown', kd); wrap.style.opacity = '0'; setTimeout(() => { wrap.remove(); CUT.on = false; if (paused && state === 'paused') state = 'playing'; if (done) done(); }, 450); };
+        let auto = null;
+        const nextLine = () => {
+            clearTimeout(auto); li++; if (li >= S.length) { end(); return; }
+            const L = S[li], row = document.createElement('div'); row.style.cssText = 'opacity:0;transition:opacity .4s';
+            const nm = document.createElement('div'); nm.textContent = L[0]; nm.style.cssText = 'font-weight:700;letter-spacing:2px;text-transform:uppercase;font-size:15px;color:' + L[1]; const tx = document.createElement('div'); tx.style.cssText = 'font-size:21px;line-height:1.4;margin-top:3px;color:#eceff1';
+            row.appendChild(nm); row.appendChild(tx); log.appendChild(row); requestAnimationFrame(() => { row.style.opacity = '1'; });
+            if (log.children.length > 4) log.removeChild(log.children[0]); if (log.children.length > 3) log.children[0].style.opacity = '.35'; if (log.children.length > 2) log.children[log.children.length - 3].style.opacity = '.55';
+            el = tx; full = L[2]; n = 0; clearInterval(tm);
+            tm = setInterval(() => { n++; el.textContent = full.slice(0, n); if (n >= full.length) { clearInterval(tm); tm = null; auto = setTimeout(nextLine, 1800 + full.length * 12); } }, 24);
         };
-        requestAnimationFrame(frame);
+        const adv = () => { if (fin) return; if (tm) { clearInterval(tm); tm = null; el.textContent = full; auto = setTimeout(nextLine, 1500 + full.length * 8); } else nextLine(); };
+        const kd = e => { if (e.key === 'Escape') end(); else if (e.key === ' ' || e.key === 'Enter') adv(); };
+        document.addEventListener('keydown', kd); wrap.addEventListener('click', adv); sk.addEventListener('click', e => { e.stopPropagation(); end(); });
+        nextLine();
     }
-
+    function xmStart(noCut) {
+        if (net.role) return;
+        const go = () => { dailyCur = null; sbCur = null; evCur = null; xmCur = { nm: 'Operación Krampus' }; anom = null; startNewLevel(true); };
+        if (state === 'playing') finishRun();
+        noCut ? go() : playCut('xintro', go);
+    }
+    function xmWin(secs) {
+        const first = !prof.xmOpen, newYeti = !(prof.clsOwn && prof.clsOwn.yeti); prof.xmOpen = 1; prof.clsOwn.yeti = 1; prof.xmWins = (prof.xmWins || 0) + 1; prof.coins += 400; prof.xp += 500; saveProf(); updateUI();
+        playCut('xoutro', () => { state = 'win'; showOverlay('menu-win', '¡FELIZ NAVIDAD!', '', 'Tiempo: ' + secs + ' s · Puntos: ' + score + '\n+400 monedas' + (newYeti ? '\n🧊 Clase exclusiva «Yeti» desbloqueada (Garaje).' : '') + (first ? '\n🎄 Operación Krampus disponible en Eventos durante diciembre.' : ''), 'Volver al menú', () => openLobby('event')); });
+    }
+    function eventHTML() {
+        const open = !!prof.evOpen, solo = !net.role, dec = isDec();
+        return '<h3>🎭 Eventos</h3><div class="modes"><button class="mode ' + (open ? 'on' : '') + '" ' + (open && solo ? '' : 'disabled') + ' onclick="evStart()"><b>🥷 Operación Sombra</b><span>Mapa enorme: defiende la base 10 minutos, repárala con cajas 📦 y derrota al Maestro Sombra para tomar la esencia de las sombras.</span><em>'
+            + (open ? (solo ? 'Desbloqueado · también en party si todos lo tienen (elige «Evento oculto» como origen)' : 'Desbloqueado · inícialo desde la party') : 'Bloqueado: un asesino puede soltar una llave (10 %) y debes hallar la anomalía 🌀 en una misión.') + '</em></button>'
+            + '<button class="mode ' + (prof.xmOpen && dec ? 'on' : '') + '" ' + (prof.xmOpen && dec && solo ? '' : 'disabled') + ' onclick="xmStart()"><b>🎄 Operación Krampus</b><span>Fabrica juguetes, empaquétalos y entrégalos a los ciudadanos mientras proteges la ciudad de las criaturas de Krampus. Solo en solitario.</span><em>'
+            + (!dec ? 'Solo disponible en diciembre.' : prof.xmOpen ? 'Desbloqueado' : 'En diciembre, congela una anomalía 🌀 con la clase Frost y entra en el portal gélido.') + '</em></button></div>'
+            + '<p class="st">' + (!open && prof.evKey ? '🗝️ Tienes la llave: busca la anomalía 🌀 en tus misiones.' : 'Superar Operación Sombra da la clase exclusiva «Sombra».') + '</p>';
+    }
     function startNewLevel(reset, keepLevel = false, soft = false) {
         // En party, tras ganar un desafío/nivel creado: siguiente desafío (o repetir) con todo reiniciado
         if (!reset && !keepLevel && net.on && net.role === 'host' && (dailyCur || sbCur)) { if (dailyCur && dailyCur.idx < 4) { const nx = dailyList()[dailyCur.idx + 1]; dailyCur = { ...nx, idx: dailyCur.idx + 1, k: 0 }; net.cfg.si = dailyCur.idx; net.cfg.sn = nx.nm; } reset = true; }
         lastReset = !!reset;
         if (reset) {
-            level = evCur ? 12 : dailyCur ? dailyCur.level : (sbCur ? 8 : (net.on ? DIFFS[curDiff()].lvl : 1)); missionNo = 0; applyProfile(); player.lives = evCur ? 6 : dailyCur ? dailyCur.lives : (sbCur ? sbCur.lv.l : (net.on ? 3 : 3 + prof.up.armor)); for (const r of remotes) r.lives = player.lives; net.pts = [0, 0, 0, 0];
-            floatingTexts = []; score = 0; combo = 0; comboTimer = 0; runKills = 0; runRevives = 0; runActive = !net.on && !dailyCur && !sbCur && !evCur;
+            level = evCur ? 12 : xmCur ? 10 : dailyCur ? dailyCur.level : (sbCur ? 8 : (net.on ? DIFFS[curDiff()].lvl : 1)); missionNo = 0; applyProfile(); player.lives = evCur ? 6 : xmCur ? 5 : dailyCur ? dailyCur.lives : (sbCur ? sbCur.lv.l : (net.on ? 3 : 3 + prof.up.armor)); for (const r of remotes) r.lives = player.lives; net.pts = [0, 0, 0, 0];
+            floatingTexts = []; score = 0; combo = 0; comboTimer = 0; runKills = 0; runRevives = 0; runActive = !net.on && !dailyCur && !sbCur && !evCur && !xmCur;
         } else if (!keepLevel) {
             level++;
             if (isPvp()) { for (const q of [player, ...remotes]) q.lives = 3; }
@@ -1361,10 +1457,10 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (const id of ['overlay', 'pause-menu', 'picker', 'bookwrap', 'lobby']) document.getElementById(id).style.display = 'none';
         document.getElementById('overlay-extra').innerHTML = '';
         if (!keepLevel) { currentMode = pickMode(); if (soft) for (let i = 0; i < 40 && currentMode === 'boss'; i++) currentMode = pickMode(); }
-        bossAlso = !evCur && effMode() === 'bosses' && currentMode !== 'boss';
+        bossAlso = !evCur && !xmCur && effMode() === 'bosses' && currentMode !== 'boss';
         const sbMi = (sbCur && sbCur.lv.mi && MISSIONS[sbCur.lv.mi]) ? sbCur.lv.mi : null;
         if (!soft) {
-            MAP_WIDTH = MAP_HEIGHT = evCur ? EV_SIDE : sbCur ? sbCur.lv.s * GRID_SIZE : 2400 + 400 * (playersCount() - 1);
+            MAP_WIDTH = MAP_HEIGHT = xmCur ? XM_SIDE : evCur ? EV_SIDE : sbCur ? sbCur.lv.s * GRID_SIZE : 2400 + 400 * (playersCount() - 1);
             if (dailyCur) { dailyCur.k = 0; mapOpt = MAPS[dailyCur.map] || null; if (!rngBak) rngBak = Math.random; Math.random = mulberry(dailyCur.seed); } else mapOpt = null;
             if (sbCur) sbBuildMap(sbCur.lv); else if (currentMode === 'boss') generateBossMaze(); else generateNormalMaze();
             if (dailyCur) sealPockets();
@@ -1458,19 +1554,20 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             spawnEnemy(ENEMY_TYPES[13], false, null, null, false, false); spawnN(Math.max(1, numEnemies - 3));
         }
         if (currentMode === 'hidden') {
-            objText = "🥷 DEFIENDE LA BASE 10 MIN, REPÁRALA CON 📦 Y DERROTA AL MAESTRO"; surviveTimer = EV_TIME; evBossOn = false;
+            objText = "🥷 DEFIENDE LA BASE 10 MIN, REPÁRALA CON 📦 Y DERROTA AL MAESTRO"; surviveTimer = EV_TIME; evBossOn = false; evEss = null; evMP = null; SAY.q.length = 0;
             const hb = placeHBase(), hx = hb.x + 40, hy = hb.y + 40, hs = k => ({ x: hx - 110 + (k % 2) * 50, y: hy - 30 + 60 * (k >> 1) });
             { const p = hs(0); player.x = p.x; player.y = p.y; player.lastX = p.x; player.lastY = p.y; }
             for (const r of remotes) { const p = hs(r.slot || 0); r.x = p.x; r.y = p.y; r.lastX = p.x; r.lastY = p.y; }
         }
+        if (currentMode === 'xmas') { objText = '🎄 FABRICA REGALOS, ENTRÉGALOS Y PROTEGE A LOS CIUDADANOS'; xmSetup(); }
         if (bossAlso) { objText += " + 💀 DESTRUYE AL JEFE"; spawnEnemy(makeBossType(), false, null, null, true, false); }
         if (sbMi && sbCur.lv.u > 0 && (currentMode === 'survive' || currentMode === 'protect')) surviveTimer = sbCur.lv.u * 60;
         if (rngBak) { Math.random = rngBak; rngBak = null; }
-        timeLimit = evCur ? 0 : (dailyCur && dailyCur.time) ? dailyCur.time * 60 : ((sbCur && sbCur.lv.t) ? sbCur.lv.t * 60 : (effMode() === 'timeattack' ? logicalTime() * 60 : 0));
+        timeLimit = (evCur || xmCur) ? 0 : (dailyCur && dailyCur.time) ? dailyCur.time * 60 : ((sbCur && sbCur.lv.t) ? sbCur.lv.t * 60 : (effMode() === 'timeattack' ? logicalTime() * 60 : 0));
         if (isPvp() && /^p_/.test(currentMode)) timeLimit = PVP_TIME[currentMode.slice(2)] * 60;
         document.getElementById('objective-text').innerText = objText;
         horde = null; player.invT = 0; for (const r of remotes) r.invT = 0; if (!soft) sbStk = 0; anom = null;
-        if (prof.evKey && !prof.evOpen && !net.on && !dailyCur && !sbCur && !evCur && !/^p_/.test(currentMode)) spawnAnom();
+        if (((prof.evKey && !prof.evOpen) || (isDec() && curCls() === 'escarcha' && Math.random() < 0.4)) && !net.on && !dailyCur && !sbCur && !evCur && !xmCur && !/^p_/.test(currentMode)) spawnAnom();
         fixSpawns(); updateCamera();
         state = soft ? 'playing' : 'starting'; startTimer = soft ? 0 : 120; net.goAt = 0; net.wait = (net.on && net.role === 'host') ? { rtt: {}, t0: performance.now() } : null;
         document.getElementById('countdown-display').style.display = soft ? 'none' : 'block';
@@ -1480,7 +1577,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
     function updateUI() {
         const cont = effMode() === 'continuous', $ = id => document.getElementById(id);
-        const sc = (net.on && net.cfg.src) || ''; $('ui-lvl-label').innerText = (evCur || sc === 'ev') ? 'EVENTO' : (dailyCur || sc === 'daily') ? 'DESAFÍO' : ((sbCur || sc === 'sb') ? 'SANDBOX' : (cont ? 'MISIÓN' : 'NIVEL')); $('ui-level').innerText = (evCur || sc === 'ev') ? '🥷' : dailyCur ? (dailyCur.idx + 1) + '/5' : (sc === 'daily' ? ((net.cfg.si | 0) + 1) + '/5' : ((sbCur || sc === 'sb') ? '🛠' : (cont ? missionNo : level)));
+        const sc = (net.on && net.cfg.src) || ''; $('ui-lvl-label').innerText = (evCur || xmCur || sc === 'ev') ? 'EVENTO' : (dailyCur || sc === 'daily') ? 'DESAFÍO' : ((sbCur || sc === 'sb') ? 'SANDBOX' : (cont ? 'MISIÓN' : 'NIVEL')); $('ui-level').innerText = xmCur ? '🎄' : (evCur || sc === 'ev') ? '🥷' : dailyCur ? (dailyCur.idx + 1) + '/5' : (sc === 'daily' ? ((net.cfg.si | 0) + 1) + '/5' : ((sbCur || sc === 'sb') ? '🛠' : (cont ? missionNo : level)));
         let t = enemies.filter(e => !e.isAlly && !e.haste && e.sq === undefined).length + pendingSpawns.length;
         switch (currentMode) {
             case 'survive': t = Math.max(0, Math.ceil(surviveTimer / 60)) + " s"; break;
@@ -1494,7 +1591,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             case 'escape_blind': t = "BUSCA LA EVACUACIÓN"; break;
             case 'capture': t = `ZONAS ${zones.filter(z => z.done).length}/${zones.length}`; break;
             case 'demolition': t = `BÚNKERES: ${targets.length}`; break;
-            case 'hidden': { const b = evBase(), m = Math.max(0, Math.ceil(surviveTimer / 60)); t = '🏰 ' + (b ? b.hp + '/' + b.maxHp : '—') + ' · ⏱ ' + Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0') + (evBossOn && bossAliveNow() ? ' · ☠ MAESTRO' : ''); break; }
+            case 'hidden': { const b = evBase(), m = Math.max(0, Math.ceil(surviveTimer / 60)); t = '🏰 ' + (b ? b.hp + '/' + b.maxHp : '—') + ' · ⏱ ' + Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0') + (evBossOn && bossAliveNow() ? ' · ☠ MAESTRO' : '') + (evEss ? ' · ✨ RECOGE LA ESENCIA' : ''); break; }
+            case 'xmas': { t = '🏘 ' + xmCits().length + '/6 · 🧸' + (player.toys || 0) + '/2 · 📦' + (player.box ? 1 : 0) + ' · 🎶' + (xmJoy % 3) + '/3' + (xmBoss && bossAliveNow() ? ' · 👹 KRAMPUS' : ''); break; }
             case 'minefield': t = "¡CRUZA A LA ZONA VERDE!"; break;
             case 'escort': t = "LLEVA AL ALIADO A LA ZONA VERDE"; break;
             case 'crates': t = keysCollected >= 1 ? "¡VE A LA ZONA VERDE!" : `CAJAS: ${walls.filter(w => w.crate).length}`; break;
@@ -2028,7 +2126,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function giveUpRevive() { document.getElementById('overlay-extra').innerHTML = ''; reviveSkip = true; state = 'playing'; endGame(); reviveSkip = false; }
     function endGame(reason) {
         if (state === 'gameover' || state === 'menu') return;
-        if (!net.on && !evCur && !reason && !reviveSkip && player.lives <= 0 && prof.coins >= reviveCost()) {
+        if (!net.on && !evCur && !xmCur && !reason && !reviveSkip && player.lives <= 0 && prof.coins >= reviveCost()) {
             state = 'gameover'; const cost = reviveCost();
             showOverlay('menu-lose', 'SIN VIDAS', '#ff5252', `Tienes ${prof.coins} monedas. Revivir cuesta ${cost} y vuelves con 2 vidas.\\nCada vez que te quedes sin vidas en esta partida costará el doble.`, `❤️ Revivir (${cost} 🪙)`, revivePlayer, false);
             document.getElementById('overlay-extra').innerHTML = '<button class="red" onclick="giveUpRevive()">Rendirse</button>'; return;
@@ -2272,6 +2370,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             if (e.tesla) teslaUpdate(e);
             if (e.isBoss && e.abs) bossAbilities(e);
             if (e.master) masterUpdate(e);
+            if (e.krampus) krampusUpdate(e);
             if (e.type === 'assassin' && e.sq === undefined && assassinUpdate(e)) continue;
 
             // SOLUCIÓN AL BUG DE CONGELACIÓN (Hibernación borrada)
@@ -2307,7 +2406,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 
                 targetForAim = (currentMode === 'protect' && theAlly) ? (aDist < pDist ? theAlly : (tp || player)) : ((aDist < pDist && theAlly) ? theAlly : (tp || player));
                 if (!tp && !theAlly) targetForAim = {x: MAP_WIDTH/2, y: MAP_HEIGHT/2};
-                if (e.hunt) { const hb = evBase(); if (hb && (!tp || pDist > 480)) { const bx = hb.x + 40, by = hb.y + 40, an = Math.atan2(e.y - by, e.x - bx); targetForAim = { x: bx + Math.cos(an) * 100, y: by + Math.sin(an) * 100 }; } let ba = null, bad = 360 * 360; for (const o of enemies) if (o.hally) { const dd = (o.x - e.x) ** 2 + (o.y - e.y) ** 2; if (dd < bad) { bad = dd; ba = o; } } if (ba && (!tp || bad < pDist * pDist)) targetForAim = ba; }
+                if (e.hunt) { const hb = evBase(); if (hb && (e.master || !tp || pDist > 480)) { const bx = hb.x + 40, by = hb.y + 40, an = Math.atan2(e.y - by, e.x - bx); targetForAim = { x: bx + Math.cos(an) * 100, y: by + Math.sin(an) * 100 }; } let ba = null, bad = 360 * 360; for (const o of enemies) if (o.hally) { const dd = (o.x - e.x) ** 2 + (o.y - e.y) ** 2; if (dd < bad) { bad = dd; ba = o; } } if (ba && (!tp || bad < pDist * pDist)) targetForAim = ba; }
+                if (e.xm) { let bt = null, bd2 = 1500 * 1500; for (const c of enemies) if (c.cit) { const dd = (c.x - e.x) ** 2 + (c.y - e.y) ** 2; if (dd < bd2) { bd2 = dd; bt = c; } } if (e.xm === 'gnomo' && player.box && !player.dead && Math.hypot(player.x - e.x, player.y - e.y) < 520) targetForAim = player; else if (tp && pDist < 260) targetForAim = tp; else if (bt) targetForAim = bt; else targetForAim = { x: xmC.x, y: xmC.y }; }
             }
 
             if (e.kamikaze && targetForAim && (e.x - targetForAim.x) ** 2 + (e.y - targetForAim.y) ** 2 < 1700) {
@@ -2340,7 +2440,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                         } else if (!e.path || e.path.length === 0) { const p = findFreeSpawn(false, e.x, e.y); destX = p.x; destY = p.y; }
                         else { destX = e.path[e.path.length - 1].x; destY = e.path[e.path.length - 1].y; }
                     } else if (e.necro && !e.bodyguard) { const np = necroPlan(e); destX = np.x; destY = np.y;
-                    } else if (currentMode === 'survive' || currentMode === 'protect' || e.chaser) { destX = targetForAim.x; destY = targetForAim.y;
+                    } else if (currentMode === 'survive' || currentMode === 'protect' || e.chaser || e.hunt || e.xm) { destX = targetForAim.x; destY = targetForAim.y;
                     if (e.type === 'assassin' && targetForAim.lastX !== undefined) { const lx = Math.max(-5, Math.min(5, targetForAim.x - targetForAim.lastX)) * 24, ly = Math.max(-5, Math.min(5, targetForAim.y - targetForAim.lastY)) * 24, px = Math.max(BORDER_SIZE + 30, Math.min(MAP_WIDTH - BORDER_SIZE - 30, destX + lx)), py = Math.max(BORDER_SIZE + 30, Math.min(MAP_HEIGHT - BORDER_SIZE - 30, destY + ly)); if (!wallHit({ x: px, y: py, radius: 10 })) { destX = px; destY = py; } } // intercepta: va hacia donde vas a estar 
                     } else if (e.bodyguard && currentMode === 'vip') {
                         let theVip = enemies.find(en => en.isVip);
@@ -2584,7 +2684,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function damageBunker(w, n, byTm) {
         w.hp -= n; const cx = w.x + w.width / 2, cy = w.y + w.height / 2; createExplosion(cx, cy, '#ffb300', 8);
         if (w.hp <= 0) {
-            createExplosion(cx, cy, '#ff5722', 40); if (w.hb) { removeWall(w); targets = targets.filter(t => t !== w); netWallDel([w]); endGame('¡Los asesinos destruyeron tu base!'); return; } if (w.tm === undefined) { prof.stats.bunkers = (prof.stats.bunkers || 0) + 1; score += 200; floatingTexts.push({ text: '+200', x: cx, y: cy - 30, life: 60, color: '#ff6f00' }); }
+            createExplosion(cx, cy, '#ff5722', 40); if (w.hb) { removeWall(w); targets = targets.filter(t => t !== w); netWallDel([w]); endGame('¡Tu base ha caído!'); return; } if (w.tm === undefined) { prof.stats.bunkers = (prof.stats.bunkers || 0) + 1; score += 200; floatingTexts.push({ text: '+200', x: cx, y: cy - 30, life: 60, color: '#ff6f00' }); }
             removeWall(w); targets = targets.filter(t => t !== w); netWallDel([w]); if (w.tm !== undefined) pvpBaseFall(w, byTm);
         }
         updateUI();
@@ -2776,7 +2876,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     function checkWinConditions() {
         if (isPvp()) { checkPvp(); if (state !== 'playing') return; pvpTick(); return; }
-        if (anom && !net.on && !CUT.on && alivePlayers().some(p => near(p, anom, 55))) { evStart(); return; }
+        if (anom && !net.on && !CUT.on && alivePlayers().some(p => near(p, anom, 55))) { if (anom.frozen) { xmStart(); return; } if (prof.evKey && !prof.evOpen) { evStart(); return; } if (!anom.hint || frameCount - anom.hint > 200) { anom.hint = frameCount; floatingTexts.push({ text: '🌀 Portal inestable: congélalo con Frost', x: player.x, y: player.y - 50, life: 90, color: '#80d8ff' }); } }
         if (currentMode === 'gems') gemTick();
         if (timeLimit > 0) { timeLimit--; if (timeLimit <= 0) { endGame('¡Se acabó el tiempo!'); return; } if (timeLimit % 60 === 0) updateUI(); }
         const P = alivePlayers();
@@ -2809,6 +2909,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             case 'escape_blind': case 'minefield': if (P.some(p => near(p, escapeZone, 85))) objectiveDone(); break;
             case 'boss': if (!bossAliveNow()) objectiveDone(); break;
             case 'hidden': evTick(); break;
+            case 'xmas': xmTick(); break;
             case 'carry': {
                 for (const p of P) {
                     for (const it of items) if (!it.collected && p.carriedItems < 1 && near(p, it, p.radius + 15)) { it.collected = true; p.carriedItems++; updateUI(); }
@@ -2902,6 +3003,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const bonus = 500 + level * 100 + Math.max(0, 90 - secs) * 10 + (clean ? 500 : 0) + tb;
         score += bonus;
         if (net.on) { netMissionWin(bonus, secs, clean); return; }
+        if (xmCur) { state = 'win'; xmWin(secs); return; }
         if (evCur) { state = 'win'; evWin(secs); return; }
         if (dailyCur) { dailyWin(secs); return; }
         if (sbCur) { sbWin(secs); return; }
@@ -2918,6 +3020,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function endGameBase(reason) {
         if (state === 'gameover' || state === 'menu') return; if (net.on) { netEnd(false, reason); return; }
         state = 'gameover';
+        if (xmCur) { showOverlay('menu-lose', 'FIESTA ARRUINADA', '#ff5252', (reason ? reason + '\n' : '') + 'Operación Krampus · ' + score + ' puntos', 'Reintentar', () => xmStart(true), true); return; }
         if (evCur) { showOverlay('menu-lose', 'OPERACIÓN FALLIDA', '#ff5252', (reason ? reason + '\n' : '') + 'Operación Sombra · ' + score + ' puntos', 'Reintentar', () => evStart(true), true); return; }
         if (dailyCur) { const dc = dailyCur; showOverlay('menu-lose', 'DESAFÍO FALLIDO', '#ff5252', (reason ? reason + '\n' : '') + dc.nm + ' · ' + score + ' puntos', 'Reintentar', () => startDaily(dc.idx), true); return; }
         if (sbCur) { const sc = sbCur; showOverlay('menu-lose', 'NIVEL FALLIDO', '#ff5252', (reason ? reason + '\n' : '') + sc.lv.nm + ' · ' + score + ' puntos', 'Reintentar', () => startSandbox(sc.lv, sc.test), true); return; }
@@ -3407,12 +3510,14 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         coraza: { n: 'Coraza', ic: '🛡', t: 'act', cost: 9000, rk: 10, cd: 1800, d: 'Te vuelves invulnerable durante 3 s. Recarga 30 s.' },
         reclutador: { n: 'Reclutador', ic: '🤝', t: 'pas', cost: 12000, rk: 12, d: 'Todo enemigo que mates con balas o minas se une a ti (hasta 7) y conserva sus mecánicas. Nace en modo 💣 bomba: si en 8 s no le cambias el modo, explota contra el enemigo más cercano (si es estático, explota a los 8 s). Dispárale para rotar: bomba → 🛡 defensor (te escolta) → ⚔ atacante (caza enemigos) → bomba.' },
         chaleco: { n: 'Chaleco', ic: '🦺', t: 'pas', cost: 10000, rk: 11, d: 'Absorbes un impacto sin perder vida y la absorción se recupera sola cada 20 s.' },
-        sombra: { n: 'Sombra', ic: '🥷', t: 'act', cost: 0, rk: 99, ex: 1, cd: 720, d: 'EXCLUSIVA del evento oculto. Activa: si apuntas con el cursor a un enemigo (o ya lo tienes marcado), te teletransportas detrás de él sin importar la distancia y lo aturdes 3 s (1,5 s a un jefe); si no apuntas a nadie, te vuelves invisible 15 s para los enemigos. Pasiva: aparecen asesinos aliados (hasta 5) que van a por el enemigo marcado: mantén pulsado 1 s sobre un enemigo para marcarlo y 1 s sobre el suelo para cancelar la marca; sin marca, atacan al más cercano. Cada baja te hace más rápido (hasta +40 %). Recarga 12 s.' }
+        sombra: { n: 'Sombra', ic: '🥷', t: 'act', cost: 0, rk: 99, ex: 1, cd: 720, d: 'EXCLUSIVA del evento oculto. Activa: si apuntas con el cursor a un enemigo (o ya lo tienes marcado), te teletransportas detrás de él sin importar la distancia y lo aturdes 3 s (1,5 s a un jefe); si no apuntas a nadie, te vuelves invisible 15 s para los enemigos. Pasiva: aparecen asesinos aliados (hasta 5) que van a por el enemigo marcado: mantén pulsado 1 s sobre un enemigo para marcarlo y 1 s sobre el suelo para cancelar la marca; sin marca, atacan al más cercano. Cada baja te hace más rápido (hasta +40 %). Recarga 12 s.' },
+        escarcha: { n: 'Frost', ic: '❄️', t: 'act', cost: 0, rk: 1, dec: 1, cd: 900, d: 'GRATIS y solo en diciembre. Activa: congela durante 3 s (1,5 s a jefes) a los enemigos en un radio de 230 px. Pasiva: tus proyectiles ralentizan a los enemigos. Con la habilidad tambien puedes congelar portales anomalos. Recarga 15 s.' },
+        yeti: { n: 'Yeti', ic: '🧊', t: 'act', cost: 0, rk: 99, ex: 1, exn: 'Exclusiva: gana Operación Krampus', cd: 1500, d: 'Tus balas dejan un rastro de hielo: los enemigos que lo pisan se congelan 1 s y quedan con frío 30 s. Activa: todos los enemigos con frío se congelan 20 s (1 punto de daño a cada uno). Un radar te muestra donde estan los congelados. Recarga 25 s.' }
     };
     let pwActive = false, killBy, killMine = false, pulses = [];
     function curCls() { try { return (prof.cls && prof.clsOwn && prof.clsOwn[prof.cls] && CLASSES[prof.cls]) ? prof.cls : ''; } catch (e) { return ''; } }
     function buyCls(id) {
-        const c = CLASSES[id]; if (!c || prof.clsOwn[id] || prof.coins < c.cost || rankOf(prof.xp) < c.rk) return;
+        const c = CLASSES[id]; if (!c || (c.dec && !isDec()) || prof.clsOwn[id] || prof.coins < c.cost || rankOf(prof.xp) < c.rk) return;
         prof.coins -= c.cost; prof.clsOwn[id] = 1; prof.cls = id; saveProf(); applyProfile(); netProfRefresh(); renderLobby(); toast(c.ic + ' ¡Clase ' + c.n + ' desbloqueada!');
     }
     function netProfRefresh() {
@@ -3426,7 +3531,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             const c = CLASSES[id], own = prof.clsOwn && prof.clsOwn[id], on = prof.cls === id, lock = r < c.rk;
             return `<div class="cl ${on ? 'on' : ''}"><b>${c.ic} ${c.n}</b><small>${c.t === 'act' ? 'ACTIVA' : 'PASIVA'} · ${c.d}</small>` + (own
                 ? `<button onclick="equipCls('${id}')">${on ? 'Equipada · quitar' : 'Equipar'}</button>`
-                : `<button ${c.ex || lock || prof.coins < c.cost ? 'disabled' : ''} onclick="buyCls('${id}')">${c.ex ? 'Exclusiva del evento oculto' : lock ? 'Rango ' + c.rk : 'Comprar · ' + c.cost}</button>`) + '</div>';
+                : `<button ${c.ex || lock || (c.dec && !isDec()) || prof.coins < c.cost ? 'disabled' : ''} onclick="buyCls('${id}')">${c.ex ? (c.exn || 'Exclusiva del evento oculto') : c.dec && !isDec() ? 'Disponible solo en diciembre' : lock ? 'Rango ' + c.rk : c.cost ? 'Comprar · ' + c.cost : 'Conseguir gratis'}</button>`) + '</div>';
         }).join('') + '</div>';
     }
     function nearestFoe(x, y) {
@@ -3492,6 +3597,16 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             }
             convTm = undefined; pulses.push({ x: q.x, y: q.y, t: 0 }); createExplosion(q.x, q.y, '#4dd0e1', 20);
             if (net.on && net.role === 'host') netSend({ t: 'pf', x: Math.round(q.x), y: Math.round(q.y) });
+            ok = true;
+        } else if (id === 'yeti') {
+            let n = 0;
+            for (const e of enemies.slice()) { if (!(e.cold > 0)) continue; e.stun = (e.isBoss || e.master || e.krampus) ? 600 : 1200; e.frz = 1; e.cold = 0; n++; e.hp -= 1; if (e.hp <= 0) killEnemy(e.id); }
+            if (n) { frostFx.push({ x: q.x, y: q.y, t: 0 }); floatingTexts.push({ text: '🧊 ¡CONGELADOS: ' + n + '!', x: q.x, y: q.y - 50, life: 90, color: '#80d8ff' }); ok = true; }
+            else floatingTexts.push({ text: 'Nadie tiene frío todavía', x: q.x, y: q.y - 40, life: 60, color: '#b3e5fc' });
+        } else if (id === 'escarcha') {
+            for (const e of enemies) { if (e.isAlly || e.haste || e.sq !== undefined) continue; if (Math.hypot(e.x - q.x, e.y - q.y) < 230 + e.radius) { e.stun = (e.isBoss || e.master || e.krampus) ? 90 : 180; e.frz = 1; } }
+            frostFx.push({ x: q.x, y: q.y, t: 0 }); createParticles(q.x, q.y, '#80d8ff', 24);
+            if (anom && !anom.frozen && Math.hypot(anom.x - q.x, anom.y - q.y) < 230) { anom.frozen = true; floatingTexts.push({ text: '❄️ ¡PORTAL CONGELADO!', x: anom.x, y: anom.y - 40, life: 120, color: '#80d8ff' }); }
             ok = true;
         } else if (id === 'sombra') {
             let tg = horde && enemies.find(e => e.id === horde.tg); if (!tg) { tg = nearestFoe(mx, my); if (tg && Math.hypot(tg.x - mx, tg.y - my) > tg.radius + 70) tg = null; }
@@ -3736,7 +3851,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function openLobby(tab) {
         if (sbCur && sbCur.test && ed) { sbCur = null; resumeEditor(); return; }
         const wasEd = !!ed; sbCur = null; ed = null; document.body.classList.remove('editing'); document.getElementById('edui').style.display = 'none'; document.getElementById('edmodal').style.display = 'none'; if (wasEd) resizeCanvas();
-        finishRun(); dailyCur = null; evCur = null; anom = null; horde = null; if (rngBak) { Math.random = rngBak; rngBak = null; } if (net.on) { net.on = false; remotes = []; } if (typeof tab === 'string') lobbyTab = tab;
+        finishRun(); dailyCur = null; evCur = null; xmCur = null; anom = null; horde = null; if (rngBak) { Math.random = rngBak; rngBak = null; } if (net.on) { net.on = false; remotes = []; } if (typeof tab === 'string') lobbyTab = tab;
         state = 'menu'; net.myRdy = false;
         for (const id of ['overlay', 'pause-menu', 'countdown-display', 'picker', 'bookwrap']) document.getElementById(id).style.display = 'none';
         document.getElementById('pause-banner').style.display = 'none'; document.getElementById('lobby').style.display = 'flex';
@@ -4616,7 +4731,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     const vsOk = () => { const n = net.roster.length, v = net.cfg.vs || 'coop'; return v === 'coop' || (v === 'ffa' && n >= 2) || (v === '2v2' && n === 4); };
     const isTeam = id => id === 'player' || id === 'ally' || /^p\d$/.test(id || '');
     const playersCount = () => net.on ? Math.max(1, net.roster.length) : 1;
-    const curDiff = () => evCur ? 2 : dailyCur ? dailyCur.diff : (sbCur ? sbCur.lv.d : (net.on ? net.cfg.diff : (prof.diff || 0)));
+    const curDiff = () => (evCur || xmCur) ? 2 : dailyCur ? dailyCur.diff : (sbCur ? sbCur.lv.d : (net.on ? net.cfg.diff : (prof.diff || 0)));
     const spawnPos = sl => pvpSpawns[sl] ? pvpSpawns[sl] : ({ x: PLAYER_SPAWN_X + (sl % 2) * 50, y: PLAYER_SPAWN_Y + (sl >> 1) * 50 });
     const alivePlayers = () => [...(player.dead ? [] : [player]), ...remotes.filter(r => !r.dead)];
     function activeTanks() { return [...alivePlayers(), ...enemies]; }
@@ -4785,6 +4900,13 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     // IA de la tropa. Atacante: ataca lo hostil cercano y, si no hay nada, va a por la base rival más próxima.
     // Defensor: no se aleja de su base; combate lo que se acerque y, si no hay amenazas, vuelve a su puesto.
     function squadTarget(e) {
+        if (e.cit) {
+            let best = null, bd = 380 * 380;
+            for (const o of enemies) { if (o === e || o.sq !== undefined || o.isAlly) continue; const d = (o.x - e.x) ** 2 + (o.y - e.y) ** 2; if (d < bd) { bd = d; best = o; } }
+            if (best) return { aim: best, dest: { x: e.x + (e.x - best.x) * 0.8, y: e.y + (e.y - best.y) * 0.8 }, base: null, hostile: true };
+            const wp = e.wp || { x: e.x, y: e.y };
+            return { aim: { x: wp.x, y: wp.y }, dest: wp, base: null, hostile: false, idle: true };
+        }
         if (e.hally) {
             const hb = evBase(), bc = hb ? { x: hb.x + 40, y: hb.y + 40 } : { x: e.x, y: e.y }; let best = null, bd = 900 * 900;
             for (const o of enemies) { if (o === e || o.sq !== undefined || o.isAlly) continue; const d = (o.x - bc.x) ** 2 + (o.y - bc.y) ** 2; if (d < bd) { bd = d; best = o; } }
@@ -5530,6 +5652,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             case 'pvpwin': net.pts = d.pts; missionNo = d.mn; level = d.lv; state = 'win'; net.rdy = {}; net.pausedBy = {}; pvpWinUI(d.tm, d.why); break;
             case 'win': score = d.score; missionNo = d.mn; level = d.lv; state = 'win'; net.rdy = {}; net.pausedBy = {}; mpWinUI(d.bonus, d.secs, d.clean, d.src, d.nm, d.rw, d.ix); break;
             case 'end': score = d.score; gems = d.gems; missionNo = d.mn; netEnd(false, d.reason); break;
+            case 'say': evSay(d.w, d.c, d.x, d.d, false); break;
             case 'start': {
                 if (d.cfg && d.cfg.src === 'ev' && state === 'menu') setTimeout(() => playCut('intro', null), 100);
                 net.on = true; net.roster = d.roster; net.cfg = d.cfg; currentMode = d.mode; level = d.level; missionNo = d.mn; net.cu = d.cu || null; gemGoal = d.gg; MAP_WIDTH = MAP_HEIGHT = d.W; bossAlso = !!d.ba;
