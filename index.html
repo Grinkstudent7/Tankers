@@ -1392,7 +1392,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const SC = {
             intro: ['OPERACIÓN SOMBRA', [['Vigía de las Sombras', VG, 'Escúchame, viajero. Ese portal es la única entrada a nuestros hogares: el reino de las sombras.'], ['Tú', TQ, '¿Qué ocurre? ¿Por qué se abrió aquí, en pleno campo de batalla?'], ['Vigía de las Sombras', VG, 'El Maestro Sombra quiere cruzarlo y devorar la esencia de nuestro mundo. Si la base cae, el portal se rompe y nuestros hogares con él.'], ['Tú', TQ, 'Entonces la defenderé. ¿Cuánto tiempo necesitas?'], ['Vigía de las Sombras', VG, 'Diez minutos. Resiste a las criaturas que lleguen y repara la entrada con cajas 📦. Cuando el Maestro aparezca, derrótalo y toma su esencia.']]],
             outro: ['MISIÓN CUMPLIDA', [['Vigía de las Sombras', VG, 'Lo lograste. Has recogido la esencia de las sombras: el portal vuelve a estar a salvo.'], ['Tú', TQ, '¿Y el Maestro Sombra?'], ['Vigía de las Sombras', VG, 'Ya no volverá. Mi pueblo te lo agradece: la clase «Sombra» te ha elegido. Úsala bien.']]],
-            xintro: ['OPERACIÓN KRAMPUS', [['Pipa', PI, '¡Por fin! El portal gélido te ha traído hasta nuestra ciudad nevada. Soy Pipa, la elfa jefa.'], ['Tú', TQ, '¿Qué está pasando aquí?'], ['Pipa', PI, 'Krampus quiere arruinar la Navidad. Sus criaturas atacan a los ciudadanos antes de que reciban sus regalos.'], ['Tú', TQ, '¿Y qué puedo hacer yo?'], ['Pipa', PI, 'Fabrica juguetes en el taller 🧸, empaquétalos en cajas 📦 y entrégaselos a los tanques ciudadanos. Cada regalo los cura, y tres seguidos desatan un villancico que congela a los malos.'], ['Pipa', PI, 'Si pierdes a demasiados ciudadanos, se acabó. Y cuidado con los gnomos: ¡roban regalos!']]],
+            xintro: ['OPERACIÓN KRAMPUS', [['Pipa', PI, '¡Por fin! El portal gélido te ha traído hasta nuestra ciudad nevada. Soy Pipa, la elfa jefa.'], ['Tú', TQ, '¿Qué está pasando aquí?'], ['Pipa', PI, 'Krampus quiere arruinar la Navidad. Sus criaturas atacan a los ciudadanos antes de que reciban sus regalos.'], ['Tú', TQ, '¿Y qué puedo hacer yo?'], ['Pipa', PI, 'Cada ciudadano te pedirá un juguete concreto. Reúne materiales en las fábricas (🪵 ⚙️ 🧵 🎨), móntalos en Montaje 🛠️, empaquétalos 🎁 y entrégaselos. Cada regalo los cura, y tres seguidos desatan un villancico que congela a los malos.'], ['Pipa', PI, 'Cuando suene la alarma de oleada, los ciudadanos correrán a sus casas 🏠: yo te marcaré con flechas dónde está cada una. Cuidado con los gnomos: ¡roban juguetes!']]],
             xoutro: ['FELIZ NAVIDAD', [['Pipa', PI, '¡Krampus ha caído! Los ciudadanos están a salvo y todos tendrán su regalo.'], ['Tú', TQ, 'Ha sido una noche movidita…'], ['Pipa', PI, 'Gracias, héroe. El portal gélido permanecerá abierto. Podrás volver cuando quieras.']]]
         }[kind] || ['', []];
         const S = SC[1];
@@ -1559,7 +1559,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             { const p = hs(0); player.x = p.x; player.y = p.y; player.lastX = p.x; player.lastY = p.y; }
             for (const r of remotes) { const p = hs(r.slot || 0); r.x = p.x; r.y = p.y; r.lastX = p.x; r.lastY = p.y; }
         }
-        if (currentMode === 'xmas') { objText = '🎄 FABRICA REGALOS, ENTRÉGALOS Y PROTEGE A LOS CIUDADANOS'; xmSetup(); }
+        if (currentMode === 'xmas') { objText = '🎄 CREA LOS JUGUETES QUE PIDEN, REFUGIA A LOS CIUDADANOS Y DERROTA A KRAMPUS'; xmSetup(); }
         if (bossAlso) { objText += " + 💀 DESTRUYE AL JEFE"; spawnEnemy(makeBossType(), false, null, null, true, false); }
         if (sbMi && sbCur.lv.u > 0 && (currentMode === 'survive' || currentMode === 'protect')) surviveTimer = sbCur.lv.u * 60;
         if (rngBak) { Math.random = rngBak; rngBak = null; }
@@ -2407,7 +2407,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                 targetForAim = (currentMode === 'protect' && theAlly) ? (aDist < pDist ? theAlly : (tp || player)) : ((aDist < pDist && theAlly) ? theAlly : (tp || player));
                 if (!tp && !theAlly) targetForAim = {x: MAP_WIDTH/2, y: MAP_HEIGHT/2};
                 if (e.hunt) { const hb = evBase(); if (hb && (e.master || !tp || pDist > 480)) { const bx = hb.x + 40, by = hb.y + 40, an = Math.atan2(e.y - by, e.x - bx); targetForAim = { x: bx + Math.cos(an) * 100, y: by + Math.sin(an) * 100 }; } let ba = null, bad = 360 * 360; for (const o of enemies) if (o.hally) { const dd = (o.x - e.x) ** 2 + (o.y - e.y) ** 2; if (dd < bad) { bad = dd; ba = o; } } if (ba && (!tp || bad < pDist * pDist)) targetForAim = ba; }
-                if (e.xm) { let bt = null, bd2 = 1500 * 1500; for (const c of enemies) if (c.cit) { const dd = (c.x - e.x) ** 2 + (c.y - e.y) ** 2; if (dd < bd2) { bd2 = dd; bt = c; } } if (e.xm === 'gnomo' && player.box && !player.dead && Math.hypot(player.x - e.x, player.y - e.y) < 520) targetForAim = player; else if (tp && pDist < 260) targetForAim = tp; else if (bt) targetForAim = bt; else targetForAim = { x: xmC.x, y: xmC.y }; }
+                if (e.xm) targetForAim = xmAim(e, tp, pDist);
             }
 
             if (e.kamikaze && targetForAim && (e.x - targetForAim.x) ** 2 + (e.y - targetForAim.y) ** 2 < 1700) {
@@ -3367,7 +3367,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             ST_DRAW = enemySt(e); AB_DRAW = e.abs || '';
             drawTank(e.x, e.y, e.baseColor, e.turretColor, e.baseAngle, e.turretAngle, e.type, e.isBoss, e.invisible, e.isVip, e.hp, e.maxHp, e.isAlly);
             ST_DRAW = 0; AB_DRAW = ''; ctx.restore();
-            if (e.sq !== undefined) { // escudo del color del jugador/equipo (el tanque conserva su color original)
+            if (e.sq !== undefined && !e.cit) { // escudo del color del jugador/equipo (el tanque conserva su color original)
                 const col = tmCol(e.sq), R = e.radius + 8 + Math.sin(frameCount * 0.12) * 1.5;
                 ctx.save(); ctx.globalAlpha = 0.16; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(e.x, e.y, R, 0, 6.283); ctx.fill(); ctx.restore();
                 ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(e.x, e.y, R, 0, 6.283); ctx.stroke();
@@ -3477,7 +3477,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         combo = comboTimer > 0 ? Math.min(5, combo + 1) : 1; comboTimer = 240;
         let base = e.isBoss ? 1000 : e.isVip ? 600 : 100 * (e.maxHp || 1) + (e.speed > 0 ? 50 : 0) + (e.mines ? 50 : 0) + (e.bullet === 'super' ? 50 : 0);
         if (e.noScore) base = 0;
-        const pts = base * combo; score += pts; runKills++; prof.stats.kills++; { const kt = prof.kt || (prof.kt = {}); kt[e.type] = (kt[e.type] || 0) + 1; }
+        const pts = base * combo; score += pts; runKills++; prof.stats.kills++; if (!e.xm && !e.cit) { const kt = prof.kt || (prof.kt = {}); kt[e.type] = (kt[e.type] || 0) + 1; }
         if (pts > 0) floatingTexts.push({ text: '+' + pts + (combo > 1 ? ' x' + combo : ''), x: e.x, y: e.y - 30, life: 60, color: '#ff6f00' });
         updateUI();
     }
@@ -4741,8 +4741,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     const vsOk = () => { const n = net.roster.length, v = net.cfg.vs || 'coop'; return v === 'coop' || (v === 'ffa' && n >= 2) || (v === '2v2' && n === 4); };
     const isTeam = id => id === 'player' || id === 'ally' || /^p\d$/.test(id || '');
     const playersCount = () => net.on ? Math.max(1, net.roster.length) : 1;
-    const curDiff = () => (evCur || xmCur) ? 2 : dailyCur ? dailyCur.diff : (sbCur ? sbCur.lv.d : (net.on ? net.cfg.diff : (prof.diff || 0)));
-    const spawnPos = sl => pvpSpawns[sl] ? pvpSpawns[sl] : ({ x: PLAYER_SPAWN_X + (sl % 2) * 50, y: PLAYER_SPAWN_Y + (sl >> 1) * 50 });
+    const curDiff = () => evCur ? 2 : xmCur ? [0, 1, 1, 2][Math.min(3, playersCount() - 1)] : dailyCur ? dailyCur.diff : (sbCur ? sbCur.lv.d : (net.on ? net.cfg.diff : (prof.diff || 0)));
+    const spawnPos = sl => xmCur ? { x: Math.floor(gridCols / 2) * GRID_SIZE - 60 + sl * 40, y: Math.floor(gridRows / 2) * GRID_SIZE + 270 } : pvpSpawns[sl] ? pvpSpawns[sl] : ({ x: PLAYER_SPAWN_X + (sl % 2) * 50, y: PLAYER_SPAWN_Y + (sl >> 1) * 50 });
     const alivePlayers = () => [...(player.dead ? [] : [player]), ...remotes.filter(r => !r.dead)];
     function activeTanks() { return [...alivePlayers(), ...enemies]; }
     function nearestPlayer(e) { let best = null, bd = Infinity; for (const p of alivePlayers()) { if (p.invT > 0) continue; const d = (p.x - e.x) ** 2 + (p.y - e.y) ** 2; if (d < bd) { bd = d; best = p; } } return best; }
@@ -5512,7 +5512,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             if (net.cfg.src === 'daily') { const c = dailyList()[i]; if (c) dailyCur = { ...c, idx: i, k: 0 }; }
             else if (net.cfg.src === 'sb') { const L = sbList()[i]; if (L) sbCur = { lv: JSON.parse(JSON.stringify(L)), test: false }; }
             if (net.cfg.src === 'ev') evCur = { nm: 'Operación Sombra' };
-            if (!dailyCur && !sbCur && !evCur) { toast('No se encontró el desafío o nivel elegido'); return; }
+            if (!dailyCur && !sbCur && !evCur && !xmCur) { toast('No se encontró el desafío o nivel elegido'); return; }
         }
         net.on = true; remotes = net.roster.filter(r => r.slot !== 0).map(mkRemote);
         startNewLevel(true);
@@ -5964,6 +5964,523 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     const hashJoin = (location.hash || '').match(/^#(?:join=)?([A-Za-z0-9]{5})$/);
     openLobby(hashJoin ? 'party' : 'play'); drawGarage(); drawBook();
     if (hashJoin) setTimeout(() => joinParty(hashJoin[1]), 500); fInit();
+
+/* ===================== OPERACIÓN KRAMPUS v2 (parche) ===================== */
+let xmHouses = [], xmShelter = false, xmPh = 'calm', xmPhT = 0, xmWT = 0, xmInv = {}, xmAlN = 6, xmLeftN = 0;
+const XM_COMP = [['Madera', '🪵'], ['Piezas', '⚙️'], ['Tela', '🧵'], ['Pintura', '🎨']];
+const XM_TOYS = [{ n: 'Oso', e: '🧸', r: [2, 3] }, { n: 'Tambor', e: '🥁', r: [0, 2] }, { n: 'Coche', e: '🚗', r: [1, 3] }, { n: 'Tren', e: '🚂', r: [0, 1, 3] }, { n: 'Cohete', e: '🚀', r: [1, 1, 3] }];
+const XM_RES = { wood: 0, gear: 1, loom: 2, paint: 3 };
+const XM_STN = { wood: ['Aserradero', '🪵', '#8d6e63'], gear: ['Fundición', '⚙️', '#78909c'], loom: ['Telar', '🧵', '#ec407a'], paint: ['Pintura', '🎨', '#42a5f5'], assy: ['Montaje', '🛠️', '#5c6bc0'], pack: ['Empaquetado', '🎁', '#ef5350'] };
+const XM_HM = [['Cabaña', '🏡', '#c62828'], ['Casa de jengibre', '🍪', '#a1622f'], ['Iglú', '🧊', '#29b6f6'], ['Chalet nevado', '⛰️', '#1e88e5'], ['Casita de paja', '🌾', '#f9a825'], ['Casa abeto', '🎄', '#2e7d32']];
+const XM_GATHER = 60, XM_ASSY = 90, XM_PACK = 60;
+const XM2_T = {
+    gnomo: { ...ENEMY_TYPES[1], type: 'xm_gnome', baseColor: '#2e7d32', turretColor: '#c62828', speed: 1.5, cooldown: 120, radius: 15 },
+    cascanueces: { ...ENEMY_TYPES[10], type: 'xm_nut', baseColor: '#b71c1c', turretColor: '#212121', speed: 0.8, bullet: 'super', rebounces: 0, cooldown: 190, hp: 3, radius: 22 },
+    bomba: { ...ENEMY_TYPES[12], type: 'xm_bomb', baseColor: '#fafafa', turretColor: '#eceff1', speed: 1.7, hp: 2 }
+};
+// Balance según nº de jugadores: enemigos, vida del jefe y ritmo de pedidos
+const xmNP = () => playersCount();
+const xmK = () => [0.6, 0.95, 1.25, 1.5][Math.min(3, xmNP() - 1)];
+const xmNeed = () => 5 + 2 * (xmNP() - 1);
+const xmAlive = () => xmCits().length + xmHouses.reduce((a, h) => a + h.in.length, 0) + pendingSpawns.filter(p => p.enemy && p.enemy.cit).length;
+const xmLeftNow = () => enemies.filter(e => e.xm && !e.krampus).length + pendingSpawns.filter(p => p.enemy && p.enemy.xm && !p.enemy.krampus).length;
+const xmRecips = () => { const r = []; for (const c of enemies) if (c.cit) r.push({ c, x: c.x, y: c.y }); for (const h of xmHouses) for (const c of h.in) r.push({ c, x: h.dx, y: h.dy }); return r; };
+const xmReqCount = t => enemies.filter(c => c.cit && c.req === t).length + xmHouses.reduce((a, h) => a + h.in.filter(c => c.req === t).length, 0);
+const xmHold = p => (p.comp && p.comp.length > 0) || p.toy >= 0 || p.box >= 0;
+const xmUnlockedAll = () => !!prof.xmOpen && net.roster.length > 0 && net.roster.every(r => r.xm);
+function xmCan(comp, r) { const have = comp.slice(); for (const x of r) { const i = have.indexOf(x); if (i < 0) return false; have.splice(i, 1); } return true; }
+function xmRecipe(comp) {
+    const w = new Set(); for (const q of xmRecips()) if (q.c.req >= 0) w.add(q.c.req);
+    let best = -1, bl = 0; for (let t = 0; t < XM_TOYS.length; t++) if (w.has(t) && xmCan(comp, XM_TOYS[t].r) && XM_TOYS[t].r.length > bl) { best = t; bl = XM_TOYS[t].r.length; }
+    return best;
+}
+function xmPickReq() { const pool = [0, 1, 2]; if (xmWave >= 1 || xmJoy >= 2) pool.push(3); if (xmWave >= 2 || xmJoy >= 4) pool.push(4); return pool[Math.floor(Math.random() * pool.length)]; }
+function xmHint(p, t) { if (frameCount - (p.hintT || 0) < 140) return; p.hintT = frameCount; floatingTexts.push({ text: t, x: p.x, y: p.y - 46, life: 80, color: '#fff59d' }); }
+function xmHomeFor(c) {
+    let h = xmHouses[c.home];
+    if (!h || h.broken || h.in.length >= 2) { h = null; let bd = 1e12; for (const q of xmHouses) { if (q.broken || q.in.length >= 2) continue; const d = (q.dx - c.x) ** 2 + (q.dy - c.y) ** 2; if (d < bd) { bd = d; h = q; } } }
+    return h;
+}
+function xmHide(c, h) {
+    const i = enemies.indexOf(c); if (i < 0) return; enemies.splice(i, 1); h.in.push(c); net.sentDefs.delete(c.nid);
+    createParticles(h.dx, h.dy, '#ffffff', 8); floatingTexts.push({ text: '🏠', x: h.dx, y: h.dy - 30, life: 40, color: '#fff' });
+}
+function xmRelease(h) { const c = h.in.shift(); if (!c) return; c.x = h.dx; c.y = h.dy; c.lastX = c.x; c.lastY = c.y; c.path = []; c.wp = null; c.wpT = 0; c.bm = 1; enemies.push(c); }
+function xmHouseHit(h, n) {
+    if (h.broken) return; h.hp -= n; createExplosion(h.dx, h.dy - 20, '#ff9800', 14);
+    floatingTexts.push({ text: '🏠 -' + n, x: h.dx, y: h.dy - 50, life: 50, color: '#ff8a65' });
+    if (h.hp <= 0) {
+        h.hp = 0; h.broken = true; createExplosion(h.x + 60, h.y + 40, '#8d6e63', 40); floatingTexts.push({ text: '💥 ¡CASA DESTRUIDA!', x: h.dx, y: h.dy - 70, life: 110, color: '#ff5252' });
+        for (const c of h.in.splice(0)) { c.hp -= 2; if (c.hp > 0) { c.x = h.dx; c.y = h.dy; c.lastX = c.x; c.lastY = c.y; c.path = []; enemies.push(c); } else createExplosion(h.dx, h.dy, '#ffffff', 20); }
+    }
+}
+const xmPack = () => ({ st: xmSt.map(s => [s.k, s.x, s.y, s.bx, s.by]), hs: xmHouses.map(h => [h.k, h.m, h.x, h.y, h.dx, h.dy, h.hp, h.maxHp, h.broken ? 1 : 0]), c: [xmC.x, xmC.y] });
+function xmApply(p) {
+    xmSt = p.st.map(a => ({ k: a[0], x: a[1], y: a[2], bx: a[3], by: a[4] }));
+    xmHouses = p.hs.map(a => ({ k: a[0], m: a[1], x: a[2], y: a[3], dx: a[4], dy: a[5], hp: a[6], maxHp: a[7], broken: !!a[8], in: [] }));
+    xmC = { x: p.c[0], y: p.c[1] }; xmT = 0; xmBlast = []; xmInv = {}; xmJoy = 0; xmBoss = false; xmWave = 0; xmShelter = false; xmPh = 'calm'; xmPhT = 0; xmAlN = 6; xmLeftN = 0;
+}
+const xmSnap = () => ({
+    j: xmJoy, b: xmBoss ? 1 : 0, w: xmWave, sh: xmShelter ? 1 : 0, ph: xmPh, pt: xmPhT, al: xmAlive(), lf: xmLeftNow(),
+    hs: xmHouses.map(h => [h.hp, h.broken ? 1 : 0, h.in.map(c => c.req === undefined ? -1 : c.req)]),
+    bl: xmBlast.map(b => [Math.round(b.x), Math.round(b.y), b.t, b.r]),
+    xp: Object.keys(xmInv).map(k => { const v = xmInv[k]; return [+k, v.comp.join(''), v.toy, v.box, Math.round(v.p), v.n]; })
+});
+function xmClientApply(x) {
+    xmJoy = x.j; xmBoss = !!x.b; xmWave = x.w; xmShelter = !!x.sh; xmPh = x.ph; xmPhT = x.pt; xmAlN = x.al; xmLeftN = x.lf;
+    x.hs.forEach((a, i) => { const h = xmHouses[i]; if (h) { h.hp = a[0]; h.broken = !!a[1]; h.in = a[2].map(r => ({ req: r })); } });
+    xmBlast = x.bl.map(a => ({ x: a[0], y: a[1], t: a[2], r: a[3] }));
+    xmInv = {}; for (const a of x.xp) xmInv[a[0]] = { comp: String(a[1]).split('').map(Number).filter(n => !isNaN(n)), toy: a[2], box: a[3], p: a[4], n: a[5] };
+}
+
+/* ---------- preparación del mapa: plaza con 6 fábricas + 6 casas ---------- */
+xmSetup = function () {
+    const G = GRID_SIZE, cx = Math.floor(gridCols / 2) * G, cy = Math.floor(gridRows / 2) * G; xmC = { x: cx, y: cy };
+    const clear = (x0, y0, x1, y1) => { for (const w of walls.slice()) if (w.x < x1 && w.x + w.width > x0 && w.y < y1 && w.y + w.height > y0 && w.x > BORDER_SIZE && w.y > BORDER_SIZE) removeWall(w); };
+    const add = b => { walls.push(b); paintWall(b, b); refreshNav(b.x, b.y, b.width, b.height); };
+    clear(cx - 440, cy - 260, cx + 440, cy + 340);
+    const L = [['wood', -270, -90], ['gear', 0, -90], ['loom', 270, -90], ['paint', -270, 170], ['assy', 0, 170], ['pack', 270, 170]];
+    xmSt = L.map(q => ({ k: q[0], x: cx + q[1], y: cy + q[2], bx: cx + q[1] - 40, by: cy + q[2] - 130 }));
+    for (const s of xmSt) add({ x: s.bx, y: s.by, width: 80, height: 80, destructible: false, xmst: 1 });
+    xmHouses = [];
+    for (let i = 0; i < 6; i++) {
+        const a = (15 + 60 * i) * Math.PI / 180, hx = Math.round((cx + Math.cos(a) * 800 - 60) / G) * G, hy = Math.round((cy + Math.sin(a) * 640 - 40) / G) * G;
+        clear(hx - 40, hy - 40, hx + 160, hy + 190);
+        add({ x: hx, y: hy, width: 120, height: 80, destructible: false, xmhouse: i });
+        xmHouses.push({ k: i, m: i, x: hx, y: hy, dx: hx + 60, dy: hy + 108, in: [], hp: 4, maxHp: 4, broken: false });
+    }
+    iceTrail.length = 0; xmT = 0; xmBoss = false; xmJoy = 0; xmWave = 0; xmBlast = []; xmShelter = false; xmPh = 'calm'; xmPhT = 5400; xmWT = 0; xmInv = {}; SAY.q.length = 0;
+    player.lives = 6; for (const r of remotes) r.lives = 6;
+    for (const q of [player, ...remotes]) { q.comp = []; q.toy = -1; q.box = -1; q.xmP = 0; q.xmD = 0; q.xmN = 1; q.carriedItems = 0; }
+    for (let i = 0; i < 6; i++) {
+        spawnAtOverride = { x: cx - 250 + i * 100, y: cy + 8 }; spawnEnemy(ENEMY_TYPES[10], false, null, null, false, false); spawnAtOverride = null; floatingTexts.pop();
+        const ps = pendingSpawns[pendingSpawns.length - 1];
+        if (ps) { Object.assign(ps.enemy, { type: 'xm_cit', baseColor: '#2e7d32', turretColor: '#c62828', hp: 3, maxHp: 3, radius: 19, speed: 0.9, cooldown: 150, sq: 0, role: 'def', cit: 1, wpT: 0, home: i, req: -1, reqT: 300 + i * 360 }); ps.tm = 0; }
+    }
+    evSay('Pipa', '#ff8a80', 'Cada ciudadano pide un juguete concreto. Mira el panel de recetas (arriba a la izquierda).', 4500);
+};
+
+/* ---------- oleadas y jefe ---------- */
+xmSpawnOne = function (name, x, y) {
+    const pos = (x === undefined) ? freeAround(xmC.x, xmC.y, 1100, 1500, 24) : { x, y };
+    spawnAtOverride = pos; spawnEnemy(XM2_T[name], false, null, null, false, false); spawnAtOverride = null; if (x !== undefined) floatingTexts.pop();
+    const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps) ps.enemy.xm = name;
+};
+xmSpawnWave = function (n) {
+    const K = xmK(), live = enemies.filter(e => e.xm).length + pendingSpawns.filter(p => p.enemy && p.enemy.xm).length;
+    const cnt = Math.max(2, Math.min(Math.round((2 + n * 1.1) * K), Math.round(11 * K)) - live);
+    const kinds = ['gnomo', 'gnomo']; if (n >= 2) kinds.push('bomba'); if (n >= 3) kinds.push('cascanueces', 'gnomo'); if (n >= 5) kinds.push('bomba', 'cascanueces');
+    let bombs = 0;
+    for (let i = 0; i < cnt; i++) { let k = kinds[Math.floor(Math.random() * kinds.length)]; if (k === 'bomba' && bombs >= Math.ceil(cnt / 3)) k = 'gnomo'; if (k === 'bomba') bombs++; xmSpawnOne(k); }
+    floatingTexts.push({ text: '🎄 OLEADA ' + n, x: player.x, y: player.y - 70, life: 90, color: '#ff8a80' });
+};
+xmSpawnKrampus = function () {
+    const np = xmNP(), hp = Math.max(12, 18 + 8 * (np - 1) - Math.min(8, xmJoy)), pos = freeAround(xmC.x, xmC.y, 1200, 1500, 40);
+    spawnAtOverride = pos; spawnEnemy({ ...ENEMY_TYPES[10], type: 'xm_krampus', baseColor: '#4e342e', turretColor: '#b71c1c', speed: 0.9, cooldown: 100, bullet: 'super', rebounces: 0, radius: 36 }, false, null, null, true, false); spawnAtOverride = null;
+    const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps) Object.assign(ps.enemy, { krampus: 1, xm: 'krampus', hp, maxHp: hp, mt: 0 });
+    floatingTexts.push({ text: '👹 ¡KRAMPUS!', x: player.x, y: player.y - 70, life: 180, color: '#ff7043' });
+    evSay('Krampus', '#ff7043', '¡Nadie recibirá regalos esta noche!', 3200); evSay('Pipa', '#ff8a80', '¡Es Krampus! Los ciudadanos se refugian. Cada regalo entregado lo ha debilitado. ¡Derrótalo!', 4200);
+};
+krampusUpdate = function (e) {
+    e.mt = (e.mt || 0) + 1; const np = xmNP(), rage = e.hp <= e.maxHp / 2, k = (rage ? 0.7 : 1) * (np <= 1 ? 1.4 : 1), cits = xmCits(), t = cits.length ? cits[Math.floor(Math.random() * cits.length)] : null, P = alivePlayers();
+    if (rage && !e.rg) { e.rg = 1; e.speed *= 1.3; evSay('Krampus', '#ff7043', '¡GRRRAAAH! ¡Arderéis con el carbón!', 3000); }
+    if (t && e.mt % Math.round(380 * k) === 0) { const a = Math.atan2(t.y - e.y, t.x - e.x); for (let i = -1; i <= 1; i++) evBullet(e, a + i * 0.12, 2.6, '#ff9800'); floatingTexts.push({ text: '⛓ ¡CADENAS!', x: e.x, y: e.y - 50, life: 60, color: '#ffb74d' }); }
+    if (e.mt % Math.round(560 * k) === 200) { for (const c of cits.slice(0, rage ? 4 : 2)) xmBlast.push({ x: c.x + (Math.random() - 0.5) * 50, y: c.y + (Math.random() - 0.5) * 50, t: 120, r: 55 }); for (const p of P) xmBlast.push({ x: p.x, y: p.y, t: 120, r: 55 }); floatingTexts.push({ text: '🪨 ¡LLUVIA DE CARBÓN!', x: e.x, y: e.y - 50, life: 70, color: '#ff7043' }); }
+    if (e.mt % Math.round(780 * k) === 400) { const n = 12, o = Math.random() * 6.28; for (let i = 0; i < n; i++) evBullet(e, o + i * 6.283 / n, 2.6, '#ff5252'); floatingTexts.push({ text: '¡LÁTIGO!', x: e.x, y: e.y - 50, life: 60, color: '#ff5252' }); }
+    if (e.mt % Math.round(1200 * k) === 700) { const n = np <= 1 ? 2 : 3; for (let i = 0; i < n; i++) xmSpawnOne('gnomo', e.x + Math.cos(i * 2.1) * 70, e.y + Math.sin(i * 2.1) * 70); floatingTexts.push({ text: '¡AULLIDO! 🧌', x: e.x, y: e.y - 50, life: 70, color: '#aed581' }); }
+    if (e.mt % Math.round(1000 * k) === 300) { // puertazo: golpea la casa con más ciudadanos
+        let bh = null; for (const h of xmHouses) if (!h.broken && h.in.length && (!bh || h.in.length > bh.in.length)) bh = h;
+        if (bh) { xmBlast.push({ x: bh.dx, y: bh.dy, t: 90, r: 60 }); xmHouseHit(bh, 1); floatingTexts.push({ text: '🚪 ¡PUERTAZO!', x: e.x, y: e.y - 50, life: 70, color: '#ffab91' }); }
+    }
+};
+xmCarol = function () {
+    floatingTexts.push({ text: '🎶 ¡VILLANCICO!', x: player.x, y: player.y - 60, life: 100, color: '#fff59d' });
+    for (const r of xmRecips()) r.c.hp = Math.min(5, r.c.hp + 1);
+    for (const e of enemies) if (!e.cit && !e.isAlly && !e.haste && e.sq === undefined) { e.stun = e.isBoss ? 70 : 140; e.frz = 1; }
+};
+// Objetivo de los enemigos de oleada: ciudadanos fuera, jugadores con regalo, y las puertas de las casas (bombas)
+function xmAim(e, tp, pDist) {
+    let bt = null, bd2 = 1500 * 1500;
+    for (const c of enemies) if (c.cit) { const dd = (c.x - e.x) ** 2 + (c.y - e.y) ** 2; if (dd < bd2) { bd2 = dd; bt = c; } }
+    if (e.xm === 'gnomo') { const hd = alivePlayers().find(p => (p.toy >= 0 || p.box >= 0) && Math.hypot(p.x - e.x, p.y - e.y) < 520); if (hd) return hd; }
+    if (e.xm === 'bomba' && !bt) { let bh = null, bd = 1e12; for (const h of xmHouses) { if (h.broken || !h.in.length) continue; const d = (h.dx - e.x) ** 2 + (h.dy - e.y) ** 2; if (d < bd) { bd = d; bh = h; } } if (bh) return { x: bh.dx, y: bh.dy }; }
+    if (tp && pDist < 260) return tp;
+    if (bt) return bt;
+    return tp || { x: xmC.x, y: xmC.y };
+}
+
+/* ---------- jugadores: materiales -> montaje -> empaquetado -> entrega ---------- */
+function xmPlayerStep(p) {
+    if (p.comp === undefined) { p.comp = []; p.toy = -1; p.box = -1; p.xmP = 0; p.xmD = 0; p.xmN = 1; }
+    const np = xmNP();
+    if (xmHold(p) && !(p.carriedItems > 0)) { p.comp = []; p.toy = -1; p.box = -1; floatingTexts.push({ text: '💥 ¡Perdiste lo que llevabas!', x: p.x, y: p.y - 40, life: 80, color: '#ff8a80' }); }
+    let act = false;
+    for (const s of xmSt) {
+        if (Math.hypot(p.x - s.x, p.y - s.y) > 54) continue;
+        const full = p.toy >= 0 || p.box >= 0;
+        if (XM_RES[s.k] !== undefined) {
+            if (full) xmHint(p, 'Primero entrega el juguete');
+            else if (p.comp.length >= 3) xmHint(p, 'Mochila llena (máx. 3)');
+            else { act = true; p.xmN = XM_GATHER; if (++p.xmP >= XM_GATHER) { p.xmP = 0; p.comp.push(XM_RES[s.k]); floatingTexts.push({ text: '+' + XM_COMP[XM_RES[s.k]][1] + ' ' + XM_COMP[XM_RES[s.k]][0], x: p.x, y: p.y - 40, life: 60, color: '#ffe082' }); } }
+        } else if (s.k === 'assy') {
+            if (full) xmHint(p, 'Ya llevas un juguete');
+            else if (p.comp.length >= 2) {
+                const rec = xmRecipe(p.comp);
+                if (rec >= 0) { act = true; p.xmD = 0; p.xmN = XM_ASSY; if (++p.xmP >= XM_ASSY) { p.xmP = 0; for (const x of XM_TOYS[rec].r) p.comp.splice(p.comp.indexOf(x), 1); p.toy = rec; floatingTexts.push({ text: XM_TOYS[rec].e + ' ¡' + XM_TOYS[rec].n + ' montado! Ahora empaquétalo', x: p.x, y: p.y - 40, life: 90, color: '#b39ddb' }); } }
+                else { act = true; p.xmN = 150; xmHint(p, 'Nadie pide lo que puedes montar · aguanta para desechar'); p.xmD++; p.xmP = p.xmD; if (p.xmD >= 150) { p.xmD = 0; p.xmP = 0; p.comp = []; floatingTexts.push({ text: '🗑 Materiales desechados', x: p.x, y: p.y - 40, life: 70, color: '#cfd8dc' }); } }
+            } else xmHint(p, 'Necesitas 2-3 materiales (mira las recetas)');
+        } else if (s.k === 'pack') {
+            if (p.toy >= 0) { act = true; p.xmN = XM_PACK; if (++p.xmP >= XM_PACK) { p.xmP = 0; p.box = p.toy; p.toy = -1; floatingTexts.push({ text: '🎁 ¡Regalo listo! Entrégalo', x: p.x, y: p.y - 40, life: 90, color: '#ef9a9a' }); } }
+            else if (p.box < 0) xmHint(p, 'Trae un juguete montado');
+        }
+        break;
+    }
+    if (!act) { p.xmP = 0; p.xmD = 0; }
+    if (p.box >= 0) {
+        for (const q of xmRecips()) {
+            if (Math.hypot(p.x - q.x, p.y - q.y) > 56) continue; const c = q.c;
+            if (c.req === p.box) {
+                c.hp = Math.min(5, c.hp + 2); c.maxHp = Math.max(c.maxHp, c.hp); c.req = -1; c.reqT = Math.round((1500 + Math.random() * 900) / (0.75 + 0.25 * np));
+                p.box = -1; xmJoy++; score += 300; createExplosion(q.x, q.y, '#69f0ae', 14); floatingTexts.push({ text: '🎁 ¡Gracias! (' + xmJoy + '/' + xmNeed() + ')', x: q.x, y: q.y - 40, life: 80, color: '#69f0ae' });
+                if (xmJoy % 3 === 0) xmCarol(); updateUI(); break;
+            } else if (c.req >= 0) xmHint(p, '🙅 Ese quiere ' + XM_TOYS[c.req].e + ' ' + XM_TOYS[c.req].n);
+        }
+    }
+    p.carriedItems = xmHold(p) ? 1 : 0;
+}
+
+xmTick = function () {
+    if (objDone) return; xmT++;
+    const np = xmNP();
+    if (frameCount % 15 === 0) updateUI();
+    const outside = xmCits(), inside = xmHouses.flatMap(h => h.in);
+    for (const c of outside.concat(inside)) { if (c.req === undefined) { c.req = -1; c.reqT = 300; } if (c.req < 0 && --c.reqT <= 0) c.req = xmPickReq(); }
+    for (const c of outside) c.bm = xmShelter ? 2.3 : 1;
+    if (!xmShelter) for (const c of outside) if (!c.wp || frameCount > c.wpT) { c.wp = freeAround(xmC.x, xmC.y, 60, 520, 24) || { x: c.x, y: c.y }; c.wpT = frameCount + 240 + Math.random() * 240; }
+    if (xmShelter) { for (const c of outside) { const h = xmHomeFor(c); if (h && Math.hypot(c.x - h.dx, c.y - h.dy) < 46) xmHide(c, h); } }
+    else if (frameCount % 20 === 0) for (const h of xmHouses) if (h.in.length) xmRelease(h);
+    for (const p of [player, ...remotes]) if (!p.dead) xmPlayerStep(p);
+    // fases: calma -> aviso -> oleada -> respiro -> calma ... y Krampus cuando hay suficientes regalos
+    if (!xmBoss) {
+        if (xmPh === 'calm') {
+            if ((xmJoy >= xmNeed() && xmWave >= 2) || xmT > 39600) { xmBoss = true; xmPh = 'boss'; xmShelter = true; xmSpawnKrampus(); }
+            else if (--xmPhT <= 0) {
+                xmPh = 'warn'; xmPhT = 420; xmShelter = true; xmWave++;
+                floatingTexts.push({ text: '🚨 ¡OLEADA ' + xmWave + '! ¡A LAS CASAS!', x: player.x, y: player.y - 80, life: 150, color: '#ff5252' });
+                if (xmWave <= 2) evSay('Pipa', '#ff8a80', '¡Alarma! Los ciudadanos corren a sus casas 🏠. Las flechas te indican dónde está cada una.', 4000);
+            }
+        } else if (xmPh === 'warn') { if (--xmPhT <= 0) { xmPh = 'wave'; xmWT = 0; xmSpawnWave(xmWave); } }
+        else if (xmPh === 'wave') {
+            xmWT++;
+            if (xmWT > 5400) { enemies = enemies.filter(e => !(e.xm && !e.krampus)); pendingSpawns = pendingSpawns.filter(p => !(p.enemy && p.enemy.xm && !p.enemy.krampus)); floatingTexts.push({ text: '¡Los atacantes huyen!', x: player.x, y: player.y - 60, life: 90, color: '#b3e5fc' }); }
+            if (xmLeftNow() === 0) { xmPh = 'rest'; xmPhT = 300; floatingTexts.push({ text: '✅ ¡Oleada superada!', x: player.x, y: player.y - 60, life: 100, color: '#69f0ae' }); }
+        } else if (xmPh === 'rest') {
+            if (--xmPhT <= 0) { xmPh = 'calm'; xmShelter = false; xmPhT = np <= 1 ? 3600 : 3000; for (const h of xmHouses) if (!h.broken) h.hp = Math.min(h.maxHp, h.hp + 2); }
+        }
+    } else if (!bossAliveNow() && !pendingSpawns.some(q => q.enemy && q.enemy.krampus)) { objectiveDone(); return; }
+    if (xmT === 600) evSay('Pipa', '#ff8a80', 'Recoge materiales en las 4 fábricas, mézclalos en Montaje 🛠️, empaqueta 🎁 y entrega el juguete exacto.', 4500);
+    // atacantes: los gnomos roban juguetes, las bombas explotan sobre ciudadanos
+    const P = alivePlayers();
+    for (const e of enemies.slice()) {
+        if (!e.xm) continue;
+        if (e.xm === 'bomba') for (const c of xmCits()) if (Math.hypot(e.x - c.x, e.y - c.y) < 34) { createExplosion(e.x, e.y, '#90caf9', 24); c.hp -= 2; if (c.hp <= 0) killEnemy(c.id); e.noScore = true; killEnemy(e.id); break; }
+        if (e.xm === 'gnomo') for (const q of P) if ((q.toy >= 0 || q.box >= 0) && Math.hypot(e.x - q.x, e.y - q.y) < 30) { q.toy = -1; q.box = -1; q.carriedItems = xmHold(q) ? 1 : 0; floatingTexts.push({ text: '🧌 ¡Un gnomo robó el juguete!', x: q.x, y: q.y - 40, life: 90, color: '#aed581' }); e.noScore = true; killEnemy(e.id); break; }
+    }
+    for (const bl of xmBlast.slice()) {
+        if (--bl.t > 0) continue; xmBlast.splice(xmBlast.indexOf(bl), 1); createExplosion(bl.x, bl.y, '#ff7043', 26);
+        for (const c of xmCits()) if (Math.hypot(c.x - bl.x, c.y - bl.y) < bl.r + c.radius) { c.hp -= 2; if (c.hp <= 0) killEnemy(c.id); }
+        for (const q of alivePlayers()) if (Math.hypot(q.x - bl.x, q.y - bl.y) < bl.r + q.radius) playerDamage(q);
+    }
+    xmInv = {}; for (const q of [player, ...remotes]) xmInv[q.slot || 0] = { comp: (q.comp || []).slice(), toy: q.toy >= 0 ? q.toy : -1, box: q.box >= 0 ? q.box : -1, p: q.xmP || 0, n: q.xmN || 1 };
+    if (particles.length > 110) particles.splice(0, particles.length - 110);
+    if (tracks.length > 140) tracks.splice(0, tracks.length - 140);
+    if (xmAlive() <= 2) endGame('¡Demasiados ciudadanos perdidos!');
+};
+
+/* ---------- dibujo: fábricas, pads, casas, HUD ---------- */
+function drawXmPads() {
+    const t = frameCount;
+    for (const s of xmSt) {
+        if (!inView(s.x, s.y, 90)) continue; const d = XM_STN[s.k];
+        ctx.save(); ctx.fillStyle = d[2] + '33'; ctx.strokeStyle = d[2]; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.lineDashOffset = -t * 0.3;
+        ctx.beginPath(); ctx.arc(s.x, s.y, 46, 0, 6.283); ctx.fill(); ctx.stroke(); ctx.setLineDash([]);
+        ctx.font = '28px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#000'; ctx.fillText(d[1], s.x, s.y - 2);
+        ctx.font = 'bold 12px sans-serif'; ctx.fillStyle = '#37474f'; ctx.fillText(d[0].toUpperCase(), s.x, s.y + 60); ctx.restore();
+    }
+}
+function drawXmStation(c, s) {
+    const x = s.bx, y = s.by, t = frameCount;
+    c.save();
+    const gear = (gx, gy, R, rot, col) => { c.save(); c.translate(gx, gy); c.rotate(rot); c.fillStyle = col; c.strokeStyle = '#263238'; c.lineWidth = 2; c.beginPath(); for (let i = 0; i < 24; i++) { const a = i * Math.PI / 12, rr = (i % 2) ? R - 4 : R; c.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } c.closePath(); c.fill(); c.stroke(); c.fillStyle = '#37474f'; c.beginPath(); c.arc(0, 0, R / 4, 0, 6.283); c.fill(); c.restore(); };
+    const smoke = (sx, sy) => { for (let k = 0; k < 3; k++) { const ph = (t * 0.02 + k / 3) % 1; c.globalAlpha = (1 - ph) * 0.5; c.fillStyle = '#eceff1'; c.beginPath(); c.arc(sx + Math.sin(ph * 7) * 4, sy - ph * 28, 4 + ph * 6, 0, 6.283); c.fill(); } c.globalAlpha = 1; };
+    switch (s.k) {
+        case 'wood':
+            c.fillStyle = '#6d4c41'; c.fillRect(x, y, 80, 80); c.strokeStyle = '#4e342e'; c.lineWidth = 2; for (let i = 1; i < 6; i++) { c.beginPath(); c.moveTo(x, y + i * 13); c.lineTo(x + 80, y + i * 13); c.stroke(); }
+            for (const q of [[16, 62], [34, 62], [25, 48]]) { c.fillStyle = '#a1887f'; c.beginPath(); c.arc(x + q[0], y + q[1], 9, 0, 6.283); c.fill(); c.stroke(); c.fillStyle = '#d7ccc8'; c.beginPath(); c.arc(x + q[0], y + q[1], 4, 0, 6.283); c.fill(); }
+            c.save(); c.translate(x + 58, y + 38); c.rotate(t * 0.25); c.fillStyle = '#cfd8dc'; c.strokeStyle = '#37474f'; c.lineWidth = 1.5; c.beginPath(); for (let i = 0; i < 24; i++) { const a = i * Math.PI / 12, rr = (i % 2) ? 14 : 19; c.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } c.closePath(); c.fill(); c.stroke(); c.fillStyle = '#546e7a'; c.beginPath(); c.arc(0, 0, 4, 0, 6.283); c.fill(); c.restore(); break;
+        case 'gear':
+            c.fillStyle = '#546e7a'; c.fillRect(x, y, 80, 80); c.fillStyle = '#455a64'; c.fillRect(x, y, 80, 10);
+            gear(x + 24, y + 44, 20, t * 0.04, '#b0bec5'); gear(x + 54, y + 30, 14, -t * 0.056, '#ffb300'); gear(x + 58, y + 60, 12, t * 0.065, '#90a4ae');
+            c.fillStyle = '#37474f'; c.fillRect(x + 62, y - 14, 12, 22); smoke(x + 68, y - 14); break;
+        case 'loom':
+            for (let i = 0; i < 8; i++) { c.fillStyle = i % 2 ? '#f8bbd0' : '#ec407a'; c.fillRect(x + i * 10, y, 10, 80); }
+            c.fillStyle = '#fff'; for (let i = 0; i < 8; i++) { c.beginPath(); c.arc(x + i * 10 + 5, y + 72, 5, 0, Math.PI); c.fill(); }
+            for (const q of [[20, 28, '#42a5f5'], [50, 20, '#ffd54f'], [60, 48, '#66bb6a']]) { c.fillStyle = q[2]; c.strokeStyle = '#37474f'; c.lineWidth = 2; c.beginPath(); c.arc(x + q[0], y + q[1], 9, 0, 6.283); c.fill(); c.stroke(); c.strokeStyle = '#fff'; c.beginPath(); c.moveTo(x + q[0], y + q[1]); c.lineTo(x + q[0] + Math.cos(t * 0.1) * 8, y + q[1] + Math.sin(t * 0.1) * 8); c.stroke(); } break;
+        case 'paint':
+            c.fillStyle = '#eceff1'; c.fillRect(x, y, 80, 80);
+            c.globalAlpha = 0.85; for (const q of [[14, 14, 9, '#e53935'], [50, 10, 7, '#fdd835'], [66, 30, 10, '#43a047'], [22, 38, 8, '#1e88e5'], [44, 46, 9, '#8e24aa']]) { c.fillStyle = q[3]; c.beginPath(); c.arc(x + q[0], y + q[1], q[2], 0, 6.283); c.fill(); } c.globalAlpha = 1;
+            for (const q of [[16, 66, '#e53935'], [40, 68, '#1e88e5'], [64, 64, '#fdd835']]) { c.fillStyle = '#78909c'; c.beginPath(); c.arc(x + q[0], y + q[1], 10, 0, 6.283); c.fill(); c.fillStyle = q[2]; c.beginPath(); c.arc(x + q[0], y + q[1], 7, 0, 6.283); c.fill(); }
+            c.save(); c.translate(x + 58, y + 24); c.rotate(-0.7 + Math.sin(t * 0.05) * 0.25); c.fillStyle = '#8d6e63'; c.fillRect(-3, -26, 6, 26); c.fillStyle = '#e53935'; c.fillRect(-6, 0, 12, 12); c.restore(); break;
+        case 'assy': {
+            c.fillStyle = '#283593'; c.fillRect(x, y, 80, 80); c.fillStyle = '#212121'; c.fillRect(x + 4, y + 44, 72, 16);
+            c.fillStyle = '#ffca28'; for (let i = 0; i < 6; i++) c.fillRect(x + 4 + ((i * 14 + t * 0.8) % 66), y + 50, 6, 4);
+            const a = 0.6 + Math.sin(t * 0.05) * 0.5, ex = x + 20 + Math.cos(a) * 22, ey = y + 14 + Math.sin(a) * 22, hx = ex + Math.cos(a + 0.9) * 16, hy = ey + Math.sin(a + 0.9) * 16;
+            c.strokeStyle = '#ffd54f'; c.lineWidth = 6; c.lineCap = 'round'; c.beginPath(); c.moveTo(x + 20, y + 14); c.lineTo(ex, ey); c.lineTo(hx, hy); c.stroke(); c.lineCap = 'butt';
+            c.fillStyle = '#ffca28'; c.beginPath(); c.arc(x + 20, y + 14, 7, 0, 6.283); c.fill(); c.fillStyle = '#e53935'; c.beginPath(); c.arc(hx, hy, 4, 0, 6.283); c.fill();
+            for (let i = 0; i < 3; i++) { c.fillStyle = ((t >> 4) + i) % 3 === 0 ? '#ff5252' : '#69f0ae'; c.beginPath(); c.arc(x + 52 + i * 10, y + 10, 3, 0, 6.283); c.fill(); } break; }
+        case 'pack':
+            c.fillStyle = '#e53935'; c.fillRect(x, y, 80, 80); c.fillStyle = '#ffd54f'; c.fillRect(x + 34, y, 12, 80); c.fillRect(x, y + 34, 80, 12);
+            c.fillStyle = '#ffca28'; c.strokeStyle = '#f57f17'; c.lineWidth = 2; for (const sg of [-1, 1]) { c.beginPath(); c.ellipse(x + 40 + sg * 11, y + 36, 12, 7, sg * 0.5, 0, 6.283); c.fill(); c.stroke(); } c.beginPath(); c.arc(x + 40, y + 40, 6, 0, 6.283); c.fill(); c.stroke();
+            if ((t >> 4) % 2) { c.fillStyle = '#fff'; c.fillRect(x + 66, y + 8, 3, 12); c.fillRect(x + 61, y + 13, 13, 3); } break;
+    }
+    c.strokeStyle = '#263238'; c.lineWidth = 2; c.strokeRect(x, y, 80, 80);
+    c.restore();
+}
+function drawXmHouse(c, h) {
+    const x = h.x, y = h.y, W = 120, H = 80, t = frameCount, lit = h.in.length > 0;
+    c.save(); c.fillStyle = '#eef3f5'; c.fillRect(x, y, W, H);
+    const door = col => { c.fillStyle = col; c.beginPath(); c.roundRect(x + W / 2 - 10, y + H - 28, 20, 28, [8, 8, 0, 0]); c.fill(); c.strokeStyle = '#212121'; c.lineWidth = 2; c.stroke(); c.fillStyle = '#ffd54f'; c.beginPath(); c.arc(x + W / 2 + 5, y + H - 12, 2, 0, 6.283); c.fill(); };
+    const win = (wx, wy) => { c.fillStyle = lit ? '#ffe082' : '#78909c'; c.fillRect(wx, wy, 15, 13); c.strokeStyle = '#37474f'; c.lineWidth = 2; c.strokeRect(wx, wy, 15, 13); c.beginPath(); c.moveTo(wx + 7.5, wy); c.lineTo(wx + 7.5, wy + 13); c.moveTo(wx, wy + 6.5); c.lineTo(wx + 15, wy + 6.5); c.stroke(); };
+    const snow = (sx, sy, sw) => { c.fillStyle = '#fff'; c.beginPath(); c.roundRect(sx, sy, sw, 7, 3); c.fill(); };
+    switch (h.m) {
+        case 0: // cabaña de troncos con chimenea humeante
+            c.fillStyle = '#8d6e63'; c.fillRect(x, y + 46, W, 34); c.strokeStyle = '#5d4037'; c.lineWidth = 2; for (let i = 0; i < 3; i++) { c.beginPath(); c.moveTo(x, y + 56 + i * 9); c.lineTo(x + W, y + 56 + i * 9); c.stroke(); }
+            c.fillStyle = '#b71c1c'; c.fillRect(x, y, W, 48); c.strokeStyle = '#7f0000'; for (let i = 1; i < 5; i++) { c.beginPath(); c.moveTo(x, y + i * 10); c.lineTo(x + W, y + i * 10); c.stroke(); }
+            snow(x + 2, y, W - 4); c.fillStyle = '#78909c'; c.fillRect(x + 88, y - 10, 14, 22); c.strokeStyle = '#37474f'; c.strokeRect(x + 88, y - 10, 14, 22);
+            for (let k = 0; k < 3; k++) { const ph = (t * 0.02 + k / 3) % 1; c.globalAlpha = (1 - ph) * 0.5; c.fillStyle = '#eceff1'; c.beginPath(); c.arc(x + 95 + Math.sin(ph * 7) * 4, y - 14 - ph * 26, 4 + ph * 6, 0, 6.283); c.fill(); } c.globalAlpha = 1;
+            win(x + 14, y + 55); win(x + W - 29, y + 55); door('#4e342e'); break;
+        case 1: // casa de jengibre con glaseado y bastones de caramelo
+            c.fillStyle = '#a1622f'; c.fillRect(x, y + 46, W, 34); c.fillStyle = '#7b4a1e'; c.fillRect(x, y, W, 48);
+            c.strokeStyle = '#fff'; c.lineWidth = 3; c.beginPath(); c.moveTo(x, y + 47); for (let i = 0; i <= 12; i++) c.lineTo(x + i * 10, y + 47 + (i % 2 ? 5 : 0)); c.stroke(); c.beginPath(); c.moveTo(x + 4, y + 8); c.lineTo(x + W - 4, y + 8); c.stroke();
+            for (const q of [[16, 22, '#e53935'], [40, 28, '#43a047'], [64, 20, '#fdd835'], [88, 28, '#e91e63'], [106, 18, '#29b6f6']]) { c.fillStyle = q[2]; c.beginPath(); c.arc(x + q[0], y + q[1], 5, 0, 6.283); c.fill(); c.fillStyle = 'rgba(255,255,255,.6)'; c.beginPath(); c.arc(x + q[0] - 1.5, y + q[1] - 1.5, 1.7, 0, 6.283); c.fill(); }
+            for (const px of [x + 3, x + W - 8]) for (let i = 0; i < 8; i++) { c.fillStyle = i % 2 ? '#fff' : '#e53935'; c.fillRect(px, y + 46 + i * 4, 5, 4); }
+            win(x + 22, y + 56); win(x + W - 37, y + 56); door('#5d3a1a'); c.strokeStyle = '#fff'; c.lineWidth = 2.5; c.beginPath(); c.arc(x + W / 2, y + H - 26, 12, Math.PI, 0); c.stroke(); break;
+        case 2: // iglú de bloques de hielo
+            c.beginPath(); c.moveTo(x + 4, y + H - 2); c.lineTo(x + 4, y + 44); c.ellipse(x + W / 2, y + 44, 56, 42, 0, Math.PI, 0); c.lineTo(x + W - 4, y + H - 2); c.closePath(); c.fillStyle = '#e3f2fd'; c.fill(); c.strokeStyle = '#90caf9'; c.lineWidth = 2; c.stroke();
+            c.lineWidth = 1.5; for (let k = 1; k < 4; k++) { c.beginPath(); c.ellipse(x + W / 2, y + 44, 56 * k / 4, 42 * k / 4, 0, Math.PI, 0); c.stroke(); } for (let k = 0; k < 7; k++) { const a = Math.PI + k * Math.PI / 6; c.beginPath(); c.moveTo(x + W / 2, y + 44); c.lineTo(x + W / 2 + Math.cos(a) * 56, y + 44 + Math.sin(a) * 42); c.stroke(); }
+            c.fillStyle = '#b3e5fc'; c.beginPath(); c.roundRect(x + W / 2 - 20, y + H - 30, 40, 30, [16, 16, 0, 0]); c.fill(); c.stroke(); c.fillStyle = lit ? '#ffcc80' : '#37474f'; c.beginPath(); c.roundRect(x + W / 2 - 11, y + H - 24, 22, 24, [10, 10, 0, 0]); c.fill(); break;
+        case 3: // chalet nevado con carámbanos
+            c.fillStyle = '#a1887f'; c.fillRect(x, y + 44, W, 36); c.strokeStyle = '#4e342e'; c.lineWidth = 2; for (let i = 0; i < 5; i++) { c.beginPath(); c.moveTo(x + 6 + i * 26, y + 48); c.lineTo(x + 6 + i * 26, y + H); c.stroke(); }
+            c.fillStyle = '#1565c0'; c.fillRect(x, y, W, 46); c.strokeStyle = '#0d47a1'; for (let i = 1; i < 10; i++) { c.beginPath(); c.moveTo(x + i * 12, y); c.lineTo(x + i * 12, y + 46); c.stroke(); }
+            c.fillStyle = '#fff'; c.beginPath(); c.moveTo(x, y); c.lineTo(x + W, y); for (let i = 12; i >= 0; i--) c.lineTo(x + i * 10, y + 14 + (i % 2 ? 5 : 0)); c.closePath(); c.fill();
+            for (let i = 0; i < 9; i++) { c.beginPath(); c.moveTo(x + 8 + i * 13, y + 46); c.lineTo(x + 13 + i * 13, y + 46); c.lineTo(x + 10.5 + i * 13, y + 54); c.closePath(); c.fill(); }
+            win(x + 18, y + 56); win(x + W - 33, y + 56); door('#3e2723'); break;
+        case 4: // casita de paja con farol
+            c.fillStyle = '#fff3e0'; c.fillRect(x, y + 50, W, 30); c.strokeStyle = '#6d4c41'; c.lineWidth = 3; c.beginPath(); c.moveTo(x + 8, y + 50); c.lineTo(x + 8, y + H); c.moveTo(x + W - 8, y + 50); c.lineTo(x + W - 8, y + H); c.stroke();
+            c.fillStyle = '#f9a825'; c.fillRect(x, y, W, 50); c.strokeStyle = '#c58a00'; c.lineWidth = 2; for (let i = 0; i < 13; i++) { c.beginPath(); c.moveTo(x + i * 10, y); c.lineTo(x + i * 10 - 6, y + 50); c.stroke(); }
+            c.fillStyle = '#f9a825'; for (let i = 0; i < 12; i++) { c.beginPath(); c.moveTo(x + i * 10, y + 50); c.lineTo(x + i * 10 + 5, y + 58); c.lineTo(x + i * 10 + 10, y + 50); c.closePath(); c.fill(); }
+            c.fillStyle = lit ? '#ffe082' : '#78909c'; c.beginPath(); c.arc(x + 28, y + 66, 7, 0, 6.283); c.fill(); c.strokeStyle = '#6d4c41'; c.stroke();
+            c.fillStyle = 'rgba(255,235,59,' + (0.25 + 0.15 * Math.sin(t * 0.1)) + ')'; c.beginPath(); c.arc(x + W / 2 + 24, y + H - 20, 11, 0, 6.283); c.fill(); c.fillStyle = '#ffeb3b'; c.beginPath(); c.arc(x + W / 2 + 24, y + H - 20, 4, 0, 6.283); c.fill();
+            door('#6d4c41'); break;
+        case 5: // casa abeto con luces y estrella
+            c.fillStyle = '#6d4c41'; c.fillRect(x, y + 52, W, 28);
+            for (const q of [[56, 2, 36, 58, '#2e7d32'], [44, 16, 46, 58 - 8, '#388e3c'], [30, 30, 56, 58 - 20, '#43a047']]) { c.fillStyle = q[4]; c.strokeStyle = '#1b5e20'; c.lineWidth = 2; c.beginPath(); c.moveTo(x + W / 2, y + q[1]); c.lineTo(x + W / 2 + q[0] + 0, y + q[1] + q[2] - 4); c.lineTo(x + W / 2 - q[0], y + q[1] + q[2] - 4); c.closePath(); c.fill(); c.stroke(); }
+            for (let k = 0; k < 9; k++) { const ang = k * 0.9, rx = x + W / 2 + Math.sin(ang * 3) * (10 + k * 4.5), ry = y + 14 + k * 4.2; c.fillStyle = (((t >> 4) + k) % 3 === 0) ? '#fff59d' : ['#e53935', '#ffd54f', '#42a5f5'][k % 3]; c.beginPath(); c.arc(rx, ry, 3, 0, 6.283); c.fill(); }
+            c.fillStyle = '#ffd600'; c.strokeStyle = '#f57f17'; c.lineWidth = 1.5; c.beginPath(); for (let i = 0; i < 10; i++) { const rr = i % 2 ? 3.5 : 8, an = -Math.PI / 2 + i * Math.PI / 5; c.lineTo(x + W / 2 + Math.cos(an) * rr, y + 1 + Math.sin(an) * rr); } c.closePath(); c.fill(); c.stroke();
+            win(x + 14, y + 57); win(x + W - 29, y + 57); door('#4e342e'); break;
+    }
+    if (h.broken) { c.fillStyle = 'rgba(30,20,20,.55)'; c.fillRect(x, y, W, H); c.strokeStyle = '#111'; c.lineWidth = 3; c.beginPath(); c.moveTo(x + 20, y); c.lineTo(x + 40, y + 30); c.lineTo(x + 30, y + 55); c.moveTo(x + 90, y + 5); c.lineTo(x + 70, y + 40); c.lineTo(x + 84, y + 70); c.stroke(); }
+    else if (h.hp < h.maxHp) { c.fillStyle = '#263238'; c.fillRect(x + 20, y - 8, 80, 6); c.fillStyle = '#ffb300'; c.fillRect(x + 20, y - 8, 80 * h.hp / h.maxHp, 6); }
+    c.strokeStyle = '#37474f'; c.lineWidth = 2; c.strokeRect(x, y, W, H); c.restore();
+}
+function drawXmBuildings() {
+    for (const s of xmSt) if (inView(s.bx + 40, s.by + 40, 140)) drawXmStation(ctx, s);
+    for (const h of xmHouses) if (inView(h.x + 60, h.y + 40, 160)) drawXmHouse(ctx, h);
+}
+// Modelos de los enemigos del evento: gnomo, cascanueces, muñeco bomba, ciudadano y Krampus
+function drawXmTank(x, y, bc, tc, ba, ta, type, isBoss, hp, maxHp, c) {
+    const kr = type === 'xm_krampus', R = kr ? 24 : 14, tw = kr ? 60 : 32, th = kr ? 14 : 8, off = kr ? 24 : 16, t = frameCount;
+    c.save(); c.translate(x, y);
+    c.save(); c.rotate(ba);
+    c.fillStyle = '#444'; c.fillRect(-tw / 2, -off - th / 2, tw, th); c.fillRect(-tw / 2, off - th / 2, tw, th);
+    c.fillStyle = bc; c.strokeStyle = '#222'; c.lineWidth = 2; c.beginPath(); c.roundRect(-R, -R, R * 2, R * 2, 4); c.fill(); c.stroke();
+    if (type === 'xm_gnome') {
+        c.fillStyle = '#4e342e'; c.fillRect(-2, -R, 5, R * 2); c.fillStyle = '#ffd54f'; c.fillRect(-3, -3, 7, 6); c.strokeRect(-3, -3, 7, 6);
+        c.fillStyle = '#3e2723'; c.fillRect(R - 4, -R - 1, 8, 5); c.fillRect(R - 4, R - 4, 8, 5);
+        c.fillStyle = '#fafafa'; c.beginPath(); c.moveTo(R, -9); c.lineTo(R + 10, 0); c.lineTo(R, 9); c.closePath(); c.fill(); c.stroke();
+    } else if (type === 'xm_nut') {
+        c.strokeStyle = '#ffd600'; c.lineWidth = 2; c.strokeRect(-R + 3, -R + 3, R * 2 - 6, R * 2 - 6);
+        c.fillStyle = '#ffd600'; for (const o of [-6, 0, 6]) { c.beginPath(); c.arc(o, 0, 1.9, 0, 6.283); c.fill(); }
+        c.strokeStyle = '#222'; c.lineWidth = 1.2; c.fillRect(-4, -R - 2, 9, 4); c.strokeRect(-4, -R - 2, 9, 4); c.fillRect(-4, R - 2, 9, 4); c.strokeRect(-4, R - 2, 9, 4);
+    } else if (type === 'xm_bomb') {
+        c.strokeStyle = '#1e88e5'; c.lineWidth = 6; c.beginPath(); c.moveTo(R - 5, -R); c.lineTo(R - 5, R); c.stroke();
+        c.strokeStyle = '#e53935'; c.lineWidth = 2; for (let i = 0; i < 4; i++) { c.beginPath(); c.moveTo(R - 8, -R + 4 + i * 7); c.lineTo(R - 2, -R + 4 + i * 7); c.stroke(); }
+        c.fillStyle = '#1e88e5'; c.fillRect(R - 9, R - 2, 5, 10); c.fillStyle = '#212121'; for (const q of [[-8, -4], [-8, 4], [-3, 0]]) { c.beginPath(); c.arc(q[0], q[1], 2, 0, 6.283); c.fill(); }
+    } else if (type === 'xm_cit') {
+        c.save(); c.beginPath(); c.roundRect(-R, -R, R * 2, R * 2, 4); c.clip(); c.strokeStyle = '#e53935'; c.lineWidth = 4; c.beginPath(); for (let i = -2; i <= 2; i++) { c.moveTo(-R + i * 7, -R); c.lineTo(-R + i * 7 + R * 2, R); } c.stroke(); c.restore();
+        c.fillStyle = '#ffd54f'; c.strokeStyle = '#f57f17'; c.lineWidth = 1.5; for (const sg of [-1, 1]) { c.beginPath(); c.ellipse(R - 3, sg * 5, 4, 2.6, sg * 0.5, 0, 6.283); c.fill(); c.stroke(); }
+    } else if (kr) {
+        c.fillStyle = '#3e2723'; for (const s of [-1, 1]) for (let i = -3; i <= 3; i++) { c.beginPath(); c.moveTo(i * 7 - 3, s * R); c.lineTo(i * 7, s * (R + 6)); c.lineTo(i * 7 + 3, s * R); c.closePath(); c.fill(); }
+        c.strokeStyle = '#b0bec5'; c.lineWidth = 3; c.beginPath(); c.moveTo(-R, -R); c.lineTo(R, R); c.moveTo(-R, R); c.lineTo(R, -R); c.stroke(); c.fillStyle = '#cfd8dc'; for (const q of [[-12, -12], [12, 12], [-12, 12], [12, -12], [0, 0]]) { c.beginPath(); c.arc(q[0], q[1], 3.2, 0, 6.283); c.fill(); c.strokeStyle = '#455a64'; c.lineWidth = 1; c.stroke(); }
+        c.fillStyle = '#6d4c41'; c.strokeStyle = '#222'; c.lineWidth = 2; c.beginPath(); c.ellipse(-R - 5, 0, 10, 14, 0, 0, 6.283); c.fill(); c.stroke(); c.fillStyle = '#e53935'; c.fillRect(-R - 8, -14, 3, 28);
+        c.fillStyle = '#212121'; for (const q of [[-R - 3, -5], [-R + 1, 4], [-R - 6, 6]]) { c.beginPath(); c.arc(q[0], q[1], 2.4, 0, 6.283); c.fill(); }
+    }
+    c.restore();
+    c.save(); c.rotate(ta);
+    const cL = kr ? 35 : 22, cW = kr ? 10 : 6;
+    if (type === 'xm_bomb') {
+        c.strokeStyle = '#6d4c41'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(-9, 0); c.quadraticCurveTo(-15, -7, -20, -3); c.stroke();
+        const fl = Math.floor(t / 3) % 3; c.fillStyle = fl === 0 ? '#ffeb3b' : (fl === 1 ? '#ff9800' : '#fff176'); c.beginPath(); c.arc(-20.5, -3, fl === 1 ? 4 : 3, 0, 6.283); c.fill();
+        c.fillStyle = '#fafafa'; c.strokeStyle = '#90a4ae'; c.lineWidth = 2; c.beginPath(); c.arc(0, 0, 11, 0, 6.283); c.fill(); c.stroke();
+        c.fillStyle = '#212121'; c.beginPath(); c.arc(3, -4, 1.9, 0, 6.283); c.fill(); c.beginPath(); c.arc(3, 4, 1.9, 0, 6.283); c.fill();
+        c.fillStyle = '#ff6f00'; c.beginPath(); c.moveTo(7, -2.4); c.lineTo(18, 0); c.lineTo(7, 2.4); c.closePath(); c.fill();
+    } else {
+        c.fillStyle = '#666'; c.strokeStyle = '#222'; c.lineWidth = 2; c.fillRect(0, -cW / 2, cL, cW); c.strokeRect(0, -cW / 2, cL, cW);
+        c.fillStyle = tc; c.beginPath(); c.arc(0, 0, kr ? 16 : 10, 0, 6.283); c.fill(); c.stroke();
+        if (type === 'xm_gnome') { c.fillStyle = '#c62828'; c.beginPath(); c.arc(0, 0, 9, 0, 6.283); c.fill(); c.stroke(); c.strokeStyle = '#fff'; c.lineWidth = 2; c.beginPath(); c.arc(0, 0, 9, -1.2, 1.2); c.stroke(); c.fillStyle = '#fff'; c.beginPath(); c.arc(-6, 0, 3.6, 0, 6.283); c.fill(); }
+        else if (type === 'xm_nut') { c.fillStyle = '#fff'; for (let i = 0; i < 4; i++) { c.fillRect(11 + i * 3.4, -4.2, 2.3, 2.3); c.fillRect(11 + i * 3.4, 1.9, 2.3, 2.3); } c.fillStyle = '#212121'; c.beginPath(); c.arc(0, 0, 9.5, 0, 6.283); c.fill(); c.strokeStyle = '#ffd600'; c.lineWidth = 2.4; c.beginPath(); c.arc(0, 0, 8, 0, 6.283); c.stroke(); c.fillStyle = '#fafafa'; c.beginPath(); c.ellipse(-3, 0, 2.6, 6, 0, 0, 6.283); c.fill(); }
+        else if (type === 'xm_cit') { c.fillStyle = '#d32f2f'; c.beginPath(); c.arc(0, 0, 9.5, 0, 6.283); c.fill(); c.stroke(); c.strokeStyle = '#fff'; c.lineWidth = 3.4; c.beginPath(); c.arc(0, 0, 9, -1.6, 1.6); c.stroke(); c.fillStyle = '#fff'; c.beginPath(); c.arc(-7, 0, 3.6, 0, 6.283); c.fill(); c.fillStyle = '#ffd54f'; c.beginPath(); c.arc(-7, 0, 1.4, 0, 6.283); c.fill(); }
+        else if (kr) {
+            c.strokeStyle = '#efebe9'; c.lineWidth = 5; c.lineCap = 'round'; for (const s of [-1, 1]) { c.beginPath(); c.moveTo(2, s * 12); c.quadraticCurveTo(-8, s * 26, 10, s * 31); c.stroke(); } c.lineCap = 'butt';
+            c.fillStyle = 'rgba(255,23,68,' + (0.7 + 0.3 * Math.sin(t * 0.2)) + ')'; for (const s of [-1, 1]) { c.beginPath(); c.arc(9, s * 6, 3, 0, 6.283); c.fill(); }
+            c.fillStyle = '#fff'; for (const s of [-1, 1]) { c.beginPath(); c.moveTo(14, s * 4); c.lineTo(17, s * 6.4); c.lineTo(13, s * 7.5); c.closePath(); c.fill(); }
+            c.fillStyle = '#ff3d00'; c.fillRect(cL - 3, -cW / 2 + 1, 3, cW - 2);
+        }
+    }
+    c.restore();
+    if (maxHp > 1) { const bw = kr ? 60 : 30, by = kr ? -45 : -30; c.fillStyle = '#f00'; c.fillRect(-bw / 2, by, bw, 6); c.fillStyle = type === 'xm_cit' ? '#03a9f4' : '#0f0'; c.fillRect(-bw / 2, by, bw * Math.max(0, hp / maxHp), 6); c.strokeStyle = '#000'; c.lineWidth = 1; c.strokeRect(-bw / 2, by, bw, 6); }
+    c.restore();
+}
+drawXmFx = function () {
+    ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const bub = (x, y, e) => { ctx.fillStyle = 'rgba(255,255,255,.93)'; ctx.strokeStyle = '#37474f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 13, 0, 6.283); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x - 4, y + 11); ctx.lineTo(x, y + 19); ctx.lineTo(x + 4, y + 11); ctx.fill(); ctx.font = '16px sans-serif'; ctx.fillStyle = '#000'; ctx.fillText(e, x, y + 1); };
+    for (const q of [player, ...othersList()]) {
+        if (q.dead) continue; const inv = xmInv[q.slot || 0]; if (!inv) continue; const rr = q.radius || 18;
+        const items = inv.comp.map(i => XM_COMP[i][1]).concat(inv.toy >= 0 ? [XM_TOYS[inv.toy].e] : []).concat(inv.box >= 0 ? ['🎁' + XM_TOYS[inv.box].e] : []);
+        if (items.length) { ctx.font = '16px sans-serif'; const txt = items.join(' '), w = ctx.measureText(txt).width + 14; ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.roundRect(q.x - w / 2, q.y - rr - 44, w, 22, 8); ctx.fill(); ctx.fillStyle = '#000'; ctx.fillText(txt, q.x, q.y - rr - 33); }
+        if (inv.p > 0) { ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(q.x, q.y, 28, -Math.PI / 2, -Math.PI / 2 + 6.283 * Math.min(1, inv.p / inv.n)); ctx.stroke(); }
+    }
+    for (const c of enemies) if (c.cit && c.req >= 0 && XM_TOYS[c.req] && inView(c.x, c.y, 60)) bub(c.x, c.y - c.radius - 30, XM_TOYS[c.req].e);
+    for (const h of xmHouses) {
+        if (!inView(h.x + 60, h.y + 40, 160)) continue;
+        ctx.font = '20px sans-serif'; ctx.fillStyle = '#000'; ctx.fillText(XM_HM[h.m][1], h.x + 60, h.y - 22);
+        h.in.forEach((c, i) => { if (c.req >= 0 && XM_TOYS[c.req]) bub(h.dx + (h.in.length > 1 ? (i ? 18 : -18) : 0), h.y - 46, XM_TOYS[c.req].e); });
+        if (xmShelter && !h.broken) { ctx.strokeStyle = XM_HM[h.m][2]; ctx.lineWidth = 3; ctx.globalAlpha = 0.5 + 0.4 * Math.sin(frameCount * 0.15); ctx.beginPath(); ctx.arc(h.dx, h.dy, 30, 0, 6.283); ctx.stroke(); ctx.globalAlpha = 1; }
+    }
+    for (const bl of xmBlast) { ctx.strokeStyle = 'rgba(255,87,34,.9)'; ctx.lineWidth = 3; ctx.setLineDash([6, 5]); ctx.beginPath(); ctx.arc(bl.x, bl.y, bl.r, 0, 6.283); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = 'rgba(255,87,34,' + (0.25 * (1 - bl.t / 120)) + ')'; ctx.fill(); }
+    ctx.fillStyle = 'rgba(255,255,255,.85)'; for (let i = 0; i < 45; i++) { const x = player.x + ((i * 137 + frameCount * (0.4 + (i % 3) * 0.3)) % 1100) - 550, y = player.y + ((i * 89 + frameCount * (0.9 + (i % 4) * 0.4)) % 700) - 350; ctx.beginPath(); ctx.arc(x, y, 1.6 + (i % 3) * 0.5, 0, 6.283); ctx.fill(); }
+    ctx.restore();
+};
+function drawXmHUD() {
+    const W = viewW, H = viewH, c = ctx; c.save(); c.textAlign = 'center'; c.textBaseline = 'middle';
+    const left = net.role === 'client' ? xmLeftN : xmLeftNow(); let msg = '', col = '#fff';
+    if (xmPh === 'warn') { msg = '🚨 ¡OLEADA EN ' + Math.ceil(xmPhT / 60) + ' s! Los ciudadanos corren a sus casas'; col = '#ff5252'; }
+    else if (xmPh === 'wave') { msg = '⚔ OLEADA ' + xmWave + ' · quedan ' + left; col = '#ffab40'; }
+    else if (xmPh === 'rest') { msg = '✅ Oleada superada: los ciudadanos saldrán enseguida'; col = '#69f0ae'; }
+    else if (xmPh === 'calm') { msg = '🕊 Calma · próxima oleada en ' + Math.ceil(xmPhT / 60) + ' s · 🎁 ' + xmJoy + '/' + xmNeed(); col = '#b3e5fc'; }
+    else if (xmPh === 'boss') { msg = '👹 ¡KRAMPUS! Cada regalo entregado lo debilitó'; col = '#ff7043'; }
+    if (msg) { c.font = 'bold 15px sans-serif'; const w = c.measureText(msg).width + 28, by = touchOn() ? 54 : 18; c.fillStyle = 'rgba(10,16,20,.8)'; c.beginPath(); c.roundRect(W / 2 - w / 2, by - 14, w, 28, 10); c.fill(); c.fillStyle = col; c.fillText(msg, W / 2, by); }
+    // recetas y pedidos
+    c.textAlign = 'left'; const rx = 10, ry = touchOn() ? 46 : 10, rh = 21, pw = 262;
+    c.fillStyle = 'rgba(15,20,24,.78)'; c.beginPath(); c.roundRect(rx, ry, pw, 30 + XM_TOYS.length * rh + 28, 8); c.fill();
+    c.font = 'bold 13px sans-serif'; c.fillStyle = '#fff'; c.fillText('📋 Pedidos y recetas', rx + 10, ry + 15);
+    XM_TOYS.forEach((tt, i) => { const n = xmReqCount(i); c.font = '14px sans-serif'; c.fillStyle = n > 0 ? '#fff59d' : '#78909c'; c.fillText(tt.e + ' ' + tt.n + ': ' + tt.r.map(r => XM_COMP[r][1]).join('+') + (n ? '   × ' + n : ''), rx + 10, ry + 36 + i * rh); });
+    const inv = xmInv[net.on ? (net.slot || 0) : 0]; let car = 'nada';
+    if (inv) { const it = inv.comp.map(i => XM_COMP[i][1]).concat(inv.toy >= 0 ? [XM_TOYS[inv.toy].e + ' (sin empaquetar)'] : []).concat(inv.box >= 0 ? ['🎁' + XM_TOYS[inv.box].e] : []); if (it.length) car = it.join(' '); }
+    c.font = '13px sans-serif'; c.fillStyle = '#b3e5fc'; c.fillText('Llevas: ' + car, rx + 10, ry + 36 + XM_TOYS.length * rh + 4);
+    // flechas a las casas que quedan fuera de pantalla
+    c.textAlign = 'center'; const m = 44, top = touchOn() ? 70 : 44;
+    for (const h of xmHouses) {
+        const hx = h.x + 60, hy = h.y + 40, sx = hx - camera.x, sy = hy - camera.y;
+        if (sx > 30 && sx < W - 30 && sy > 30 && sy < H - 30) continue;
+        const dx = sx - W / 2, dy = sy - H / 2, ang = Math.atan2(dy, dx), tx = dx ? ((dx > 0 ? W - m : m) - W / 2) / dx : 1e9, ty = dy ? ((dy > 0 ? H - m : top) - H / 2) / dy : 1e9, t = Math.min(Math.abs(tx), Math.abs(ty)), px = W / 2 + dx * t, py = H / 2 + dy * t, col2 = h.broken ? '#757575' : XM_HM[h.m][2];
+        c.save(); c.translate(px, py); c.rotate(ang); c.fillStyle = col2; c.strokeStyle = '#fff'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(16, 0); c.lineTo(-8, -11); c.lineTo(-3, 0); c.lineTo(-8, 11); c.closePath(); c.fill(); c.stroke(); c.restore();
+        const lx = px - Math.cos(ang) * 30, ly = py - Math.sin(ang) * 30; c.font = '20px sans-serif'; c.fillStyle = '#000'; c.fillText(h.broken ? '💥' : XM_HM[h.m][1], lx, ly);
+        c.font = 'bold 11px sans-serif'; c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,.7)'; const lab = Math.round(Math.hypot(hx - (camera.x + W / 2), hy - (camera.y + H / 2)) / 40) + ' m' + (h.in.length ? ' · 🏠' + h.in.length : ''); c.strokeText(lab, lx, ly + 17); c.fillStyle = '#fff'; c.fillText(lab, lx, ly + 17);
+    }
+    c.restore();
+}
+
+/* ---------- ganchos sobre funciones existentes (sin tocar su código) ---------- */
+{
+    const dT = drawTank; drawTank = function (x, y, bc, tc, ba, ta, type, isBoss, inv, vip, hp, maxHp, ally, c) { if (typeof type === 'string' && type.indexOf('xm_') === 0) { drawXmTank(x, y, bc, tc, ba, ta, type, isBoss, hp, maxHp, c || ctx); return; } return dT.apply(this, arguments); };
+    const dB = drawBackground; drawBackground = function () { dB(); if (xmCur) drawXmPads(); };
+    const dW = drawWalls; drawWalls = function () { dW(); if (xmCur) drawXmBuildings(); };
+    const dH = drawTeamHUD; drawTeamHUD = function () { dH(); if (xmCur) drawXmHUD(); };
+    const dO = drawOthers; drawOthers = function () { dO(); if (xmCur && player.dead) drawXmFx(); };
+    const dC = drawCarry; drawCarry = function () { if (xmCur) return; return dC.apply(this, arguments); };
+    const sq = squadTarget; squadTarget = function (e) {
+        if (e.cit && xmShelter) {
+            const h = xmHomeFor(e);
+            if (h) { let best = null, bd = 300 * 300; for (const o of enemies) { if (o === e || o.sq !== undefined || o.isAlly) continue; const d = (o.x - e.x) ** 2 + (o.y - e.y) ** 2; if (d < bd) { bd = d; best = o; } } const door = { x: h.dx, y: h.dy }; return { aim: best || door, dest: door, base: null, hostile: !!best, idle: !best }; }
+        }
+        return sq(e);
+    };
+    const kE = killEnemy; killEnemy = function (id) {
+        if (xmCur) { const e = enemies.find(q => q.id === id); if (e && e.xm === 'bomba') for (const h of xmHouses) if (!h.broken && h.in.length && Math.hypot(e.x - h.dx, e.y - h.dy) < 70) { xmHouseHit(h, 1); break; } }
+        return kE(id);
+    };
+    const pD = playerDamage; playerDamage = function (p) { const had = player.lives; pD(p); if (xmCur && !net.on && player.lives < had && player.lives > 0 && !player.dead) { const s = spawnPos(0); player.x = s.x; player.y = s.y; player.lastX = s.x; player.lastY = s.y; } };
+    const pDN = playerDamageNet; playerDamageNet = function (p) { const n = items.length; pDN(p); if (xmCur) items = items.filter((it, i) => !(i >= n && it.type === 'supply')); };
+    const uU = updateUI; updateUI = function () {
+        uU();
+        if (xmCur && currentMode === 'xmas') { const el = document.getElementById('ui-enemies'); if (el) { const al = net.role === 'client' ? xmAlN : xmAlive(); el.innerText = '🏘 ' + al + '/6 · 🎁 ' + xmJoy + '/' + xmNeed() + (xmPh === 'warn' ? ' · 🚨 ¡A LAS CASAS!' : xmPh === 'wave' ? ' · ⚔ OLEADA ' + xmWave : (xmBoss && bossAliveNow() ? ' · 👹 KRAMPUS' : ' · 🕊 CALMA')); } }
+    };
+    const eH = eventHTML; eventHTML = function () { return eH().replace('Solo en solitario.', 'Hasta 4 jugadores en party: la dificultad se adapta.').replace('Fabrica juguetes, empaquétalos y entrégalos a los ciudadanos', 'Reúne materiales en 4 fábricas, móntalos y empaquétalos para entregar el juguete exacto que pide cada ciudadano, y refúgialos en sus casas durante las oleadas'); };
+    // multijugador
+    const nS = netSend; netSend = function (m, to, drop) {
+        if (xmCur && net.role === 'host' && m) {
+            if (m.t === 'start') m.xm = xmPack();
+            else if (m.t === 's') {
+                m.xm = xmSnap();
+                if (m.e) for (const a of m.e) { const en = enemies.find(q => q.nid === a[0]); a[8] = (en && en.cit) ? (en.req === undefined ? 0 : en.req + 1) : 0; }
+                if (m.nd) for (const a of m.nd) { const en = enemies.find(q => q.nid === a[0]); a[15] = (en && en.cit) ? 1 : 0; }
+            }
+        }
+        return nS(m, to, drop);
+    };
+    const nH = netHandle; netHandle = function (d) {
+        if (d && d.t === 'start') {
+            const wasMenu = state === 'menu';
+            xmCur = (d.cfg && d.cfg.src === 'xm' && !(d.cfg.vs && d.cfg.vs !== 'coop')) ? { nm: 'Operación Krampus' } : null;
+            if (xmCur && d.xm) xmApply(d.xm); if (xmCur && wasMenu) setTimeout(() => playCut('xintro', null), 100);
+        }
+        nH(d);
+        if (xmCur && d && d.t === 's') {
+            if (d.xm) xmClientApply(d.xm);
+            for (const a of d.e) { const o = net.em.get(a[0]); if (o) o.req = (a[8] || 0) - 1; }
+            if (d.nd) for (const a of d.nd) { const o = net.em.get(a[0]); if (o) o.cit = !!a[15]; }
+        }
+    };
+    const mR = myRoster; myRoster = function () { const r = mR(); r.xm = prof.xmOpen ? 1 : 0; return r; };
+    const hH = hostHandle; hostHandle = function (slot, m) { hH(slot, m); if (m && m.t === 'prof') { const r = net.roster.find(q => q.slot === slot); if (r) r.xm = m.xm ? 1 : 0; } };
+    const sM = startMatch; startMatch = function () {
+        if (net.role === 'host' && state === 'menu' && allReady() && vsOk()) {
+            if (net.cfg.src === 'xm' && (net.cfg.vs || 'coop') === 'coop') { if (!xmUnlockedAll()) { toast('Todos los miembros deben haber superado Operación Krampus'); return; } xmCur = { nm: 'Operación Krampus' }; } else xmCur = null;
+        }
+        sM(); if (xmCur && !net.on) xmCur = null; if (xmCur && net.on) playCut('xintro', null);
+    };
+    const mS = mpSrcHTML; mpSrcHTML = function (host) {
+        const src = net.cfg.src || '';
+        if (!host) return src === 'xm' ? '<p>Origen: <b>🎄 Operación Krampus</b></p>' : mS(host);
+        let h = mS(host);
+        if (xmUnlockedAll()) h += '<div class="tabs"><button class="' + (src === 'xm' ? 'on' : '') + '" onclick="mpSetSrc(\'xm\')">🎄 Operación Krampus</button></div>';
+        if (src === 'xm') h += '<p class="st">🎄 Hasta 4 jugadores: fabricad los juguetes que piden los ciudadanos, refugiadlos en sus casas durante las oleadas y derrotad a Krampus. La dificultad se adapta al número de jugadores.</p>';
+        return h;
+    };
+    const mW = mpWinUI; mpWinUI = function (bonus, secs, clean, src, nm, rw, ix) {
+        if (src === 'xm') {
+            if (!mpWinUI.xcut) { mpWinUI.xcut = 1; playCut('xoutro', () => mpWinUI(bonus, secs, clean, src, nm, rw, ix)); return; }
+            mpWinUI.xcut = 0; const ny = !(prof.clsOwn && prof.clsOwn.yeti); prof.xmOpen = 1; prof.clsOwn.yeti = 1; prof.xmWins = (prof.xmWins || 0) + 1; prof.coins += 300; saveProf();
+            mW(bonus, secs, clean, 'x', 'Operación Krampus', rw, ix);
+            document.getElementById('overlay-title').innerText = '¡FELIZ NAVIDAD!';
+            document.getElementById('overlay-desc').innerText += '\n🎄 +300 monedas extra' + (ny ? '\n🧊 Clase «Yeti» desbloqueada en el Garaje.' : '');
+            return;
+        }
+        return mW(bonus, secs, clean, src, nm, rw, ix);
+    };
+}
+
 </script>
 </body>
 </html>
