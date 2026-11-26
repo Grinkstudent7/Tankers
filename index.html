@@ -5965,14 +5965,16 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     openLobby(hashJoin ? 'party' : 'play'); drawGarage(); drawBook();
     if (hashJoin) setTimeout(() => joinParty(hashJoin[1]), 500); fInit();
 
-/* ===================== OPERACIÓN KRAMPUS v2 (parche) ===================== */
+/* ===================== OPERACIÓN KRAMPUS v3 (parche) ===================== */
+let yTr = [], yMs = [], yNew = [];
 let xmHouses = [], xmShelter = false, xmPh = 'calm', xmPhT = 0, xmWT = 0, xmInv = {}, xmAlN = 6, xmLeftN = 0;
 const XM_COMP = [['Madera', '🪵'], ['Piezas', '⚙️'], ['Tela', '🧵'], ['Pintura', '🎨']];
 const XM_TOYS = [{ n: 'Oso', e: '🧸', r: [2, 3] }, { n: 'Tambor', e: '🥁', r: [0, 2] }, { n: 'Coche', e: '🚗', r: [1, 3] }, { n: 'Tren', e: '🚂', r: [0, 1, 3] }, { n: 'Cohete', e: '🚀', r: [1, 1, 3] }];
 const XM_RES = { wood: 0, gear: 1, loom: 2, paint: 3 };
-const XM_STN = { wood: ['Aserradero', '🪵', '#8d6e63'], gear: ['Fundición', '⚙️', '#78909c'], loom: ['Telar', '🧵', '#ec407a'], paint: ['Pintura', '🎨', '#42a5f5'], assy: ['Montaje', '🛠️', '#5c6bc0'], pack: ['Empaquetado', '🎁', '#ef5350'] };
+const XM_STN = { wood: ['Aserradero', '🪵', '#8d6e63'], gear: ['Fundición', '⚙️', '#78909c'], loom: ['Telar', '🧵', '#ec407a'], paint: ['Pintura', '🎨', '#42a5f5'], assy: ['Montaje', '🛠️', '#5c6bc0'], pack: ['Empaquetado', '🎁', '#ef5350'], trash: ['Papelera', '🗑️', '#78909c'] };
 const XM_HM = [['Cabaña', '🏡', '#c62828'], ['Casa de jengibre', '🍪', '#a1622f'], ['Iglú', '🧊', '#29b6f6'], ['Chalet nevado', '⛰️', '#1e88e5'], ['Casita de paja', '🌾', '#f9a825'], ['Casa abeto', '🎄', '#2e7d32']];
 const XM_GATHER = 60, XM_ASSY = 90, XM_PACK = 60;
+const XM_REP = [['Ladrillo', '🧱', 1], ['Tablón', '🪵', 1], ['Tornillos', '🔩', 1], ['Kit de reparación', '🧰', 3]];
 const XM2_T = {
     gnomo: { ...ENEMY_TYPES[1], type: 'xm_gnome', baseColor: '#2e7d32', turretColor: '#c62828', speed: 1.5, cooldown: 120, radius: 15 },
     cascanueces: { ...ENEMY_TYPES[10], type: 'xm_nut', baseColor: '#b71c1c', turretColor: '#212121', speed: 0.8, bullet: 'super', rebounces: 0, cooldown: 190, hp: 3, radius: 22 },
@@ -5986,7 +5988,7 @@ const xmAlive = () => xmCits().length + xmHouses.reduce((a, h) => a + h.in.lengt
 const xmLeftNow = () => enemies.filter(e => e.xm && !e.krampus).length + pendingSpawns.filter(p => p.enemy && p.enemy.xm && !p.enemy.krampus).length;
 const xmRecips = () => { const r = []; for (const c of enemies) if (c.cit) r.push({ c, x: c.x, y: c.y }); for (const h of xmHouses) for (const c of h.in) r.push({ c, x: h.dx, y: h.dy }); return r; };
 const xmReqCount = t => enemies.filter(c => c.cit && c.req === t).length + xmHouses.reduce((a, h) => a + h.in.filter(c => c.req === t).length, 0);
-const xmHold = p => (p.comp && p.comp.length > 0) || p.toy >= 0 || p.box >= 0;
+const xmHold = p => (p.comp && p.comp.length > 0) || p.toy >= 0 || p.box >= 0 || p.rep >= 0;
 const xmUnlockedAll = () => !!prof.xmOpen && net.roster.length > 0 && net.roster.every(r => r.xm);
 function xmCan(comp, r) { const have = comp.slice(); for (const x of r) { const i = have.indexOf(x); if (i < 0) return false; have.splice(i, 1); } return true; }
 function xmRecipe(comp) {
@@ -6024,13 +6026,13 @@ const xmSnap = () => ({
     j: xmJoy, b: xmBoss ? 1 : 0, w: xmWave, sh: xmShelter ? 1 : 0, ph: xmPh, pt: xmPhT, al: xmAlive(), lf: xmLeftNow(),
     hs: xmHouses.map(h => [h.hp, h.broken ? 1 : 0, h.in.map(c => c.req === undefined ? -1 : c.req)]),
     bl: xmBlast.map(b => [Math.round(b.x), Math.round(b.y), b.t, b.r]),
-    xp: Object.keys(xmInv).map(k => { const v = xmInv[k]; return [+k, v.comp.join(''), v.toy, v.box, Math.round(v.p), v.n]; })
+    xp: Object.keys(xmInv).map(k => { const v = xmInv[k]; return [+k, v.comp.join(''), v.toy, v.box, Math.round(v.p), v.n, v.r]; })
 });
 function xmClientApply(x) {
     xmJoy = x.j; xmBoss = !!x.b; xmWave = x.w; xmShelter = !!x.sh; xmPh = x.ph; xmPhT = x.pt; xmAlN = x.al; xmLeftN = x.lf;
     x.hs.forEach((a, i) => { const h = xmHouses[i]; if (h) { h.hp = a[0]; h.broken = !!a[1]; h.in = a[2].map(r => ({ req: r })); } });
     xmBlast = x.bl.map(a => ({ x: a[0], y: a[1], t: a[2], r: a[3] }));
-    xmInv = {}; for (const a of x.xp) xmInv[a[0]] = { comp: String(a[1]).split('').map(Number).filter(n => !isNaN(n)), toy: a[2], box: a[3], p: a[4], n: a[5] };
+    xmInv = {}; for (const a of x.xp) xmInv[a[0]] = { comp: String(a[1]).split('').map(Number).filter(n => !isNaN(n)), toy: a[2], box: a[3], p: a[4], n: a[5], r: a[6] === undefined ? -1 : a[6] };
 }
 
 /* ---------- preparación del mapa: plaza con 6 fábricas + 6 casas ---------- */
@@ -6039,17 +6041,18 @@ xmSetup = function () {
     const clear = (x0, y0, x1, y1) => { for (const w of walls.slice()) if (w.x < x1 && w.x + w.width > x0 && w.y < y1 && w.y + w.height > y0 && w.x > BORDER_SIZE && w.y > BORDER_SIZE) removeWall(w); };
     const add = b => { walls.push(b); paintWall(b, b); refreshNav(b.x, b.y, b.width, b.height); };
     clear(cx - 440, cy - 260, cx + 440, cy + 340);
-    const L = [['wood', -270, -90], ['gear', 0, -90], ['loom', 270, -90], ['paint', -270, 170], ['assy', 0, 170], ['pack', 270, 170]];
-    xmSt = L.map(q => ({ k: q[0], x: cx + q[1], y: cy + q[2], bx: cx + q[1] - 40, by: cy + q[2] - 130 }));
-    for (const s of xmSt) add({ x: s.bx, y: s.by, width: 80, height: 80, destructible: false, xmst: 1 });
+    const L = [['wood', -270, -90], ['gear', 0, -90], ['loom', 270, -90], ['paint', -270, 170], ['assy', 0, 170], ['pack', 270, 170], ['trash', 390, 40]];
+    xmSt = L.map(q => ({ k: q[0], x: cx + q[1], y: cy + q[2], bx: cx + q[1] - (q[0] === 'trash' ? 20 : 40), by: cy + q[2] - (q[0] === 'trash' ? 20 : 130) }));
+    for (const s of xmSt) if (s.k !== 'trash') add({ x: s.bx, y: s.by, width: 80, height: 80, destructible: false, xmst: 1 });
     xmHouses = [];
     for (let i = 0; i < 6; i++) {
         const a = (15 + 60 * i) * Math.PI / 180, hx = Math.round((cx + Math.cos(a) * 800 - 60) / G) * G, hy = Math.round((cy + Math.sin(a) * 640 - 40) / G) * G;
         clear(hx - 40, hy - 40, hx + 160, hy + 190);
         add({ x: hx, y: hy, width: 120, height: 80, destructible: false, xmhouse: i });
-        xmHouses.push({ k: i, m: i, x: hx, y: hy, dx: hx + 60, dy: hy + 108, in: [], hp: 4, maxHp: 4, broken: false });
+        xmHouses.push({ k: i, m: i, x: hx, y: hy, dx: hx + 60, dy: hy + 108, in: [], hp: 8, maxHp: 8, broken: false });
     }
     iceTrail.length = 0; xmT = 0; xmBoss = false; xmJoy = 0; xmWave = 0; xmBlast = []; xmShelter = false; xmPh = 'calm'; xmPhT = 5400; xmWT = 0; xmInv = {}; SAY.q.length = 0;
+    for (let i = 0; i < 3; i++) { const pos = freeAround(cx, cy, 150, 700, 20); if (pos) { const rt = i === 2 ? 3 : i; items.push({ type: 'xrep', x: pos.x, y: pos.y, collected: false, color: String(rt), rt, born: frameCount }); } }
     player.lives = 6; for (const r of remotes) r.lives = 6;
     for (const q of [player, ...remotes]) { q.comp = []; q.toy = -1; q.box = -1; q.xmP = 0; q.xmD = 0; q.xmN = 1; q.carriedItems = 0; }
     for (let i = 0; i < 6; i++) {
@@ -6103,35 +6106,51 @@ function xmAim(e, tp, pDist) {
     let bt = null, bd2 = 1500 * 1500;
     for (const c of enemies) if (c.cit) { const dd = (c.x - e.x) ** 2 + (c.y - e.y) ** 2; if (dd < bd2) { bd2 = dd; bt = c; } }
     if (e.xm === 'gnomo') { const hd = alivePlayers().find(p => (p.toy >= 0 || p.box >= 0) && Math.hypot(p.x - e.x, p.y - e.y) < 520); if (hd) return hd; }
-    if (e.xm === 'bomba' && !bt) { let bh = null, bd = 1e12; for (const h of xmHouses) { if (h.broken || !h.in.length) continue; const d = (h.dx - e.x) ** 2 + (h.dy - e.y) ** 2; if (d < bd) { bd = d; bh = h; } } if (bh) return { x: bh.dx, y: bh.dy }; }
     if (tp && pDist < 260) return tp;
     if (bt) return bt;
+    if (e.xm !== 'krampus') { // sin ciudadanos a la vista: asedian las casas ocupadas (apuntan a su puerta)
+        let bh = null, bd = 1e12; for (const h of xmHouses) { if (h.broken || !h.in.length) continue; const d = (h.dx - e.x) ** 2 + (h.dy - e.y) ** 2; if (d < bd) { bd = d; bh = h; } }
+        if (bh) return { x: bh.dx, y: bh.dy - 22 };
+    }
     return tp || { x: xmC.x, y: xmC.y };
 }
 
 /* ---------- jugadores: materiales -> montaje -> empaquetado -> entrega ---------- */
 function xmPlayerStep(p) {
     if (p.comp === undefined) { p.comp = []; p.toy = -1; p.box = -1; p.xmP = 0; p.xmD = 0; p.xmN = 1; }
+    if (p.rep === undefined) p.rep = -1;
     const np = xmNP();
-    if (xmHold(p) && !(p.carriedItems > 0)) { p.comp = []; p.toy = -1; p.box = -1; floatingTexts.push({ text: '💥 ¡Perdiste lo que llevabas!', x: p.x, y: p.y - 40, life: 80, color: '#ff8a80' }); }
+    if (xmHold(p) && !(p.carriedItems > 0)) { p.comp = []; p.toy = -1; p.box = -1; p.rep = -1; floatingTexts.push({ text: '💥 ¡Perdiste lo que llevabas!', x: p.x, y: p.y - 40, life: 80, color: '#ff8a80' }); }
+    // materiales de reparación del suelo
+    if (p.rep < 0) for (const it of items) if (it.type === 'xrep' && !it.collected && Math.hypot(p.x - it.x, p.y - it.y) < (p.radius || 18) + 16) { it.collected = true; p.rep = it.rt; floatingTexts.push({ text: XM_REP[it.rt][1] + ' ' + XM_REP[it.rt][0] + ' → llévalo a una casa dañada', x: p.x, y: p.y - 40, life: 90, color: '#ffcc80' }); break; }
+    if (p.rep >= 0) for (const h of xmHouses) {
+        if (Math.hypot(p.x - h.dx, p.y - h.dy) > 62) continue;
+        if (!h.broken && h.hp >= h.maxHp) { xmHint(p, 'Esta casa está intacta'); continue; }
+        const v = XM_REP[p.rep][2]; h.hp = Math.min(h.maxHp, h.hp + v);
+        if (h.broken && h.hp >= 2) { h.broken = false; floatingTexts.push({ text: '🏠 ¡Casa reconstruida!', x: h.dx, y: h.dy - 60, life: 100, color: '#69f0ae' }); }
+        else floatingTexts.push({ text: '🔧 +' + v + ' ♥', x: h.dx, y: h.dy - 50, life: 70, color: '#ffe082' });
+        createExplosion(h.dx, h.dy - 20, '#ffe082', 12); p.rep = -1; score += 50; break;
+    }
     let act = false;
     for (const s of xmSt) {
         if (Math.hypot(p.x - s.x, p.y - s.y) > 54) continue;
         const full = p.toy >= 0 || p.box >= 0;
         if (XM_RES[s.k] !== undefined) {
             if (full) xmHint(p, 'Primero entrega el juguete');
-            else if (p.comp.length >= 3) xmHint(p, 'Mochila llena (máx. 3)');
+            else if (p.comp.length >= 3) xmHint(p, 'Mochila llena (máx. 3) · tira lo que sobre en la 🗑');
             else { act = true; p.xmN = XM_GATHER; if (++p.xmP >= XM_GATHER) { p.xmP = 0; p.comp.push(XM_RES[s.k]); floatingTexts.push({ text: '+' + XM_COMP[XM_RES[s.k]][1] + ' ' + XM_COMP[XM_RES[s.k]][0], x: p.x, y: p.y - 40, life: 60, color: '#ffe082' }); } }
         } else if (s.k === 'assy') {
             if (full) xmHint(p, 'Ya llevas un juguete');
             else if (p.comp.length >= 2) {
                 const rec = xmRecipe(p.comp);
-                if (rec >= 0) { act = true; p.xmD = 0; p.xmN = XM_ASSY; if (++p.xmP >= XM_ASSY) { p.xmP = 0; for (const x of XM_TOYS[rec].r) p.comp.splice(p.comp.indexOf(x), 1); p.toy = rec; floatingTexts.push({ text: XM_TOYS[rec].e + ' ¡' + XM_TOYS[rec].n + ' montado! Ahora empaquétalo', x: p.x, y: p.y - 40, life: 90, color: '#b39ddb' }); } }
-                else { act = true; p.xmN = 150; xmHint(p, 'Nadie pide lo que puedes montar · aguanta para desechar'); p.xmD++; p.xmP = p.xmD; if (p.xmD >= 150) { p.xmD = 0; p.xmP = 0; p.comp = []; floatingTexts.push({ text: '🗑 Materiales desechados', x: p.x, y: p.y - 40, life: 70, color: '#cfd8dc' }); } }
+                if (rec >= 0) { act = true; p.xmN = XM_ASSY; if (++p.xmP >= XM_ASSY) { p.xmP = 0; for (const x of XM_TOYS[rec].r) p.comp.splice(p.comp.indexOf(x), 1); p.toy = rec; floatingTexts.push({ text: XM_TOYS[rec].e + ' ¡' + XM_TOYS[rec].n + ' montado! Ahora empaquétalo', x: p.x, y: p.y - 40, life: 90, color: '#b39ddb' }); } }
+                else xmHint(p, 'Nadie pide lo que puedes montar · tira los materiales en la 🗑 papelera');
             } else xmHint(p, 'Necesitas 2-3 materiales (mira las recetas)');
         } else if (s.k === 'pack') {
             if (p.toy >= 0) { act = true; p.xmN = XM_PACK; if (++p.xmP >= XM_PACK) { p.xmP = 0; p.box = p.toy; p.toy = -1; floatingTexts.push({ text: '🎁 ¡Regalo listo! Entrégalo', x: p.x, y: p.y - 40, life: 90, color: '#ef9a9a' }); } }
             else if (p.box < 0) xmHint(p, 'Trae un juguete montado');
+        } else if (s.k === 'trash') {
+            if (xmHold(p)) { act = true; p.xmN = 50; if (++p.xmP >= 50) { p.xmP = 0; p.comp = []; p.toy = -1; p.box = -1; p.rep = -1; floatingTexts.push({ text: '🗑 Todo tirado', x: p.x, y: p.y - 40, life: 70, color: '#cfd8dc' }); } }
         }
         break;
     }
@@ -6160,6 +6179,15 @@ xmTick = function () {
     if (xmShelter) { for (const c of outside) { const h = xmHomeFor(c); if (h && Math.hypot(c.x - h.dx, c.y - h.dy) < 46) xmHide(c, h); } }
     else if (frameCount % 20 === 0) for (const h of xmHouses) if (h.in.length) xmRelease(h);
     for (const p of [player, ...remotes]) if (!p.dead) xmPlayerStep(p);
+    // materiales de reparación que aparecen por el suelo
+    { const dmg = xmHouses.some(h => h.broken || h.hp < h.maxHp);
+      if (frameCount % (dmg ? 200 : 480) === 0 && items.filter(i => i.type === 'xrep' && !i.collected).length < 3 + np) { const pos = freeAround(xmC.x, xmC.y, 120, 780, 20); if (pos) { const rt = Math.random() < 0.15 ? 3 : Math.floor(Math.random() * 3); items.push({ type: 'xrep', x: pos.x, y: pos.y, collected: false, color: String(rt), rt, born: frameCount }); } }
+      items = items.filter(i => !(i.type === 'xrep' && (i.collected || frameCount - i.born > 5400))); }
+    // los disparos enemigos que chocan contra una casa la dañan
+    for (const b of bullets) {
+        if (b.hxm || b.dead || b.pm || b.mis || b.tm !== undefined || isTeam(b.shooterId)) continue;
+        for (const h of xmHouses) { if (h.broken) continue; const ddx = Math.max(h.x - b.x, 0, b.x - (h.x + 120)), ddy = Math.max(h.y - b.y, 0, b.y - (h.y + 80)); if (ddx * ddx + ddy * ddy < (b.radius + 8) ** 2) { b.hxm = 1; b.dead = true; xmHouseHit(h, 1); break; } }
+    }
     // fases: calma -> aviso -> oleada -> respiro -> calma ... y Krampus cuando hay suficientes regalos
     if (!xmBoss) {
         if (xmPh === 'calm') {
@@ -6175,7 +6203,7 @@ xmTick = function () {
             if (xmWT > 5400) { enemies = enemies.filter(e => !(e.xm && !e.krampus)); pendingSpawns = pendingSpawns.filter(p => !(p.enemy && p.enemy.xm && !p.enemy.krampus)); floatingTexts.push({ text: '¡Los atacantes huyen!', x: player.x, y: player.y - 60, life: 90, color: '#b3e5fc' }); }
             if (xmLeftNow() === 0) { xmPh = 'rest'; xmPhT = 300; floatingTexts.push({ text: '✅ ¡Oleada superada!', x: player.x, y: player.y - 60, life: 100, color: '#69f0ae' }); }
         } else if (xmPh === 'rest') {
-            if (--xmPhT <= 0) { xmPh = 'calm'; xmShelter = false; xmPhT = np <= 1 ? 3600 : 3000; for (const h of xmHouses) if (!h.broken) h.hp = Math.min(h.maxHp, h.hp + 2); }
+            if (--xmPhT <= 0) { xmPh = 'calm'; xmShelter = false; xmPhT = np <= 1 ? 3600 : 3000; }
         }
     } else if (!bossAliveNow() && !pendingSpawns.some(q => q.enemy && q.enemy.krampus)) { objectiveDone(); return; }
     if (xmT === 600) evSay('Pipa', '#ff8a80', 'Recoge materiales en las 4 fábricas, mézclalos en Montaje 🛠️, empaqueta 🎁 y entrega el juguete exacto.', 4500);
@@ -6191,7 +6219,7 @@ xmTick = function () {
         for (const c of xmCits()) if (Math.hypot(c.x - bl.x, c.y - bl.y) < bl.r + c.radius) { c.hp -= 2; if (c.hp <= 0) killEnemy(c.id); }
         for (const q of alivePlayers()) if (Math.hypot(q.x - bl.x, q.y - bl.y) < bl.r + q.radius) playerDamage(q);
     }
-    xmInv = {}; for (const q of [player, ...remotes]) xmInv[q.slot || 0] = { comp: (q.comp || []).slice(), toy: q.toy >= 0 ? q.toy : -1, box: q.box >= 0 ? q.box : -1, p: q.xmP || 0, n: q.xmN || 1 };
+    xmInv = {}; for (const q of [player, ...remotes]) xmInv[q.slot || 0] = { comp: (q.comp || []).slice(), toy: q.toy >= 0 ? q.toy : -1, box: q.box >= 0 ? q.box : -1, p: q.xmP || 0, n: q.xmN || 1, r: q.rep >= 0 ? q.rep : -1 };
     if (particles.length > 110) particles.splice(0, particles.length - 110);
     if (tracks.length > 140) tracks.splice(0, tracks.length - 140);
     if (xmAlive() <= 2) endGame('¡Demasiados ciudadanos perdidos!');
@@ -6214,6 +6242,10 @@ function drawXmStation(c, s) {
     const gear = (gx, gy, R, rot, col) => { c.save(); c.translate(gx, gy); c.rotate(rot); c.fillStyle = col; c.strokeStyle = '#263238'; c.lineWidth = 2; c.beginPath(); for (let i = 0; i < 24; i++) { const a = i * Math.PI / 12, rr = (i % 2) ? R - 4 : R; c.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } c.closePath(); c.fill(); c.stroke(); c.fillStyle = '#37474f'; c.beginPath(); c.arc(0, 0, R / 4, 0, 6.283); c.fill(); c.restore(); };
     const smoke = (sx, sy) => { for (let k = 0; k < 3; k++) { const ph = (t * 0.02 + k / 3) % 1; c.globalAlpha = (1 - ph) * 0.5; c.fillStyle = '#eceff1'; c.beginPath(); c.arc(sx + Math.sin(ph * 7) * 4, sy - ph * 28, 4 + ph * 6, 0, 6.283); c.fill(); } c.globalAlpha = 1; };
     switch (s.k) {
+        case 'trash':
+            c.fillStyle = '#546e7a'; c.beginPath(); c.moveTo(x + 6, y + 8); c.lineTo(x + 34, y + 8); c.lineTo(x + 30, y + 38); c.lineTo(x + 10, y + 38); c.closePath(); c.fill(); c.strokeStyle = '#263238'; c.lineWidth = 2; c.stroke();
+            c.fillStyle = '#78909c'; c.fillRect(x + 3, y + 3, 34, 6); c.strokeRect(x + 3, y + 3, 34, 6); c.strokeStyle = '#37474f'; for (let i = 0; i < 3; i++) { c.beginPath(); c.moveTo(x + 14 + i * 6, y + 12); c.lineTo(x + 14 + i * 5, y + 34); c.stroke(); }
+            c.restore(); return;
         case 'wood':
             c.fillStyle = '#6d4c41'; c.fillRect(x, y, 80, 80); c.strokeStyle = '#4e342e'; c.lineWidth = 2; for (let i = 1; i < 6; i++) { c.beginPath(); c.moveTo(x, y + i * 13); c.lineTo(x + 80, y + i * 13); c.stroke(); }
             for (const q of [[16, 62], [34, 62], [25, 48]]) { c.fillStyle = '#a1887f'; c.beginPath(); c.arc(x + q[0], y + q[1], 9, 0, 6.283); c.fill(); c.stroke(); c.fillStyle = '#d7ccc8'; c.beginPath(); c.arc(x + q[0], y + q[1], 4, 0, 6.283); c.fill(); }
@@ -6290,7 +6322,7 @@ function drawXmHouse(c, h) {
             win(x + 14, y + 57); win(x + W - 29, y + 57); door('#4e342e'); break;
     }
     if (h.broken) { c.fillStyle = 'rgba(30,20,20,.55)'; c.fillRect(x, y, W, H); c.strokeStyle = '#111'; c.lineWidth = 3; c.beginPath(); c.moveTo(x + 20, y); c.lineTo(x + 40, y + 30); c.lineTo(x + 30, y + 55); c.moveTo(x + 90, y + 5); c.lineTo(x + 70, y + 40); c.lineTo(x + 84, y + 70); c.stroke(); }
-    else if (h.hp < h.maxHp) { c.fillStyle = '#263238'; c.fillRect(x + 20, y - 8, 80, 6); c.fillStyle = '#ffb300'; c.fillRect(x + 20, y - 8, 80 * h.hp / h.maxHp, 6); }
+    else { const f = h.hp / h.maxHp; c.fillStyle = '#263238'; c.fillRect(x + 20, y - 8, 80, 6); c.fillStyle = f > 0.5 ? '#66bb6a' : (f > 0.25 ? '#ffb300' : '#ff5252'); c.fillRect(x + 20, y - 8, 80 * f, 6); }
     c.strokeStyle = '#37474f'; c.lineWidth = 2; c.strokeRect(x, y, W, H); c.restore();
 }
 function drawXmBuildings() {
@@ -6356,10 +6388,11 @@ drawXmFx = function () {
     const bub = (x, y, e) => { ctx.fillStyle = 'rgba(255,255,255,.93)'; ctx.strokeStyle = '#37474f'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 13, 0, 6.283); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x - 4, y + 11); ctx.lineTo(x, y + 19); ctx.lineTo(x + 4, y + 11); ctx.fill(); ctx.font = '16px sans-serif'; ctx.fillStyle = '#000'; ctx.fillText(e, x, y + 1); };
     for (const q of [player, ...othersList()]) {
         if (q.dead) continue; const inv = xmInv[q.slot || 0]; if (!inv) continue; const rr = q.radius || 18;
-        const items = inv.comp.map(i => XM_COMP[i][1]).concat(inv.toy >= 0 ? [XM_TOYS[inv.toy].e] : []).concat(inv.box >= 0 ? ['🎁' + XM_TOYS[inv.box].e] : []);
+        const items = inv.comp.map(i => XM_COMP[i][1]).concat(inv.toy >= 0 ? [XM_TOYS[inv.toy].e] : []).concat(inv.box >= 0 ? ['🎁' + XM_TOYS[inv.box].e] : []).concat(inv.r >= 0 ? [XM_REP[inv.r][1]] : []);
         if (items.length) { ctx.font = '16px sans-serif'; const txt = items.join(' '), w = ctx.measureText(txt).width + 14; ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.beginPath(); ctx.roundRect(q.x - w / 2, q.y - rr - 44, w, 22, 8); ctx.fill(); ctx.fillStyle = '#000'; ctx.fillText(txt, q.x, q.y - rr - 33); }
         if (inv.p > 0) { ctx.strokeStyle = '#ffd54f'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(q.x, q.y, 28, -Math.PI / 2, -Math.PI / 2 + 6.283 * Math.min(1, inv.p / inv.n)); ctx.stroke(); }
     }
+    for (const it of items) if (it.type === 'xrep' && !it.collected && inView(it.x, it.y, 40)) { const r = XM_REP[+it.color]; if (!r) continue; const bob = Math.sin(frameCount * 0.1 + it.x) * 2; ctx.fillStyle = 'rgba(255,255,255,.88)'; ctx.strokeStyle = '#ef6c00'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(it.x, it.y + bob, 15, 0, 6.283); ctx.fill(); ctx.stroke(); ctx.font = '18px sans-serif'; ctx.fillStyle = '#000'; ctx.fillText(r[1], it.x, it.y + bob + 1); }
     for (const c of enemies) if (c.cit && c.req >= 0 && XM_TOYS[c.req] && inView(c.x, c.y, 60)) bub(c.x, c.y - c.radius - 30, XM_TOYS[c.req].e);
     for (const h of xmHouses) {
         if (!inView(h.x + 60, h.y + 40, 160)) continue;
@@ -6382,12 +6415,13 @@ function drawXmHUD() {
     if (msg) { c.font = 'bold 15px sans-serif'; const w = c.measureText(msg).width + 28, by = touchOn() ? 54 : 18; c.fillStyle = 'rgba(10,16,20,.8)'; c.beginPath(); c.roundRect(W / 2 - w / 2, by - 14, w, 28, 10); c.fill(); c.fillStyle = col; c.fillText(msg, W / 2, by); }
     // recetas y pedidos
     c.textAlign = 'left'; const rx = 10, ry = touchOn() ? 46 : 10, rh = 21, pw = 262;
-    c.fillStyle = 'rgba(15,20,24,.78)'; c.beginPath(); c.roundRect(rx, ry, pw, 30 + XM_TOYS.length * rh + 28, 8); c.fill();
+    c.fillStyle = 'rgba(15,20,24,.78)'; c.beginPath(); c.roundRect(rx, ry, pw, 30 + XM_TOYS.length * rh + 50, 8); c.fill();
     c.font = 'bold 13px sans-serif'; c.fillStyle = '#fff'; c.fillText('📋 Pedidos y recetas', rx + 10, ry + 15);
-    XM_TOYS.forEach((tt, i) => { const n = xmReqCount(i); c.font = '14px sans-serif'; c.fillStyle = n > 0 ? '#fff59d' : '#78909c'; c.fillText(tt.e + ' ' + tt.n + ': ' + tt.r.map(r => XM_COMP[r][1]).join('+') + (n ? '   × ' + n : ''), rx + 10, ry + 36 + i * rh); });
+    const RC = [0, 0, 0, 0, 0]; for (const q of enemies) if (q.cit && q.req >= 0) RC[q.req]++; for (const h of xmHouses) for (const q of h.in) if (q.req >= 0) RC[q.req]++;
+    XM_TOYS.forEach((tt, i) => { const n = RC[i]; c.font = '14px sans-serif'; c.fillStyle = n > 0 ? '#fff59d' : '#78909c'; c.fillText(tt.e + ' ' + tt.n + ': ' + tt.r.map(r => XM_COMP[r][1]).join('+') + (n ? '   × ' + n : ''), rx + 10, ry + 36 + i * rh); });
     const inv = xmInv[net.on ? (net.slot || 0) : 0]; let car = 'nada';
-    if (inv) { const it = inv.comp.map(i => XM_COMP[i][1]).concat(inv.toy >= 0 ? [XM_TOYS[inv.toy].e + ' (sin empaquetar)'] : []).concat(inv.box >= 0 ? ['🎁' + XM_TOYS[inv.box].e] : []); if (it.length) car = it.join(' '); }
-    c.font = '13px sans-serif'; c.fillStyle = '#b3e5fc'; c.fillText('Llevas: ' + car, rx + 10, ry + 36 + XM_TOYS.length * rh + 4);
+    if (inv) { const it = inv.comp.map(i => XM_COMP[i][1]).concat(inv.toy >= 0 ? [XM_TOYS[inv.toy].e + ' (sin empaquetar)'] : []).concat(inv.box >= 0 ? ['🎁' + XM_TOYS[inv.box].e] : []).concat(inv.r >= 0 ? [XM_REP[inv.r][1]] : []); if (it.length) car = it.join(' '); }
+    c.font = '13px sans-serif'; c.fillStyle = '#b3e5fc'; c.fillText('Llevas: ' + car, rx + 10, ry + 36 + XM_TOYS.length * rh + 4); c.fillStyle = '#ffcc80'; c.fillText('🧱🪵🔩🧰 del suelo → repara casas', rx + 10, ry + 36 + XM_TOYS.length * rh + 26);
     // flechas a las casas que quedan fuera de pantalla
     c.textAlign = 'center'; const m = 44, top = touchOn() ? 70 : 44;
     for (const h of xmHouses) {
@@ -6396,7 +6430,7 @@ function drawXmHUD() {
         const dx = sx - W / 2, dy = sy - H / 2, ang = Math.atan2(dy, dx), tx = dx ? ((dx > 0 ? W - m : m) - W / 2) / dx : 1e9, ty = dy ? ((dy > 0 ? H - m : top) - H / 2) / dy : 1e9, t = Math.min(Math.abs(tx), Math.abs(ty)), px = W / 2 + dx * t, py = H / 2 + dy * t, col2 = h.broken ? '#757575' : XM_HM[h.m][2];
         c.save(); c.translate(px, py); c.rotate(ang); c.fillStyle = col2; c.strokeStyle = '#fff'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(16, 0); c.lineTo(-8, -11); c.lineTo(-3, 0); c.lineTo(-8, 11); c.closePath(); c.fill(); c.stroke(); c.restore();
         const lx = px - Math.cos(ang) * 30, ly = py - Math.sin(ang) * 30; c.font = '20px sans-serif'; c.fillStyle = '#000'; c.fillText(h.broken ? '💥' : XM_HM[h.m][1], lx, ly);
-        c.font = 'bold 11px sans-serif'; c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,.7)'; const lab = Math.round(Math.hypot(hx - (camera.x + W / 2), hy - (camera.y + H / 2)) / 40) + ' m' + (h.in.length ? ' · 🏠' + h.in.length : ''); c.strokeText(lab, lx, ly + 17); c.fillStyle = '#fff'; c.fillText(lab, lx, ly + 17);
+        c.font = 'bold 11px sans-serif'; c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,.7)'; const lab = Math.round(Math.hypot(hx - (camera.x + W / 2), hy - (camera.y + H / 2)) / 40) + ' m' + (h.in.length ? ' · 🏠' + h.in.length : '') + (!h.broken && h.hp < h.maxHp ? ' · ♥' + Math.ceil(h.hp) : ''); c.strokeText(lab, lx, ly + 17); c.fillStyle = '#fff'; c.fillText(lab, lx, ly + 17);
     }
     c.restore();
 }
@@ -6405,8 +6439,8 @@ function drawXmHUD() {
 {
     const dT = drawTank; drawTank = function (x, y, bc, tc, ba, ta, type, isBoss, inv, vip, hp, maxHp, ally, c) { if (typeof type === 'string' && type.indexOf('xm_') === 0) { drawXmTank(x, y, bc, tc, ba, ta, type, isBoss, hp, maxHp, c || ctx); return; } return dT.apply(this, arguments); };
     const dB = drawBackground; drawBackground = function () { dB(); if (xmCur) drawXmPads(); };
-    const dW = drawWalls; drawWalls = function () { dW(); if (xmCur) drawXmBuildings(); };
-    const dH = drawTeamHUD; drawTeamHUD = function () { dH(); if (xmCur) drawXmHUD(); };
+    const dW = drawWalls; drawWalls = function () { dW(); if (xmCur) drawXmBuildings(); drawYTrail(); drawIceUnder(); };
+    const dH = drawTeamHUD; drawTeamHUD = function () { dH(); if (xmCur) drawXmHUD(); drawFrozenArrows(); };
     const dO = drawOthers; drawOthers = function () { dO(); if (xmCur && player.dead) drawXmFx(); };
     const dC = drawCarry; drawCarry = function () { if (xmCur) return; return dC.apply(this, arguments); };
     const sq = squadTarget; squadTarget = function (e) {
@@ -6417,7 +6451,7 @@ function drawXmHUD() {
         return sq(e);
     };
     const kE = killEnemy; killEnemy = function (id) {
-        if (xmCur) { const e = enemies.find(q => q.id === id); if (e && e.xm === 'bomba') for (const h of xmHouses) if (!h.broken && h.in.length && Math.hypot(e.x - h.dx, e.y - h.dy) < 70) { xmHouseHit(h, 1); break; } }
+        if (xmCur) { const e = enemies.find(q => q.id === id); if (e && e.xm === 'bomba') for (const h of xmHouses) if (e.noScore && !h.broken && Math.hypot(e.x - h.dx, e.y - h.dy) < 80) { xmHouseHit(h, 2); break; } }
         return kE(id);
     };
     const pD = playerDamage; playerDamage = function (p) { const had = player.lives; pD(p); if (xmCur && !net.on && player.lives < had && player.lives > 0 && !player.dead) { const s = spawnPos(0); player.x = s.x; player.y = s.y; player.lastX = s.x; player.lastY = s.y; } };
@@ -6429,12 +6463,13 @@ function drawXmHUD() {
     const eH = eventHTML; eventHTML = function () { return eH().replace('Solo en solitario.', 'Hasta 4 jugadores en party: la dificultad se adapta.').replace('Fabrica juguetes, empaquétalos y entrégalos a los ciudadanos', 'Reúne materiales en 4 fábricas, móntalos y empaquétalos para entregar el juguete exacto que pide cada ciudadano, y refúgialos en sus casas durante las oleadas'); };
     // multijugador
     const nS = netSend; netSend = function (m, to, drop) {
+        if (m && m.t === 's' && net.role === 'host' && yNew.length) m.yt = yNew.splice(0);
         if (xmCur && net.role === 'host' && m) {
             if (m.t === 'start') m.xm = xmPack();
             else if (m.t === 's') {
-                m.xm = xmSnap();
-                if (m.e) for (const a of m.e) { const en = enemies.find(q => q.nid === a[0]); a[8] = (en && en.cit) ? (en.req === undefined ? 0 : en.req + 1) : 0; }
-                if (m.nd) for (const a of m.nd) { const en = enemies.find(q => q.nid === a[0]); a[15] = (en && en.cit) ? 1 : 0; }
+                m.xm = xmSnap(); const mp = new Map(); for (const q of enemies) mp.set(q.nid, q);
+                if (m.e) for (const a of m.e) { const en = mp.get(a[0]); a[8] = (en && en.cit) ? (en.req === undefined ? 0 : en.req + 1) : 0; }
+                if (m.nd) for (const a of m.nd) { const en = mp.get(a[0]); a[15] = (en && en.cit) ? 1 : 0; }
             }
         }
         return nS(m, to, drop);
@@ -6445,7 +6480,7 @@ function drawXmHUD() {
             xmCur = (d.cfg && d.cfg.src === 'xm' && !(d.cfg.vs && d.cfg.vs !== 'coop')) ? { nm: 'Operación Krampus' } : null;
             if (xmCur && d.xm) xmApply(d.xm); if (xmCur && wasMenu) setTimeout(() => playCut('xintro', null), 100);
         }
-        nH(d);
+        nH(d); if (d && d.t === 's' && d.yt) for (const a of d.yt) yTr.push({ x: a[0], y: a[1], t: a[2] });
         if (xmCur && d && d.t === 's') {
             if (d.xm) xmClientApply(d.xm);
             for (const a of d.e) { const o = net.em.get(a[0]); if (o) o.req = (a[8] || 0) - 1; }
@@ -6479,6 +6514,116 @@ function drawXmHUD() {
         }
         return mW(bonus, secs, clean, src, nm, rw, ix);
     };
+}
+
+/* ---------- Yeti: misil de hielo invisible que sigue el ratón · Frost solo en diciembre ---------- */
+function yetiCast(q, mx, my) {
+    const c = CLASSES.yeti;
+    if (state !== 'playing' || q.dead || (q.abilCd || 0) > 6) return false;
+    let n = 0, portal = false;
+    for (const e of enemies.slice()) { // congela 15 s (1 de daño) a los enemigos con frío
+        if (!(e.cold > 0) || e.haste || e.isAlly || e.sq !== undefined) continue;
+        const long = (e.isBoss || e.master || e.krampus) ? 750 : 1500; e.stun = Math.max(e.stun || 0, long); e.frz = 1; e.frzImm = long + 120; e.cold = long + 600; n++;
+        e.hp -= 1; if (e.hp <= 0) killEnemy(e.id);
+    }
+    if (anom && !anom.frozen && Math.hypot(anom.x - q.x, anom.y - q.y) < 230) { anom.frozen = true; portal = true; floatingTexts.push({ text: '❄️ ¡PORTAL GÉLIDO DESBLOQUEADO!', x: anom.x, y: anom.y - 40, life: 120, color: '#80d8ff' }); }
+    yMs.push({ o: q, x: q.x, y: q.y, a: Math.atan2(my - q.y, mx - q.x), t: 210, n: 0 });
+    frostFx.push({ x: q.x, y: q.y, t: 0 }); createParticles(q.x, q.y, '#b3e5fc', 14);
+    floatingTexts.push({ text: n ? '🧊 ¡Misil de hielo! Congelados: ' + n : '🧊 ¡Misil de hielo!', x: q.x, y: q.y - 50, life: 80, color: '#80d8ff' });
+    q.abilCd = c.cd; return true;
+}
+function yetiTick() {
+    for (let i = yTr.length - 1; i >= 0; i--) if (--yTr[i].t <= 0) yTr.splice(i, 1);
+    if (yNew.length > 200) yNew.splice(0, yNew.length - 200);
+    if (net.role === 'client') return;
+    for (let i = yMs.length - 1; i >= 0; i--) { // el misil no se ve ni choca con nada: solo dibuja el rastro y obedece al ratón
+        const m = yMs[i], o = m.o; let tx, ty;
+        if (o === player) { tx = mouse.x; ty = mouse.y; } else { const a = o.turretAngle || 0; tx = o.x + Math.cos(a) * 400; ty = o.y + Math.sin(a) * 400; }
+        let d = Math.atan2(ty - m.y, tx - m.x) - m.a; while (d < -Math.PI) d += 6.283; while (d > Math.PI) d -= 6.283;
+        m.a += Math.max(-0.14, Math.min(0.14, d)); m.x = Math.max(BORDER_SIZE, Math.min(MAP_WIDTH - BORDER_SIZE, m.x + Math.cos(m.a) * 7)); m.y = Math.max(BORDER_SIZE, Math.min(MAP_HEIGHT - BORDER_SIZE, m.y + Math.sin(m.a) * 7));
+        if (++m.n % 2 === 0) { yTr.push({ x: m.x, y: m.y, t: 300 }); yNew.push([Math.round(m.x), Math.round(m.y), 300]); if (yTr.length > 260) yTr.shift(); }
+        if (--m.t <= 0) yMs.splice(i, 1);
+    }
+    if (yTr.length && frameCount % 2 === 0) for (const e of enemies) { // tocar el rastro congela 15 s, sin daño
+        if (e.isAlly || e.haste || e.sq !== undefined || e.frzImm > 0) continue;
+        const R = (30 + e.radius * 0.7) ** 2;
+        for (const p of yTr) if ((e.x - p.x) ** 2 + (e.y - p.y) ** 2 < R) { const long = (e.isBoss || e.master || e.krampus) ? 750 : 1500; e.stun = Math.max(e.stun || 0, long); e.frz = 1; e.frzImm = long + 90; e.cold = long + 600; createParticles(e.x, e.y, '#b3e5fc', 8); break; }
+    }
+}
+function drawYTrail() { // rastro grande del misil de hielo: dibujado por lotes
+    if (!yTr.length) return; ctx.save(); ctx.fillStyle = '#b3e5fc'; ctx.strokeStyle = '#e1f5fe'; ctx.lineWidth = 2;
+    for (let pass = 0; pass < 2; pass++) {
+        ctx.globalAlpha = pass ? 0.12 : 0.34; ctx.beginPath();
+        for (const p of yTr) { if ((p.t > 90) !== (pass === 0) || !inView(p.x, p.y, 40)) continue; ctx.moveTo(p.x + 30, p.y); ctx.arc(p.x, p.y, 30, 0, 6.283); }
+        ctx.fill(); if (pass === 0) { ctx.globalAlpha = 0.45; ctx.stroke(); }
+    }
+    ctx.restore();
+}
+{
+    const cC = castAbility; castAbility = function (q, mx, my) { if (clsOf(q) === 'yeti') return yetiCast(q, mx, my); return cC(q, mx, my); };
+    const fT = frostTick; frostTick = function () {
+        fT(); yetiTick();
+        for (const e of enemies) if (e.frzImm === 129) { e.stun = Math.max(e.stun || 0, 270); e.frzImm = 400; } // rastro pasivo: 4,5 s
+        if (iceTrail.length > 180) iceTrail.splice(0, iceTrail.length - 180); // menos puntos = menos lag
+        if (net.role !== 'client') for (const e of enemies) if (e.cold > 0 && !e.haste && !e.isAlly && e.sq === undefined) { if (e.sp0 === undefined) { e.sp0 = e.speed; e.speed = e.sp0 * 0.5; } e.slowT = Math.max(e.slowT || 0, 6); } // el frío ralentiza
+    };
+    const cc0 = curCls; curCls = function () { const c = cc0(); return (c === 'escarcha' && !isDec()) ? '' : c; };
+    const eq = equipCls; equipCls = function (id) { if (id === 'escarcha' && !isDec()) { toast('❄️ Frost solo se puede usar en diciembre'); return; } return eq(id); };
+    const sNL = startNewLevel; startNewLevel = function () { yTr.length = 0; yMs.length = 0; yNew.length = 0; return sNL.apply(this, arguments); };
+    CLASSES.yeti.d = 'Tus balas dejan un rastro de hielo: congela 4,5 s y deja frío, y los enemigos fríos van más lentos. Activa: lanzas un misil de hielo invisible que atraviesa todo y sigue tu ratón durante 3,5 s dejando un rastro enorme; quien lo toque queda congelado 25 s sin sufrir daño. Además congela 25 s (con 1 de daño) a los enemigos que tengan frío y congela un portal gélido cercano. Recarga 25 s.';
+    CLASSES.escarcha.d = 'Gratuita, pero SOLO se puede usar en diciembre. Activa: congela durante 3 s (1,5 s a jefes) a los enemigos en un radio de 230 px. Pasiva: tus proyectiles ralentizan a los enemigos. También congela portales anómalos. Recarga 15 s.';
+    CLASSES.escarcha.dec = 1;
+}
+
+/* ---------- Mejoras: hielo bajo los tanques, flechas de congelados, interfaz de clases, Sombra en negro, menos lag ---------- */
+function drawIceUnder() { // rastro pasivo del Yeti: por debajo de los tanques y en una sola pasada
+    if (!iceTrail.length) return; ctx.save(); ctx.fillStyle = 'rgb(144,224,255)';
+    for (let pass = 0; pass < 2; pass++) {
+        ctx.globalAlpha = pass ? 0.18 : 0.5; ctx.beginPath();
+        for (const t of iceTrail) { if ((t.t >= 165) !== (pass === 0)) continue; if (!inView(t.x, t.y, 12)) continue; ctx.moveTo(t.x + 8, t.y); ctx.arc(t.x, t.y, 8, 0, 6.283); }
+        ctx.fill();
+    }
+    ctx.restore();
+}
+function drawFrozenArrows() { // el radar se sustituye por flechas hacia los enemigos congelados o con frío que no ves
+    if (curCls() !== 'yeti' || player.dead || net.role === 'client') return;
+    const W = viewW, H = viewH, c = ctx, ox = W / 2, oy = H / 2, m = 40, top = touchOn() ? 70 : 40, list = [];
+    for (const e of enemies) {
+        if (e.haste || e.isAlly || e.sq !== undefined || !(e.cold > 0 || (e.frz && e.stun > 0))) continue;
+        const sx = e.x - camera.x, sy = e.y - camera.y; if (sx > 20 && sx < W - 20 && sy > 20 && sy < H - 20) continue;
+        list.push({ fr: !!(e.frz && e.stun > 0), sx, sy, d: (sx - ox) ** 2 + (sy - oy) ** 2 });
+    }
+    list.sort((a, b) => a.d - b.d); if (list.length > 10) list.length = 10;
+    c.save(); c.textAlign = 'center'; c.textBaseline = 'middle';
+    for (const q of list) {
+        const dx = q.sx - ox, dy = q.sy - oy, ang = Math.atan2(dy, dx), tx = dx ? ((dx > 0 ? W - m : m) - ox) / dx : 1e9, ty = dy ? ((dy > 0 ? H - m : top) - oy) / dy : 1e9, t = Math.min(Math.abs(tx), Math.abs(ty)), px = ox + dx * t, py = oy + dy * t;
+        c.save(); c.translate(px, py); c.rotate(ang); c.fillStyle = q.fr ? '#ffffff' : '#4dd0e1'; c.strokeStyle = '#0277bd'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(15, 0); c.lineTo(-8, -10); c.lineTo(-3, 0); c.lineTo(-8, 10); c.closePath(); c.fill(); c.stroke(); c.restore();
+        c.font = '16px sans-serif'; c.fillStyle = '#000'; c.fillText(q.fr ? '🧊' : '🥶', px - Math.cos(ang) * 26, py - Math.sin(ang) * 26);
+    }
+    c.restore();
+}
+let garSel = '';
+function selCls(id) { garSel = id; renderLobby(); }
+if (!document.getElementById('clsui-css')) { const st = document.createElement('style'); st.id = 'clsui-css'; st.textContent = '#lobby .clsui{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px;align-items:start;margin-bottom:8px}#lobby .clsl{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}#lobby .clsb{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;min-height:76px;opacity:.72}#lobby .clsb span{font-size:28px;line-height:1}#lobby .clsb small{margin:0;font-size:12px;color:inherit;text-align:center}#lobby .clsb i{position:absolute;top:2px;right:4px;font-style:normal;font-size:12px}#lobby .clsb.own{opacity:1}#lobby .clsb.sel{outline:3px solid #ff9800;outline-offset:-3px;opacity:1}#lobby .clsb.eq{border-color:#ffd740!important;box-shadow:inset 0 0 0 2px #ffd740}#lobby .clsd{border:3px solid #0f1416;padding:12px;background:#2f3d44;display:flex;flex-direction:column;gap:8px}#lobby .clsd h4{margin:0;font:700 26px "Barlow Condensed","Arial Narrow",sans-serif}#lobby .clsd p{margin:0;line-height:1.4;font-size:14px}#lobby .clst{display:flex;flex-wrap:wrap;gap:6px}#lobby .clst span{background:#455a64;color:#fff;font-size:12px;padding:2px 8px;border-radius:10px}@media (max-width:700px){#lobby .clsui{grid-template-columns:1fr}}'; document.head.appendChild(st); }
+classesHTML = function (r) { // interfaz única: selector de clases a la izquierda y ficha con acción a la derecha
+    const ids = Object.keys(CLASSES); if (!garSel || !CLASSES[garSel]) garSel = (prof.cls && CLASSES[prof.cls]) ? prof.cls : ids[0];
+    const c = CLASSES[garSel], own = !!(prof.clsOwn && prof.clsOwn[garSel]), on = prof.cls === garSel, lock = r < c.rk, decLock = !!c.dec && !isDec();
+    const chips = ids.map(id => { const q = CLASSES[id], o = !!(prof.clsOwn && prof.clsOwn[id]), eq = prof.cls === id; return '<button class="clsb ' + (id === garSel ? 'sel ' : '') + (eq ? 'eq ' : '') + (o ? 'own' : '') + '" onclick="selCls(\'' + id + '\')"><span>' + q.ic + '</span><small>' + q.n + '</small>' + (eq ? '<i>✔</i>' : (o ? '' : '<i>🔒</i>')) + '</button>'; }).join('');
+    let act;
+    if (own) act = decLock ? '<button disabled>❄️ Solo se puede usar en diciembre</button>' : '<button class="go" onclick="equipCls(\'' + garSel + '\')">' + (on ? 'Equipada · quitar' : 'Equipar') + '</button>';
+    else if (c.ex) act = '<button disabled>' + (c.exn || 'Exclusiva del evento oculto') + '</button>';
+    else if (decLock) act = '<button disabled>Disponible solo en diciembre</button>';
+    else if (lock) act = '<button disabled>Requiere rango ' + c.rk + '</button>';
+    else if (prof.coins < c.cost) act = '<button disabled>Te faltan ' + (c.cost - prof.coins) + ' monedas</button>';
+    else act = '<button class="go" onclick="buyCls(\'' + garSel + '\')">' + (c.cost ? 'Comprar · ' + c.cost + ' 🪙' : 'Conseguir gratis') + '</button>';
+    return '<h3>Clase</h3><p class="st">Solo puedes llevar una a la vez. Elige una para ver su ficha.</p><div class="clsui"><div class="clsl">' + chips + '</div><div class="clsd"><h4>' + c.ic + ' ' + c.n + '</h4><div class="clst"><span>' + (c.t === 'act' ? 'ACTIVA' : 'PASIVA') + '</span><span>' + (c.ex ? 'Exclusiva' : (c.cost ? c.cost + ' 🪙' : 'Gratis')) + '</span>' + (c.ex ? '' : '<span>Rango ' + c.rk + '</span>') + (c.cd ? '<span>Recarga ' + Math.round(c.cd / 60) + ' s</span>' : '') + (c.dec ? '<span>❄️ Solo en diciembre</span>' : '') + '<span>' + (on ? '✔ Equipada' : (own ? 'En propiedad' : '🔒 Bloqueada')) + '</span></div><p>' + c.d + '</p>' + act + '</div></div>';
+};
+yetiRadar = function () { const c = window.__yr; if (c) c.style.display = 'none'; }; // sin radar: ahora hay flechas
+{
+    const dA = drawAnomFx; drawAnomFx = function () { const sv = iceTrail.splice(0); try { dA(); } finally { for (const t of sv) iceTrail.push(t); } }; // el hielo ya no se pinta delante
+    const oL = openLobby; openLobby = function () { yTr.length = 0; yMs.length = 0; yNew.length = 0; iceTrail.length = 0; frostFx.length = 0; return oL.apply(this, arguments); };
+    const hS = evSpawnHunter; evSpawnHunter = function () { hS.apply(this, arguments); const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps && ps.enemy) { ps.enemy.baseColor = '#0d0d0d'; ps.enemy.turretColor = '#000000'; } };
+    const aS = evSpawnAssassin; evSpawnAssassin = function () { aS.apply(this, arguments); const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps && ps.enemy) { ps.enemy.baseColor = '#0d0d0d'; ps.enemy.turretColor = '#000000'; } };
 }
 
 </script>
