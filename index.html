@@ -6572,12 +6572,12 @@ function drawYTrail() { // rastro grande del misil de hielo: dibujado por lotes
             if (!(e.stun > 0)) e.stunEnd = undefined;
             e.stunSv = e.stun || 0;
         }
-        if (net.role !== 'client') for (const e of enemies) if (e.cold > 0 && !e.haste && !e.isAlly && e.sq === undefined) { if (e.sp0 === undefined) { e.sp0 = e.speed; e.speed = e.sp0 * 0.5; } e.slowT = Math.max(e.slowT || 0, 6); } // el frío ralentiza
+        if (net.role !== 'client') for (const e of enemies) if (e.cold > 0 && !e.haste && !e.isAlly && e.sq === undefined) { if (e.sp0 === undefined) { e.sp0 = e.speed; e.speed = e.sp0 * 0.5; } e.slowT = Math.max(e.slowT || 0, 6); if (frameCount % 2 === 0) { if (typeof e.lastShot === 'number') e.lastShot++; if (typeof e.lastMine === 'number') e.lastMine++; } } // el frío ralentiza un 50 % el movimiento y la cadencia de disparo (y de minas)
     };
     const cc0 = curCls; curCls = function () { const c = cc0(); return (c === 'escarcha' && !isDec()) ? '' : c; };
     const eq = equipCls; equipCls = function (id) { if (id === 'escarcha' && !isDec()) { toast('❄️ Frost solo se puede usar en diciembre'); return; } return eq(id); };
     const sNL = startNewLevel; startNewLevel = function () { yTr.length = 0; yMs.length = 0; yNew.length = 0; return sNL.apply(this, arguments); };
-    CLASSES.yeti.d = 'Tus balas dejan un rastro de hielo: congela 3 s y deja frío, que ralentiza un 50 % al enemigo hasta que lo congeles con la habilidad. Activa: lanzas un misil de hielo invisible que atraviesa todo y sigue tu ratón durante 3,5 s dejando un rastro enorme; quien lo toque queda congelado 25 s sin sufrir daño. Además congela 25 s (con 1 de daño) a los enemigos que tengan frío (y se les quita el frío) y congela un portal gélido cercano. Recarga 25 s.';
+    CLASSES.yeti.d = 'Tus balas dejan un rastro de hielo: congela 3 s y deja frío, que ralentiza un 50 % su velocidad y su cadencia de disparo hasta que lo congeles con la habilidad. Activa: lanzas un misil de hielo invisible que atraviesa todo y sigue tu ratón durante 3,5 s dejando un rastro enorme; quien lo toque queda congelado 25 s sin sufrir daño. Además congela 25 s (con 1 de daño) a los enemigos que tengan frío (y se les quita el frío) y congela un portal gélido cercano. Recarga 25 s.';
     CLASSES.escarcha.d = 'Gratuita, pero SOLO se puede usar en diciembre. Activa: congela durante 3 s (1,5 s a jefes) a los enemigos en un radio de 230 px. Pasiva: tus proyectiles ralentizan a los enemigos. También congela portales anómalos. Recarga 15 s.';
     CLASSES.escarcha.dec = 1;
 }
