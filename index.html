@@ -1200,7 +1200,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (const b of bullets) { if (b.dead || b.vx === undefined) continue; const ow = petOwner(b.shooterId); if (!ow || clsOf(ow) !== 'yeti') continue; b.tr = (b.tr || 0) + 1; if (b.tr % 3 === 0) { iceTrail.push({ x: b.x, y: b.y, t: 600 }); if (iceTrail.length > 420) iceTrail.shift(); } }
         if (iceTrail.length) for (const e of enemies) {
             if (e.isAlly || e.haste || e.sq !== undefined) continue;
-            for (const t of iceTrail) if ((e.x - t.x) ** 2 + (e.y - t.y) ** 2 < (e.radius + 8) ** 2) { e.cold = 1800; if (!(e.frzImm > 0)) { e.stun = Math.max(e.stun || 0, 60); e.frz = 1; e.frzImm = 130; } break; }
+            for (const t of iceTrail) if ((e.x - t.x) ** 2 + (e.y - t.y) ** 2 < (e.radius + 8) ** 2) { if (!(e.frzImm > 270)) e.cold = 999999; if (!(e.frzImm > 0)) { e.stun = Math.max(e.stun || 0, 180); e.frz = 1; e.frzImm = 270; } break; }
         }
         for (const e of enemies) {
             if (e.cold > 0) e.cold--; if (e.frzImm > 0) e.frzImm--;
@@ -6523,7 +6523,7 @@ function yetiCast(q, mx, my) {
     let n = 0, portal = false;
     for (const e of enemies.slice()) { // congela 15 s (1 de daño) a los enemigos con frío
         if (!(e.cold > 0) || e.haste || e.isAlly || e.sq !== undefined) continue;
-        const long = (e.isBoss || e.master || e.krampus) ? 750 : 1500; e.stun = Math.max(e.stun || 0, long); e.frz = 1; e.frzImm = long + 120; e.cold = long + 600; n++;
+        const long = (e.isBoss || e.master || e.krampus) ? 750 : 1500; e.stun = Math.max(e.stun || 0, long); e.frz = 1; e.frzImm = long + 120; e.cold = 0; n++;
         e.hp -= 1; if (e.hp <= 0) killEnemy(e.id);
     }
     if (anom && !anom.frozen && Math.hypot(anom.x - q.x, anom.y - q.y) < 230) { anom.frozen = true; portal = true; floatingTexts.push({ text: '❄️ ¡PORTAL GÉLIDO DESBLOQUEADO!', x: anom.x, y: anom.y - 40, life: 120, color: '#80d8ff' }); }
@@ -6547,7 +6547,7 @@ function yetiTick() {
     if (yTr.length && frameCount % 2 === 0) for (const e of enemies) { // tocar el rastro congela 15 s, sin daño
         if (e.isAlly || e.haste || e.sq !== undefined || e.frzImm > 0) continue;
         const R = (30 + e.radius * 0.7) ** 2;
-        for (const p of yTr) if ((e.x - p.x) ** 2 + (e.y - p.y) ** 2 < R) { const long = (e.isBoss || e.master || e.krampus) ? 750 : 1500; e.stun = Math.max(e.stun || 0, long); e.frz = 1; e.frzImm = long + 90; e.cold = long + 600; createParticles(e.x, e.y, '#b3e5fc', 8); break; }
+        for (const p of yTr) if ((e.x - p.x) ** 2 + (e.y - p.y) ** 2 < R) { const long = (e.isBoss || e.master || e.krampus) ? 750 : 1500; e.stun = Math.max(e.stun || 0, long); e.frz = 1; e.frzImm = long + 90; e.cold = 0; createParticles(e.x, e.y, '#b3e5fc', 8); break; }
     }
 }
 function drawYTrail() { // rastro grande del misil de hielo: dibujado por lotes
@@ -6563,14 +6563,21 @@ function drawYTrail() { // rastro grande del misil de hielo: dibujado por lotes
     const cC = castAbility; castAbility = function (q, mx, my) { if (clsOf(q) === 'yeti') return yetiCast(q, mx, my); return cC(q, mx, my); };
     const fT = frostTick; frostTick = function () {
         fT(); yetiTick();
-        for (const e of enemies) if (e.frzImm === 129) { e.stun = Math.max(e.stun || 0, 270); e.frzImm = 400; } // rastro pasivo: 4,5 s
         if (iceTrail.length > 180) iceTrail.splice(0, iceTrail.length - 180); // menos puntos = menos lag
+        for (const e of enemies) { // seguro: ninguna congelación/aturdimiento puede durar más de lo previsto
+            const cap = (e.isBoss || e.master || e.krampus) ? 750 : 1500;
+            if (e.stun > cap) e.stun = cap;
+            if (e.stun > 0 && (e.stunEnd === undefined || e.stun > (e.stunSv || 0))) e.stunEnd = frameCount + e.stun + 45;
+            if (e.stun > 0 && frameCount > e.stunEnd) { e.stun = 0; e.frz = 0; }
+            if (!(e.stun > 0)) e.stunEnd = undefined;
+            e.stunSv = e.stun || 0;
+        }
         if (net.role !== 'client') for (const e of enemies) if (e.cold > 0 && !e.haste && !e.isAlly && e.sq === undefined) { if (e.sp0 === undefined) { e.sp0 = e.speed; e.speed = e.sp0 * 0.5; } e.slowT = Math.max(e.slowT || 0, 6); } // el frío ralentiza
     };
     const cc0 = curCls; curCls = function () { const c = cc0(); return (c === 'escarcha' && !isDec()) ? '' : c; };
     const eq = equipCls; equipCls = function (id) { if (id === 'escarcha' && !isDec()) { toast('❄️ Frost solo se puede usar en diciembre'); return; } return eq(id); };
     const sNL = startNewLevel; startNewLevel = function () { yTr.length = 0; yMs.length = 0; yNew.length = 0; return sNL.apply(this, arguments); };
-    CLASSES.yeti.d = 'Tus balas dejan un rastro de hielo: congela 4,5 s y deja frío, y los enemigos fríos van más lentos. Activa: lanzas un misil de hielo invisible que atraviesa todo y sigue tu ratón durante 3,5 s dejando un rastro enorme; quien lo toque queda congelado 25 s sin sufrir daño. Además congela 25 s (con 1 de daño) a los enemigos que tengan frío y congela un portal gélido cercano. Recarga 25 s.';
+    CLASSES.yeti.d = 'Tus balas dejan un rastro de hielo: congela 3 s y deja frío, que ralentiza un 50 % al enemigo hasta que lo congeles con la habilidad. Activa: lanzas un misil de hielo invisible que atraviesa todo y sigue tu ratón durante 3,5 s dejando un rastro enorme; quien lo toque queda congelado 25 s sin sufrir daño. Además congela 25 s (con 1 de daño) a los enemigos que tengan frío (y se les quita el frío) y congela un portal gélido cercano. Recarga 25 s.';
     CLASSES.escarcha.d = 'Gratuita, pero SOLO se puede usar en diciembre. Activa: congela durante 3 s (1,5 s a jefes) a los enemigos en un radio de 230 px. Pasiva: tus proyectiles ralentizan a los enemigos. También congela portales anómalos. Recarga 15 s.';
     CLASSES.escarcha.dec = 1;
 }
