@@ -1395,7 +1395,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             intro: ['OPERACIÓN SOMBRA', [['Vigía de las Sombras', VG, 'Escúchame, viajero. Ese portal es la única entrada a nuestros hogares: el reino de las sombras.'], ['Tú', TQ, '¿Qué ocurre? ¿Por qué se abrió aquí, en pleno campo de batalla?'], ['Vigía de las Sombras', VG, 'El Maestro Sombra quiere cruzarlo y devorar la esencia de nuestro mundo. Si la base cae, el portal se rompe y nuestros hogares con él.'], ['Tú', TQ, 'Entonces la defenderé. ¿Cuánto tiempo necesitas?'], ['Vigía de las Sombras', VG, 'Diez minutos. Resiste a las criaturas que lleguen y repara la entrada con cajas 📦. Cuando el Maestro aparezca, derrótalo y toma su esencia.']]],
             outro: ['MISIÓN CUMPLIDA', [['Vigía de las Sombras', VG, 'Lo lograste. Has recogido la esencia de las sombras: el portal vuelve a estar a salvo.'], ['Tú', TQ, '¿Y el Maestro Sombra?'], ['Vigía de las Sombras', VG, 'Ya no volverá. Mi pueblo te lo agradece: la clase «Sombra» te ha elegido. Úsala bien.']]],
             xintro: ['OPERACIÓN KRAMPUS', [['Pipa', PI, '¡Por fin! El portal gélido te ha traído hasta nuestra ciudad nevada. Soy Pipa, la elfa jefa.'], ['Tú', TQ, '¿Qué está pasando aquí?'], ['Pipa', PI, 'Krampus quiere arruinar la Navidad. Sus criaturas atacan a los ciudadanos antes de que reciban sus regalos.'], ['Tú', TQ, '¿Y qué puedo hacer yo?'], ['Pipa', PI, 'Cada ciudadano te pedirá un juguete concreto. Reúne materiales en las fábricas (🪵 ⚙️ 🧵 🎨), móntalos en Montaje 🛠️, empaquétalos 🎁 y entrégaselos. Cada regalo los cura, y tres seguidos desatan un villancico que congela a los malos.'], ['Pipa', PI, 'Cuando suene la alarma de oleada, los ciudadanos correrán a sus casas 🏠: yo te marcaré con flechas dónde está cada una. Cuidado con los gnomos: ¡roban juguetes!']]],
-            fintro: ['EL BOSQUE ALQUÍMICO', [['Guardabosques', '#a5d6a7', 'Has entrado por el muro oculto. Pocos conocen este camino: el Bosque Alquímico.'], ['Tú', TQ, '¿Qué es este lugar?'], ['Guardabosques', '#a5d6a7', 'Un bosque larguísimo donde viven los espíritus de los cuatro elementos. Las balas normales no les hacen nada.'], ['Tú', TQ, '¿Entonces cómo los detengo?'], ['Guardabosques', '#a5d6a7', 'Con calderos ⚗️. Pon uno con la tecla de mina y prepara un elemento: el hielo apaga a las brasas 🔥, el fuego derrite a los espíritus helados ❄️, el veneno corroe a las chispas ⚡ y el rayo quema a las esporas ☠️.'], ['Guardabosques', '#a5d6a7', 'Cruza el bosque hasta el final. Si caes, reaparecerás en tu último caldero.']]],
+            fintro: ['EL BOSQUE ALQUÍMICO', [['Guardabosques', '#a5d6a7', 'Has entrado por el muro oculto. Pocos conocen este camino: el Bosque Alquímico.'], ['Tú', TQ, '¿Qué es este lugar?'], ['Guardabosques', '#a5d6a7', 'Un bosque larguísimo donde viven los espíritus de los cuatro elementos. Las balas normales no les hacen nada.'], ['Tú', TQ, '¿Entonces cómo los detengo?'], ['Guardabosques', '#a5d6a7', 'Con calderos ⚗️. Pon uno con la tecla de mina y prepara un elemento: el hielo apaga a las brasas 🔥, el fuego derrite a los espíritus helados ❄️, el veneno corroe a las chispas ⚡ y el rayo quema a las esporas ☠️.'], ['Guardabosques', '#a5d6a7', 'Derrota a todos los espíritus del bosque para abrir la salida del final. Si caes, reaparecerás en tu último caldero.']]],
             foutro: ['BOSQUE SUPERADO', [['Guardabosques', '#a5d6a7', 'Lo has conseguido: has cruzado el Bosque Alquímico.'], ['Tú', TQ, 'Ha sido un viaje largo…'], ['Guardabosques', '#a5d6a7', 'Los cuatro materiales te reconocen. Te nombro Materialista: congela, quema, electrifica o envenena a quien elijas.']]],
             xoutro: ['FELIZ NAVIDAD', [['Pipa', PI, '¡Krampus ha caído! Los ciudadanos están a salvo y todos tendrán su regalo.'], ['Tú', TQ, 'Ha sido una noche movidita…'], ['Pipa', PI, 'Gracias, héroe. El portal gélido permanecerá abierto. Podrás volver cuando quieras.']]]
         }[kind] || ['', []];
@@ -1564,7 +1564,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             for (const r of remotes) { const p = hs(r.slot || 0); r.x = p.x; r.y = p.y; r.lastX = p.x; r.lastY = p.y; }
         }
         if (currentMode === 'xmas') { objText = '🎄 CREA LOS JUGUETES QUE PIDEN, REFUGIA A LOS CIUDADANOS Y DERROTA A KRAMPUS'; xmSetup(); }
-        if (currentMode === 'forest') { objText = '🌲 CRUZA EL BOSQUE HASTA LA SALIDA · PREPARA BALAS ELEMENTALES EN LOS CALDEROS ⚗️'; fsSetup(); }
+        if (currentMode === 'forest') { objText = '🌲 DERROTA A TODOS LOS ESPÍRITUS Y LLEGA A LA SALIDA · PREPARA BALAS ELEMENTALES EN LOS CALDEROS ⚗️'; fsSetup(); }
         if (bossAlso) { objText += " + 💀 DESTRUYE AL JEFE"; spawnEnemy(makeBossType(), false, null, null, true, false); }
         if (sbMi && sbCur.lv.u > 0 && (currentMode === 'survive' || currentMode === 'protect')) surviveTimer = sbCur.lv.u * 60;
         if (rngBak) { Math.random = rngBak; rngBak = null; }
@@ -6644,7 +6644,7 @@ yetiRadar = function () { const c = window.__yr; if (c) c.style.display = 'none'
 }
 
 /* ===================== EVENTO «EL BOSQUE ALQUÍMICO» + CLASE MATERIALISTA ===================== */
-const FS_W = 10000, FS_H = 1440;
+const FS_W = 24000, FS_H = 1440;
 const FS_EL = [
     { k: 'fuego', n: 'Fuego', ic: '🔥', col: '#ff6d00' },
     { k: 'hielo', n: 'Hielo', ic: '❄️', col: '#4fc3f7' },
@@ -6652,20 +6652,24 @@ const FS_EL = [
     { k: 'veneno', n: 'Veneno', ic: '☠️', col: '#9ccc65' }
 ];
 const FS_ELX = k => FS_EL.find(e => e.k === k);
-const FS_NEED = { brasa: 'hielo', escarcha: 'fuego', chispa: 'veneno', espora: 'rayo' };
+const FS_NEED = { fuego: 'hielo', hielo: 'fuego', rayo: 'veneno', veneno: 'rayo' }; // material del enemigo → elemento que lo vence
+const FS_MATCOL = { fuego: '#ff5722', hielo: '#4fc3f7', rayo: '#fdd835', veneno: '#6aa84f' }, FS_MATDK = { fuego: '#bf360c', hielo: '#0277bd', rayo: '#f57f17', veneno: '#aed581' };
 const FS_ZNAME = ['🔥 Claro de las Brasas', '❄️ Pinar Helado', '⚡ Robledal Tormentoso', '☠️ Ciénaga de Esporas', '🌲 Corazón del Bosque'];
 const FS_TINT = ['rgba(255,112,67,.20)', 'rgba(79,195,247,.22)', 'rgba(255,241,118,.18)', 'rgba(156,204,101,.24)', 'rgba(27,94,32,.30)'];
 const FS_PAL = [['#33691e', '#2e7d32', '#66bb6a'], ['#37596b', '#4e8aa8', '#b3e5fc'], ['#6d5a14', '#8d7a1f', '#fff59d'], ['#2f4a1a', '#4a6b2a', '#aed581'], ['#14401a', '#1b5e20', '#43a047']];
-const FS_T = {
-    brasa: { ...ENEMY_TYPES[1], type: 'fs_brasa', fsK: 'brasa', baseColor: '#ff5722', turretColor: '#bf360c', speed: 1.9, cooldown: 120, radius: 16, hp: 2 },
-    escarcha: { ...ENEMY_TYPES[10], type: 'fs_escarcha', fsK: 'escarcha', baseColor: '#4fc3f7', turretColor: '#0277bd', speed: 0.9, bullet: 'super', rebounces: 1, cooldown: 170, radius: 20, hp: 3 },
-    chispa: { ...ENEMY_TYPES[7], type: 'fs_chispa', fsK: 'chispa', baseColor: '#fdd835', turretColor: '#f57f17', speed: 1.3, cooldown: 40, maxBullets: 3, radius: 16, hp: 2 },
-    espora: { ...ENEMY_TYPES[15], type: 'fs_espora', fsK: 'espora', baseColor: '#558b2f', turretColor: '#aed581', speed: 0.9, radius: 18, hp: 2 }
+const FS_DES = {
+    ligero: { base: 1, nat: 'fuego', speed: 1.9, cooldown: 120, radius: 16, hp: 2 },
+    pesado: { base: 10, nat: 'hielo', speed: 0.9, bullet: 'super', rebounces: 1, cooldown: 170, radius: 20, hp: 3 },
+    rapido: { base: 7, nat: 'rayo', speed: 1.3, cooldown: 40, maxBullets: 3, radius: 16, hp: 2 },
+    acido: { base: 15, nat: 'veneno', speed: 0.9, radius: 18, hp: 2 }
 };
-let fsCauldrons = [], fsAmmo = 0, fsElI = -1, fsT = 0, fsBolts = [], fsEmb = [], fsCp = null, fsLastZ = -1;
+// Un mismo diseño puede ser de cualquier material (cambia color, adorno y debilidad)
+function fsType(d, m) { const D = FS_DES[d]; return { ...ENEMY_TYPES[D.base], ...D, type: 'fs_' + d + '_' + m, fsK: d, fsM: m, baseColor: FS_MATCOL[m], turretColor: FS_MATDK[m] }; }
+let fsPlan = [], fsCauldrons = [], fsAmmo = 0, fsElI = -1, fsT = 0, fsBolts = [], fsEmb = [], fsCp = null, fsLastZ = -1;
 const fsZone = () => Math.max(0, Math.min(4, Math.floor(player.x / (MAP_WIDTH / 5))));
 const fsPct = () => Math.max(0, Math.min(100, Math.round(player.x / (MAP_WIDTH - 200) * 100)));
-const fsHud = () => '🌲 ' + fsPct() + '% · ' + (fsAmmo > 0 && fsElI >= 0 ? FS_EL[fsElI].ic + ' ' + fsAmmo : '⚗️ 0');
+const fsRem = () => fsPlan.filter(q => !q.done).length + enemies.filter(e => e.fsM && (e.sq === undefined || e.tmpAlly)).length + pendingSpawns.filter(q => q.enemy && q.enemy.fsM).length;
+const fsHud = () => '🌲 ' + fsPct() + '% · 👹 ' + fsRem() + ' · ' + (fsAmmo > 0 && fsElI >= 0 ? FS_EL[fsElI].ic + ' ' + fsAmmo : '⚗️ 0');
 
 // Mapa larguísimo con aspecto de bosque: árboles en retícula escalonada (siempre quedan pasillos de 2 huecos)
 function generateForestMap() {
@@ -6689,13 +6693,29 @@ function generateForestMap() {
 }
 
 function fsSetup() {
-    fsCauldrons = []; fsAmmo = 0; fsElI = -1; fsT = 0; fsBolts = []; fsEmb = []; fsLastZ = -1; iceTrail.length = 0; SAY.q.length = 0;
+    fsCauldrons = []; fsAmmo = 0; fsElI = -1; fsT = 0; fsBolts = []; fsEmb = []; fsLastZ = -1; fsPlan = []; iceTrail.length = 0; SAY.q.length = 0;
+    {   // enemigos fijos repartidos por todo el bosque: hay que matarlos a todos
+        const zw = MAP_WIDTH / 5, N = [12, 14, 16, 18, 22], PV = [0, 0.25, 0.4, 0.5, 0.6], DZ = [['ligero'], ['ligero', 'pesado'], ['ligero', 'pesado', 'rapido'], ['ligero', 'pesado', 'rapido', 'acido'], ['ligero', 'pesado', 'rapido', 'acido']], MS = ['fuego', 'hielo', 'rayo', 'veneno'];
+        for (let z = 0; z < 5; z++) {
+            const x0 = z * zw + (z === 0 ? 1000 : 300), x1 = (z + 1) * zw - (z === 4 ? 700 : 300), span = (x1 - x0) / N[z];
+            for (let i = 0; i < N[z]; i++) {
+                const d = DZ[z][Math.floor(Math.random() * DZ[z].length)]; let m = FS_DES[d].nat;
+                if (Math.random() < PV[z]) { const o = MS.filter(q => q !== m); m = o[Math.floor(Math.random() * o.length)]; }
+                for (let t = 0; t < 25; t++) {
+                    const x = x0 + (i + Math.random()) * span, y = GRID_SIZE * 2 + Math.random() * (MAP_HEIGHT - GRID_SIZE * 4);
+                    if (!wallHit({ x, y, radius: 26 })) { fsPlan.push({ x, y, d, m, done: false }); break; }
+                }
+            }
+        }
+        fsPlan.sort((a, b) => a.x - b.x);
+    }
     escapeZone = { x: MAP_WIDTH - 160, y: Math.floor(MAP_HEIGHT / 2), active: true, hidden: false, color: '#00ff00' };
     fsCauldrons.push({ x: player.x + 110, y: player.y, bub: 0, lock: 0 }); fsCp = { x: player.x, y: player.y };
     const kq = String(controls.mine || 'q').toUpperCase();
     evSay('Guardabosques', '#a5d6a7', 'Los espíritus del bosque ignoran las balas normales: solo caen con el elemento que los vence.', 5200, false);
     evSay('Guardabosques', '#a5d6a7', 'Pulsa [' + kq + '] junto a un caldero ⚗️ para preparar un elemento (otra pulsación lo cambia). Lejos de uno, [' + kq + '] coloca un caldero nuevo: será tu punto de reaparición.', 7000, false);
-    evSay('Guardabosques', '#a5d6a7', '❄️ vence a 🔥 · 🔥 vence a ❄️ · ☠️ vence a ⚡ · ⚡ vence a ☠️. ¡Llega al final del bosque!', 6000, false);
+    evSay('Guardabosques', '#a5d6a7', 'Mira el icono sobre cada espíritu: es el elemento que lo vence. Un mismo diseño puede ser de materiales distintos. ❄️ vence a 🔥 · ☠️ vence a ⚡ · y al revés.', 7000, false);
+    evSay('Guardabosques', '#a5d6a7', 'No puedes esquivarlos a todos: la salida solo se abre cuando derrotes a todos los espíritus del bosque.', 6000, false);
 }
 
 function fsStart(noCut) {
@@ -6721,30 +6741,27 @@ function fsEntryCheck() {
 }
 
 function fsSpawnTick() {
-    const z = fsZone(), live = enemies.filter(e => e.fsK && e.sq === undefined && !e.isAlly).length + pendingSpawns.filter(p => p.enemy && p.enemy.fsK).length;
-    if (live >= 4 + z * 2 || fsT % Math.max(70, 170 - z * 20) !== 0) return;
-    const K = ['brasa', 'escarcha', 'chispa', 'espora'], pool = K.slice(0, Math.min(4, z + 1)); if (z >= 1) pool.push(K[Math.min(3, z)]);
-    const kind = pool[Math.floor(Math.random() * pool.length)];
-    for (let i = 0; i < 14; i++) {
-        const x = Math.min(MAP_WIDTH - 220, player.x + 420 + Math.random() * 520), y = GRID_SIZE * 2 + Math.random() * (MAP_HEIGHT - GRID_SIZE * 4);
-        if (wallHit({ x, y, radius: 26 }) || Math.hypot(x - player.x, y - player.y) < 380) continue;
-        spawnAtOverride = { x, y }; spawnEnemy(FS_T[kind], false, null, null, false, false); spawnAtOverride = null; return;
+    let n = 0;
+    for (const q of fsPlan) {
+        if (q.done) continue; if (q.x > player.x + 1000) break; // ordenados por x: los demás siguen dormidos
+        if (n >= 2) break;
+        q.done = true; n++;
+        spawnAtOverride = { x: q.x, y: q.y }; spawnEnemy(fsType(q.d, q.m), false, null, null, false, false); spawnAtOverride = null;
     }
 }
 function fsTick() {
     if (objDone) return; fsT++;
-    fsSpawnTick();
-    for (const e of enemies) if (e.fsK === 'brasa' && e.sq === undefined && !e.isAlly && fsT % 45 === 0 && fsEmb.length < 70 && Math.hypot(e.x - player.x, e.y - player.y) < 1300) fsEmb.push({ x: e.x, y: e.y, t: 240 });
+    if (fsT % 6 === 0) fsSpawnTick();
+    for (const e of enemies) if (e.fsM === 'fuego' && e.sq === undefined && !e.isAlly && fsT % 45 === 0 && fsEmb.length < 70 && Math.hypot(e.x - player.x, e.y - player.y) < 1300) fsEmb.push({ x: e.x, y: e.y, t: 240 });
     for (let i = fsEmb.length - 1; i >= 0; i--) { const m = fsEmb[i]; if (--m.t <= 0) { fsEmb.splice(i, 1); continue; } if (!player.dead && Math.hypot(m.x - player.x, m.y - player.y) < player.radius + 7) { fsEmb.splice(i, 1); playerDamage(); } }
     for (const k of fsCauldrons) { if (k.lock > 0) k.lock--; if (k.bub > 0) k.bub--; }
-    if (fsT % 120 === 0) enemies = enemies.filter(e => !(e.fsK && e.sq === undefined && !e.isAlly && player.x - e.x > 1800));
     const z = fsZone(); if (z !== fsLastZ) { fsLastZ = z; floatingTexts.push({ text: FS_ZNAME[z], x: player.x, y: player.y - 70, life: 160, color: '#e8f5e9' }); }
     if (fsT % 20 === 0) updateUI();
-    if (near(player, escapeZone, 85)) objectiveDone();
+    if (fsRem() === 0 && near(player, escapeZone, 85)) objectiveDone();
 }
 // Elemento correcto → daño; cualquier otra cosa rebota sin efecto
 function fsHit(t, b) {
-    const need = FS_NEED[t.fsK];
+    const need = FS_NEED[t.fsM];
     if (b.el && b.el === need) {
         t.hp -= (b.dmg || 1); createExplosion(b.x, b.y, FS_ELX(b.el).col, 22);
         if (t.hp <= 0) { killBy = b.shooterId; killEnemy(t.id); killBy = undefined; }
@@ -6786,7 +6803,7 @@ function fsHit(t, b) {
         const had = player.lives; pD2.apply(this, arguments);
         if (fsCur && !net.on && player.lives < had && player.lives > 0 && !player.dead) {
             const s = fsCp || spawnPos(0); player.x = s.x; player.y = s.y; player.lastX = s.x; player.lastY = s.y; player.invuln = Math.max(player.invuln || 0, 150); fsEmb.length = 0;
-            enemies = enemies.filter(e => !(e.fsK && e.sq === undefined && !e.isAlly && Math.hypot(e.x - s.x, e.y - s.y) < 380));
+            player.invuln = 240; for (const e of enemies) if (e.fsM && e.sq === undefined && !e.isAlly && Math.hypot(e.x - s.x, e.y - s.y) < 420) { e.stun = Math.max(e.stun || 0, 240); e.frz = 1; }
         }
     };
     // Dibujo: fondo con color de bioma, árboles, calderos y brasas
@@ -6796,8 +6813,8 @@ function fsHit(t, b) {
         if (!fsCur) return;
         const zw = MAP_WIDTH / 5, dk = prof.set.bg === 'dark', GR = dk ? ['#2a3a1e', '#1d3340', '#3a3a1a', '#26391a', '#14301a'] : ['#cfdcb2', '#c9dfe8', '#e0dfae', '#bdd8a2', '#a8caa0'];
         for (let i = 0; i < 5; i++) { const x0 = i * zw; if (x0 + zw < camera.x || x0 > camera.x + viewW) continue; ctx.fillStyle = GR[i]; ctx.fillRect(x0, 0, zw, MAP_HEIGHT); ctx.fillStyle = dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.05)'; for (let gx = Math.max(x0, Math.floor(camera.x / GRID_SIZE) * GRID_SIZE); gx < Math.min(x0 + zw, camera.x + viewW + GRID_SIZE); gx += GRID_SIZE) for (let gy = 0; gy < MAP_HEIGHT; gy += GRID_SIZE) if (((gx / GRID_SIZE) + (gy / GRID_SIZE)) % 2 === 0 && gy + GRID_SIZE > camera.y && gy < camera.y + viewH) ctx.fillRect(gx, gy, GRID_SIZE, GRID_SIZE); }
-        ctx.save(); ctx.textAlign = 'center'; ctx.font = 'bold 22px sans-serif'; ctx.fillStyle = '#1b5e20'; ctx.fillText('🏁 SALIDA DEL BOSQUE', escapeZone.x, escapeZone.y - 78);
-        ctx.strokeStyle = 'rgba(105,240,174,' + (0.5 + 0.4 * Math.sin(frameCount * 0.1)) + ')'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(escapeZone.x, escapeZone.y, 85, 0, 6.283); ctx.stroke(); ctx.restore();
+        ctx.save(); ctx.textAlign = 'center'; ctx.font = 'bold 22px sans-serif'; ctx.fillStyle = '#1b5e20'; const rem = fsRem(); ctx.fillText(rem > 0 ? '🔒 SALIDA · quedan ' + rem + ' espíritus' : '🏁 SALIDA ABIERTA', escapeZone.x, escapeZone.y - 78);
+        ctx.strokeStyle = rem > 0 ? 'rgba(255,82,82,' + (0.5 + 0.3 * Math.sin(frameCount * 0.1)) + ')' : 'rgba(105,240,174,' + (0.5 + 0.4 * Math.sin(frameCount * 0.1)) + ')'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(escapeZone.x, escapeZone.y, 85, 0, 6.283); ctx.stroke(); ctx.restore();
     };
     const dW2 = drawWalls;
     drawWalls = function () {
@@ -6834,19 +6851,19 @@ function fsHit(t, b) {
     };
 }
 function drawFsTank(x, y, bc, tc, ba, ta, type, hp, maxHp, c) {
-    const k = type.slice(3), R = k === 'escarcha' ? 20 : 16, t = frameCount;
+    const pr = type.split('_'), dz = pr[1], k = pr[2], R = dz === 'pesado' ? 20 : (dz === 'acido' ? 18 : 16), t = frameCount;
     c.save(); c.translate(x, y);
     c.save(); c.rotate(ba);
     c.fillStyle = '#37474f'; c.fillRect(-R - 2, -R - 5, R * 2 + 4, 7); c.fillRect(-R - 2, R - 2, R * 2 + 4, 7);
     c.fillStyle = bc; c.strokeStyle = '#222'; c.lineWidth = 2; c.beginPath(); c.roundRect(-R, -R, R * 2, R * 2, 5); c.fill(); c.stroke();
-    if (k === 'brasa') { for (let i = -1; i <= 1; i++) { c.fillStyle = (i + (t >> 2)) % 2 ? '#ffeb3b' : '#ff9800'; c.beginPath(); c.moveTo(-R, i * 8 - 4); c.lineTo(-R - 9 - ((t >> 1) + i) % 4, i * 8); c.lineTo(-R, i * 8 + 4); c.closePath(); c.fill(); } }
-    else if (k === 'escarcha') { c.fillStyle = '#e1f5fe'; c.strokeStyle = '#0277bd'; c.lineWidth = 1.2; for (const s of [-1, 1]) for (let i = -1; i <= 1; i++) { c.beginPath(); c.moveTo(i * 9 - 4, s * R); c.lineTo(i * 9, s * (R + 8)); c.lineTo(i * 9 + 4, s * R); c.closePath(); c.fill(); c.stroke(); } }
-    else if (k === 'chispa') { c.strokeStyle = '#fffde7'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(-R + 3, -R + 4); c.lineTo(-3, -2); c.lineTo(-R + 6, 2); c.lineTo(R - 4, R - 4); c.stroke(); if (t % 8 < 3) { c.strokeStyle = '#fff59d'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(R, -4); c.lineTo(R + 9, -8); c.lineTo(R + 5, 0); c.lineTo(R + 12, 5); c.stroke(); } }
+    if (k === 'fuego') { for (let i = -1; i <= 1; i++) { c.fillStyle = (i + (t >> 2)) % 2 ? '#ffeb3b' : '#ff9800'; c.beginPath(); c.moveTo(-R, i * 8 - 4); c.lineTo(-R - 9 - ((t >> 1) + i) % 4, i * 8); c.lineTo(-R, i * 8 + 4); c.closePath(); c.fill(); } }
+    else if (k === 'hielo') { c.fillStyle = '#e1f5fe'; c.strokeStyle = '#0277bd'; c.lineWidth = 1.2; for (const s of [-1, 1]) for (let i = -1; i <= 1; i++) { c.beginPath(); c.moveTo(i * 9 - 4, s * R); c.lineTo(i * 9, s * (R + 8)); c.lineTo(i * 9 + 4, s * R); c.closePath(); c.fill(); c.stroke(); } }
+    else if (k === 'rayo') { c.strokeStyle = '#fffde7'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(-R + 3, -R + 4); c.lineTo(-3, -2); c.lineTo(-R + 6, 2); c.lineTo(R - 4, R - 4); c.stroke(); if (t % 8 < 3) { c.strokeStyle = '#fff59d'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(R, -4); c.lineTo(R + 9, -8); c.lineTo(R + 5, 0); c.lineTo(R + 12, 5); c.stroke(); } }
     else { for (const q of [[-8, -7, 4], [6, -4, 3], [-3, 6, 3.5], [9, 8, 2.5]]) { c.fillStyle = '#c5e1a5'; c.beginPath(); c.arc(q[0], q[1], q[2], 0, 6.283); c.fill(); c.fillStyle = '#33691e'; c.beginPath(); c.arc(q[0], q[1], q[2] * 0.4, 0, 6.283); c.fill(); } }
     c.restore();
     c.save(); c.rotate(ta);
-    c.fillStyle = '#666'; c.strokeStyle = '#222'; c.lineWidth = 2; c.fillRect(0, -3, R + 8, 6); c.strokeRect(0, -3, R + 8, 6);
-    c.fillStyle = tc; c.beginPath(); c.arc(0, 0, 9, 0, 6.283); c.fill(); c.stroke();
+    c.fillStyle = '#666'; c.strokeStyle = '#222'; c.lineWidth = 2; c.fillRect(0, -3, R + 8 + (dz === 'rapido' ? 4 : 0), dz === 'pesado' ? 8 : 6); c.strokeRect(0, -3, R + 8 + (dz === 'rapido' ? 4 : 0), dz === 'pesado' ? 8 : 6);
+    c.fillStyle = tc; c.beginPath(); c.arc(0, 0, dz === 'pesado' ? 11 : 9, 0, 6.283); c.fill(); c.stroke();
     c.restore();
     c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = '15px sans-serif'; c.fillText(FS_ELX(FS_NEED[k]).ic, 0, -R - 16);
     if (maxHp > 1) { c.fillStyle = '#263238'; c.fillRect(-14, -R - 30, 28, 4); c.fillStyle = FS_ELX(FS_NEED[k]).col; c.fillRect(-14, -R - 30, 28 * Math.max(0, hp) / maxHp, 4); }
@@ -6888,7 +6905,7 @@ function matCast(mx, my) {
     if (net.on) { say('⚗️ Solo en solitario', '#ffcc80'); return false; }
     const m = MAT[matI], tg = matTarget(mx, my);
     if (!tg) { say('Apunta a un enemigo cercano', '#ffcc80'); return false; }
-    if ((m.k === 'fuego' && tg.fsK === 'brasa') || (m.k === 'hielo' && tg.fsK === 'escarcha') || (m.k === 'rayo' && tg.fsK === 'chispa') || (m.k === 'veneno' && tg.fsK === 'espora')) { say(m.ic + ' ¡Inmune!', '#ffffff', tg); q.abilCd = 120; return true; }
+    if (tg.fsM === m.k) { say(m.ic + ' ¡Inmune!', '#ffffff', tg); q.abilCd = 120; return true; }
     if (m.k === 'hielo') {
         const d = (tg.isBoss || tg.master || tg.krampus) ? 150 : 300;
         tg.stun = Math.max(tg.stun || 0, d); tg.frz = 1; tg.frzImm = Math.max(tg.frzImm || 0, d + 60);
@@ -6903,7 +6920,7 @@ function matCast(mx, my) {
             if (!nx) break; list.push(nx); last = nx;
         }
         fsBolts.push({ pts: [{ x: q.x, y: q.y }, ...list.map(e => ({ x: e.x, y: e.y }))], t: 20 });
-        for (const e of list) { createExplosion(e.x, e.y, '#ffee58', 12); if (e.fsK !== 'chispa') matDmg(e, 1); }
+        for (const e of list) { createExplosion(e.x, e.y, '#ffee58', 12); if (e.fsM !== 'rayo') matDmg(e, 1); }
         say('⚡ ¡Rayo! ×' + list.length, '#fff176', tg);
     } else {
         if (tg.isBoss || tg.master || tg.krampus || tg.kamikaze || tg.isVip || tg.necro) { say('☠️ ¡Inmune!', '#ffffff', tg); q.abilCd = 120; return true; }
@@ -6954,7 +6971,7 @@ function matTick() {
     const eH = eventHTML;
     eventHTML = function () {
         const open = !!prof.fsOpen, solo = !net.role;
-        return eH.apply(this, arguments) + '<div class="modes"><button class="mode ' + (open ? 'on' : '') + '" ' + (open && solo ? '' : 'disabled') + ' onclick="fsStart()"><b>🌲 El Bosque Alquímico</b><span>Cruza un bosque larguísimo lleno de espíritus de fuego, hielo, rayo y veneno. Las balas normales no les hacen nada: prepara balas elementales en calderos. Solo en solitario.</span><em>'
+        return eH.apply(this, arguments) + '<div class="modes"><button class="mode ' + (open ? 'on' : '') + '" ' + (open && solo ? '' : 'disabled') + ' onclick="fsStart()"><b>🌲 El Bosque Alquímico</b><span>Atraviesa un bosque larguísimo y derrota a todos sus espíritus de fuego, hielo, rayo y veneno (un mismo diseño puede ser de materiales distintos). Las balas normales no les hacen nada: prepara balas elementales en calderos. Solo en solitario.</span><em>'
             + (open ? 'Desbloqueado permanentemente · recompensa: clase «Materialista»' : 'Secreto: con la clase 🧱 Arquitecto, levanta un muro pegado al borde del mapa y entra en él.') + '</em></button></div>';
     };
 }
