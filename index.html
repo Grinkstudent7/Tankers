@@ -381,7 +381,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         if (state === 'playing' && !player.dead) {
             if (fire && frameCount - player.lastShotFrame > shotDelay) playerFire();
             if (mine && !pad.mn) placePlayerMine();
-            if (abil && !pad.ab) useAbility();
+            if (abil && !pad.ab) abilDown(); if (!abil && pad.ab) abilUp();
         }
         if (start && !pad.st && (state === 'playing' || state === 'paused')) togglePause();
         pad.mn = mine; pad.st = start; pad.ab = abil;
@@ -729,14 +729,14 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
         keys[key] = true;
         if(key === controls.mine) placePlayerMine();
-        if(key === (controls.ability || 'e')) useAbility();
+        if(key === (controls.ability || 'e')) abilDown();
         if(key === controls.shoot && frameCount - player.lastShotFrame > shotDelay) {
             playerFire();
         }
     });
 
     window.addEventListener('keyup', e => {
-        let key = e.key.toLowerCase(); if(key === ' ') key = 'space'; keys[key] = false;
+        let key = e.key.toLowerCase(); if(key === ' ') key = 'space'; keys[key] = false; if (key === (controls.ability || 'e')) abilUp();
     });
 
     window.addEventListener('mousemove', e => { rawMouseX = e.clientX; rawMouseY = e.clientY; pad.use = false; });
@@ -979,6 +979,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function pickMode() {
         if (isPvp()) return 'p_' + pvpPick();
         if (evCur) return 'hidden';
+        if (fsCur) return 'forest';
         if (xmCur) return 'xmas';
         if (dailyCur) return dailyCur.mode;
         if (sbCur) return (sbCur.lv.mi && MISSIONS[sbCur.lv.mi]) ? sbCur.lv.mi : 'custom';
@@ -1211,6 +1212,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (const b of bullets) { if (b.dead || !isTeam(b.shooterId)) continue; for (const e of enemies) { if (e.isAlly || e.sq !== undefined || e.slowT > 0 || e.haste) continue; if (Math.hypot(e.x - b.x, e.y - b.y) < e.radius + b.radius + 3) { e.slowT = 150; e.sp0 = e.speed; e.speed = e.speed * 0.5; createParticles(e.x, e.y, '#80d8ff', 4); } } }
     }
     // ===== Evento navideño: Operación Krampus (en solitario) =====
+    let fsCur = null;
     let xmCur = null, xmSt = [], xmT = 0, xmBoss = false, xmJoy = 0, xmWave = 0, xmC = { x: 0, y: 0 }, xmBlast = [];
     const XM_SIDE = 3600, XM_T = {
         gnomo: { ...ENEMY_TYPES[1], baseColor: '#43a047', turretColor: '#c62828', speed: 1.8, cooldown: 110, radius: 15 },
@@ -1372,7 +1374,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     function evStart(noCut) {
         if (net.role || !(prof.evOpen || prof.evKey)) return;
-        const go = () => { dailyCur = null; sbCur = null; evCur = { nm: 'Operación Sombra' }; anom = null; startNewLevel(true); };
+        const go = () => { dailyCur = null; sbCur = null; evCur = { nm: 'Operación Sombra' }; fsCur = null; anom = null; startNewLevel(true); };
         if (state === 'playing') finishRun();
         noCut ? go() : playCut('intro', go);
     }
@@ -1393,6 +1395,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             intro: ['OPERACIÓN SOMBRA', [['Vigía de las Sombras', VG, 'Escúchame, viajero. Ese portal es la única entrada a nuestros hogares: el reino de las sombras.'], ['Tú', TQ, '¿Qué ocurre? ¿Por qué se abrió aquí, en pleno campo de batalla?'], ['Vigía de las Sombras', VG, 'El Maestro Sombra quiere cruzarlo y devorar la esencia de nuestro mundo. Si la base cae, el portal se rompe y nuestros hogares con él.'], ['Tú', TQ, 'Entonces la defenderé. ¿Cuánto tiempo necesitas?'], ['Vigía de las Sombras', VG, 'Diez minutos. Resiste a las criaturas que lleguen y repara la entrada con cajas 📦. Cuando el Maestro aparezca, derrótalo y toma su esencia.']]],
             outro: ['MISIÓN CUMPLIDA', [['Vigía de las Sombras', VG, 'Lo lograste. Has recogido la esencia de las sombras: el portal vuelve a estar a salvo.'], ['Tú', TQ, '¿Y el Maestro Sombra?'], ['Vigía de las Sombras', VG, 'Ya no volverá. Mi pueblo te lo agradece: la clase «Sombra» te ha elegido. Úsala bien.']]],
             xintro: ['OPERACIÓN KRAMPUS', [['Pipa', PI, '¡Por fin! El portal gélido te ha traído hasta nuestra ciudad nevada. Soy Pipa, la elfa jefa.'], ['Tú', TQ, '¿Qué está pasando aquí?'], ['Pipa', PI, 'Krampus quiere arruinar la Navidad. Sus criaturas atacan a los ciudadanos antes de que reciban sus regalos.'], ['Tú', TQ, '¿Y qué puedo hacer yo?'], ['Pipa', PI, 'Cada ciudadano te pedirá un juguete concreto. Reúne materiales en las fábricas (🪵 ⚙️ 🧵 🎨), móntalos en Montaje 🛠️, empaquétalos 🎁 y entrégaselos. Cada regalo los cura, y tres seguidos desatan un villancico que congela a los malos.'], ['Pipa', PI, 'Cuando suene la alarma de oleada, los ciudadanos correrán a sus casas 🏠: yo te marcaré con flechas dónde está cada una. Cuidado con los gnomos: ¡roban juguetes!']]],
+            fintro: ['EL BOSQUE ALQUÍMICO', [['Guardabosques', '#a5d6a7', 'Has entrado por el muro oculto. Pocos conocen este camino: el Bosque Alquímico.'], ['Tú', TQ, '¿Qué es este lugar?'], ['Guardabosques', '#a5d6a7', 'Un bosque larguísimo donde viven los espíritus de los cuatro elementos. Las balas normales no les hacen nada.'], ['Tú', TQ, '¿Entonces cómo los detengo?'], ['Guardabosques', '#a5d6a7', 'Con calderos ⚗️. Pon uno con la tecla de mina y prepara un elemento: el hielo apaga a las brasas 🔥, el fuego derrite a los espíritus helados ❄️, el veneno corroe a las chispas ⚡ y el rayo quema a las esporas ☠️.'], ['Guardabosques', '#a5d6a7', 'Cruza el bosque hasta el final. Si caes, reaparecerás en tu último caldero.']]],
+            foutro: ['BOSQUE SUPERADO', [['Guardabosques', '#a5d6a7', 'Lo has conseguido: has cruzado el Bosque Alquímico.'], ['Tú', TQ, 'Ha sido un viaje largo…'], ['Guardabosques', '#a5d6a7', 'Los cuatro materiales te reconocen. Te nombro Materialista: congela, quema, electrifica o envenena a quien elijas.']]],
             xoutro: ['FELIZ NAVIDAD', [['Pipa', PI, '¡Krampus ha caído! Los ciudadanos están a salvo y todos tendrán su regalo.'], ['Tú', TQ, 'Ha sido una noche movidita…'], ['Pipa', PI, 'Gracias, héroe. El portal gélido permanecerá abierto. Podrás volver cuando quieras.']]]
         }[kind] || ['', []];
         const S = SC[1];
@@ -1421,7 +1425,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     }
     function xmStart(noCut) {
         if (net.role) return;
-        const go = () => { dailyCur = null; sbCur = null; evCur = null; xmCur = { nm: 'Operación Krampus' }; anom = null; startNewLevel(true); };
+        const go = () => { dailyCur = null; sbCur = null; evCur = null; xmCur = { nm: 'Operación Krampus' }; fsCur = null; anom = null; startNewLevel(true); };
         if (state === 'playing') finishRun();
         noCut ? go() : playCut('xintro', go);
     }
@@ -1442,8 +1446,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         if (!reset && !keepLevel && net.on && net.role === 'host' && (dailyCur || sbCur)) { if (dailyCur && dailyCur.idx < 4) { const nx = dailyList()[dailyCur.idx + 1]; dailyCur = { ...nx, idx: dailyCur.idx + 1, k: 0 }; net.cfg.si = dailyCur.idx; net.cfg.sn = nx.nm; } reset = true; }
         lastReset = !!reset;
         if (reset) {
-            level = evCur ? 12 : xmCur ? 10 : dailyCur ? dailyCur.level : (sbCur ? 8 : (net.on ? DIFFS[curDiff()].lvl : 1)); missionNo = 0; applyProfile(); player.lives = evCur ? 6 : xmCur ? 5 : dailyCur ? dailyCur.lives : (sbCur ? sbCur.lv.l : (net.on ? 3 : 3 + prof.up.armor)); for (const r of remotes) r.lives = player.lives; net.pts = [0, 0, 0, 0];
-            floatingTexts = []; score = 0; combo = 0; comboTimer = 0; runKills = 0; runRevives = 0; runActive = !net.on && !dailyCur && !sbCur && !evCur && !xmCur;
+            level = evCur ? 12 : (xmCur || fsCur) ? 10 : dailyCur ? dailyCur.level : (sbCur ? 8 : (net.on ? DIFFS[curDiff()].lvl : 1)); missionNo = 0; applyProfile(); player.lives = evCur ? 6 : (xmCur || fsCur) ? 5 : dailyCur ? dailyCur.lives : (sbCur ? sbCur.lv.l : (net.on ? 3 : 3 + prof.up.armor)); for (const r of remotes) r.lives = player.lives; net.pts = [0, 0, 0, 0];
+            floatingTexts = []; score = 0; combo = 0; comboTimer = 0; runKills = 0; runRevives = 0; runActive = !net.on && !dailyCur && !sbCur && !evCur && !xmCur && !fsCur;
         } else if (!keepLevel) {
             level++;
             if (isPvp()) { for (const q of [player, ...remotes]) q.lives = 3; }
@@ -1457,12 +1461,12 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         for (const id of ['overlay', 'pause-menu', 'picker', 'bookwrap', 'lobby']) document.getElementById(id).style.display = 'none';
         document.getElementById('overlay-extra').innerHTML = '';
         if (!keepLevel) { currentMode = pickMode(); if (soft) for (let i = 0; i < 40 && currentMode === 'boss'; i++) currentMode = pickMode(); }
-        bossAlso = !evCur && !xmCur && effMode() === 'bosses' && currentMode !== 'boss';
+        bossAlso = !evCur && !xmCur && !fsCur && effMode() === 'bosses' && currentMode !== 'boss';
         const sbMi = (sbCur && sbCur.lv.mi && MISSIONS[sbCur.lv.mi]) ? sbCur.lv.mi : null;
         if (!soft) {
             MAP_WIDTH = MAP_HEIGHT = xmCur ? XM_SIDE : evCur ? EV_SIDE : sbCur ? sbCur.lv.s * GRID_SIZE : 2400 + 400 * (playersCount() - 1);
             if (dailyCur) { dailyCur.k = 0; mapOpt = MAPS[dailyCur.map] || null; if (!rngBak) rngBak = Math.random; Math.random = mulberry(dailyCur.seed); } else mapOpt = null;
-            if (sbCur) sbBuildMap(sbCur.lv); else if (currentMode === 'boss') generateBossMaze(); else generateNormalMaze();
+            if (sbCur) sbBuildMap(sbCur.lv); else if (fsCur) generateForestMap(); else if (currentMode === 'boss') generateBossMaze(); else generateNormalMaze();
             if (dailyCur) sealPockets();
             computePvpSpawns();
         }
@@ -1560,14 +1564,15 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             for (const r of remotes) { const p = hs(r.slot || 0); r.x = p.x; r.y = p.y; r.lastX = p.x; r.lastY = p.y; }
         }
         if (currentMode === 'xmas') { objText = '🎄 CREA LOS JUGUETES QUE PIDEN, REFUGIA A LOS CIUDADANOS Y DERROTA A KRAMPUS'; xmSetup(); }
+        if (currentMode === 'forest') { objText = '🌲 CRUZA EL BOSQUE HASTA LA SALIDA · PREPARA BALAS ELEMENTALES EN LOS CALDEROS ⚗️'; fsSetup(); }
         if (bossAlso) { objText += " + 💀 DESTRUYE AL JEFE"; spawnEnemy(makeBossType(), false, null, null, true, false); }
         if (sbMi && sbCur.lv.u > 0 && (currentMode === 'survive' || currentMode === 'protect')) surviveTimer = sbCur.lv.u * 60;
         if (rngBak) { Math.random = rngBak; rngBak = null; }
-        timeLimit = (evCur || xmCur) ? 0 : (dailyCur && dailyCur.time) ? dailyCur.time * 60 : ((sbCur && sbCur.lv.t) ? sbCur.lv.t * 60 : (effMode() === 'timeattack' ? logicalTime() * 60 : 0));
+        timeLimit = (evCur || xmCur || fsCur) ? 0 : (dailyCur && dailyCur.time) ? dailyCur.time * 60 : ((sbCur && sbCur.lv.t) ? sbCur.lv.t * 60 : (effMode() === 'timeattack' ? logicalTime() * 60 : 0));
         if (isPvp() && /^p_/.test(currentMode)) timeLimit = PVP_TIME[currentMode.slice(2)] * 60;
         document.getElementById('objective-text').innerText = objText;
         horde = null; player.invT = 0; for (const r of remotes) r.invT = 0; if (!soft) sbStk = 0; anom = null;
-        if (((prof.evKey && !prof.evOpen) || ((curCls() === 'escarcha' || curCls() === 'yeti') && Math.random() < 0.4)) && !net.on && !dailyCur && !sbCur && !evCur && !xmCur && !/^p_/.test(currentMode)) spawnAnom();
+        if (((prof.evKey && !prof.evOpen) || ((curCls() === 'escarcha' || curCls() === 'yeti') && Math.random() < 0.4)) && !net.on && !dailyCur && !sbCur && !evCur && !xmCur && !fsCur && !/^p_/.test(currentMode)) spawnAnom();
         fixSpawns(); updateCamera();
         state = soft ? 'playing' : 'starting'; startTimer = soft ? 0 : 120; net.goAt = 0; net.wait = (net.on && net.role === 'host') ? { rtt: {}, t0: performance.now() } : null;
         document.getElementById('countdown-display').style.display = soft ? 'none' : 'block';
@@ -1577,7 +1582,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
 
     function updateUI() {
         const cont = effMode() === 'continuous', $ = id => document.getElementById(id);
-        const sc = (net.on && net.cfg.src) || ''; $('ui-lvl-label').innerText = (evCur || xmCur || sc === 'ev') ? 'EVENTO' : (dailyCur || sc === 'daily') ? 'DESAFÍO' : ((sbCur || sc === 'sb') ? 'SANDBOX' : (cont ? 'MISIÓN' : 'NIVEL')); $('ui-level').innerText = xmCur ? '🎄' : (evCur || sc === 'ev') ? '🥷' : dailyCur ? (dailyCur.idx + 1) + '/5' : (sc === 'daily' ? ((net.cfg.si | 0) + 1) + '/5' : ((sbCur || sc === 'sb') ? '🛠' : (cont ? missionNo : level)));
+        const sc = (net.on && net.cfg.src) || ''; $('ui-lvl-label').innerText = (evCur || xmCur || fsCur || sc === 'ev') ? 'EVENTO' : (dailyCur || sc === 'daily') ? 'DESAFÍO' : ((sbCur || sc === 'sb') ? 'SANDBOX' : (cont ? 'MISIÓN' : 'NIVEL')); $('ui-level').innerText = xmCur ? '🎄' : fsCur ? '🌲' : (evCur || sc === 'ev') ? '🥷' : dailyCur ? (dailyCur.idx + 1) + '/5' : (sc === 'daily' ? ((net.cfg.si | 0) + 1) + '/5' : ((sbCur || sc === 'sb') ? '🛠' : (cont ? missionNo : level)));
         let t = enemies.filter(e => !e.isAlly && !e.haste && e.sq === undefined).length + pendingSpawns.length;
         switch (currentMode) {
             case 'survive': t = Math.max(0, Math.ceil(surviveTimer / 60)) + " s"; break;
@@ -1593,6 +1598,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             case 'demolition': t = `BÚNKERES: ${targets.length}`; break;
             case 'hidden': { const b = evBase(), m = Math.max(0, Math.ceil(surviveTimer / 60)); t = '🏰 ' + (b ? b.hp + '/' + b.maxHp : '—') + ' · ⏱ ' + Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0') + (evBossOn && bossAliveNow() ? ' · ☠ MAESTRO' : '') + (evEss ? ' · ✨ RECOGE LA ESENCIA' : ''); break; }
             case 'xmas': { t = '🏘 ' + xmCits().length + '/6 · 🧸' + (player.toys || 0) + '/2 · 📦' + (player.box ? 1 : 0) + ' · 🎶' + (xmJoy % 3) + '/3' + (xmBoss && bossAliveNow() ? ' · 👹 KRAMPUS' : ''); break; }
+            case 'forest': t = fsHud(); break;
             case 'minefield': t = "¡CRUZA A LA ZONA VERDE!"; break;
             case 'escort': t = "LLEVA AL ALIADO A LA ZONA VERDE"; break;
             case 'crates': t = keysCollected >= 1 ? "¡VE A LA ZONA VERDE!" : `CAJAS: ${walls.filter(w => w.crate).length}`; break;
@@ -2126,7 +2132,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function giveUpRevive() { document.getElementById('overlay-extra').innerHTML = ''; reviveSkip = true; state = 'playing'; endGame(); reviveSkip = false; }
     function endGame(reason) {
         if (state === 'gameover' || state === 'menu') return;
-        if (!net.on && !evCur && !xmCur && !reason && !reviveSkip && player.lives <= 0 && prof.coins >= reviveCost()) {
+        if (!net.on && !evCur && !xmCur && !fsCur && !reason && !reviveSkip && player.lives <= 0 && prof.coins >= reviveCost()) {
             state = 'gameover'; const cost = reviveCost();
             showOverlay('menu-lose', 'SIN VIDAS', '#ff5252', `Tienes ${prof.coins} monedas. Revivir cuesta ${cost} y vuelves con 2 vidas.\\nCada vez que te quedes sin vidas en esta partida costará el doble.`, `❤️ Revivir (${cost} 🪙)`, revivePlayer, false);
             document.getElementById('overlay-extra').innerHTML = '<button class="red" onclick="giveUpRevive()">Rendirse</button>'; return;
@@ -2321,7 +2327,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
                         if(t.hp <= 0) allyDeath(); 
                     }
                     else {
-                        if ((t.shield && !b.pm && shieldBlocks(t, b)) || (t.charger && t.chS === 2)) { createParticles(b.x, b.y, '#eceff1', 8); if (frameCount % 3 === 0) floatingTexts.push({ text: '🛡', x: t.x, y: t.y - 34, life: 24, color: '#eceff1' }); }
+                        if (t.fsK) fsHit(t, b);
+                        else if ((t.shield && !b.pm && shieldBlocks(t, b)) || (t.charger && t.chS === 2)) { createParticles(b.x, b.y, '#eceff1', 8); if (frameCount % 3 === 0) floatingTexts.push({ text: '🛡', x: t.x, y: t.y - 34, life: 24, color: '#eceff1' }); }
                         else if(t.maxHp > 1) { t.hp -= (b.dmg || 1); createExplosion(b.x, b.y, b.pm ? '#ff7043' : '#ffeb3b', b.pm ? 30 : 15); if(t.hp <= 0) { killBy = b.shooterId; killEnemy(t.id); killBy = undefined; } }
                         else { killBy = b.shooterId; killEnemy(t.id); killBy = undefined; }
                     }
@@ -2877,6 +2884,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function checkWinConditions() {
         if (isPvp()) { checkPvp(); if (state !== 'playing') return; pvpTick(); return; }
         if (anom && !net.on && !CUT.on && alivePlayers().some(p => near(p, anom, 55))) { if (anom.frozen) { xmStart(); return; } if (prof.evKey && !prof.evOpen) { evStart(); return; } if (!anom.hint || frameCount - anom.hint > 200) { anom.hint = frameCount; floatingTexts.push({ text: '🌀 Portal inestable: congélalo con Frost o Yeti', x: player.x, y: player.y - 50, life: 90, color: '#80d8ff' }); } }
+        fsEntryCheck(); if (state !== 'playing') return;
         if (currentMode === 'gems') gemTick();
         if (timeLimit > 0) { timeLimit--; if (timeLimit <= 0) { endGame('¡Se acabó el tiempo!'); return; } if (timeLimit % 60 === 0) updateUI(); }
         const P = alivePlayers();
@@ -2910,6 +2918,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             case 'boss': if (!bossAliveNow()) objectiveDone(); break;
             case 'hidden': evTick(); break;
             case 'xmas': xmTick(); break;
+            case 'forest': fsTick(); break;
             case 'carry': {
                 for (const p of P) {
                     for (const it of items) if (!it.collected && p.carriedItems < 1 && near(p, it, p.radius + 15)) { it.collected = true; p.carriedItems++; updateUI(); }
@@ -3003,6 +3012,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         const bonus = 500 + level * 100 + Math.max(0, 90 - secs) * 10 + (clean ? 500 : 0) + tb;
         score += bonus;
         if (net.on) { netMissionWin(bonus, secs, clean); return; }
+        if (fsCur) { state = 'win'; fsWin(secs); return; }
         if (xmCur) { state = 'win'; xmWin(secs); return; }
         if (evCur) { state = 'win'; evWin(secs); return; }
         if (dailyCur) { dailyWin(secs); return; }
@@ -3020,6 +3030,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function endGameBase(reason) {
         if (state === 'gameover' || state === 'menu') return; if (net.on) { netEnd(false, reason); return; }
         state = 'gameover';
+        if (fsCur) { showOverlay('menu-lose', 'EL BOSQUE TE HA TRAGADO', '#ff5252', (reason ? reason + '\n' : '') + 'El Bosque Alquímico · ' + score + ' puntos', 'Reintentar', () => fsStart(true), true); return; }
         if (xmCur) { showOverlay('menu-lose', 'FIESTA ARRUINADA', '#ff5252', (reason ? reason + '\n' : '') + 'Operación Krampus · ' + score + ' puntos', 'Reintentar', () => xmStart(true), true); return; }
         if (evCur) { showOverlay('menu-lose', 'OPERACIÓN FALLIDA', '#ff5252', (reason ? reason + '\n' : '') + 'Operación Sombra · ' + score + ' puntos', 'Reintentar', () => evStart(true), true); return; }
         if (dailyCur) { const dc = dailyCur; showOverlay('menu-lose', 'DESAFÍO FALLIDO', '#ff5252', (reason ? reason + '\n' : '') + dc.nm + ' · ' + score + ' puntos', 'Reintentar', () => startDaily(dc.idx), true); return; }
@@ -3678,7 +3689,6 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
             } else {
                 const pulse = 0.6 + 0.4 * Math.sin(frameCount * 0.15);
                 ctx.strokeStyle = 'rgba(105,240,174,' + pulse + ')'; ctx.beginPath(); ctx.arc(player.x, player.y, R, 0, Math.PI * 2); ctx.stroke();
-                ctx.font = '18px sans-serif'; ctx.fillText(cc.ic, player.x, player.y - R - 12);
             }
             ctx.restore();
         }
@@ -3861,7 +3871,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     function openLobby(tab) {
         if (sbCur && sbCur.test && ed) { sbCur = null; resumeEditor(); return; }
         const wasEd = !!ed; sbCur = null; ed = null; document.body.classList.remove('editing'); document.getElementById('edui').style.display = 'none'; document.getElementById('edmodal').style.display = 'none'; if (wasEd) resizeCanvas();
-        finishRun(); dailyCur = null; evCur = null; xmCur = null; anom = null; horde = null; if (rngBak) { Math.random = rngBak; rngBak = null; } if (net.on) { net.on = false; remotes = []; } if (typeof tab === 'string') lobbyTab = tab;
+        finishRun(); dailyCur = null; evCur = null; xmCur = null; fsCur = null; anom = null; horde = null; if (rngBak) { Math.random = rngBak; rngBak = null; } if (net.on) { net.on = false; remotes = []; } if (typeof tab === 'string') lobbyTab = tab;
         state = 'menu'; net.myRdy = false;
         for (const id of ['overlay', 'pause-menu', 'countdown-display', 'picker', 'bookwrap']) document.getElementById(id).style.display = 'none';
         document.getElementById('pause-banner').style.display = 'none'; document.getElementById('lobby').style.display = 'flex';
@@ -4555,7 +4565,7 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
         };
         tz.addEventListener('pointerup', up); tz.addEventListener('pointercancel', up);
         const press = (id, fn) => document.getElementById(id).addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); fn(); });
-        press('t-mine', () => { if (state === 'playing' && !player.dead) placePlayerMine(); }); press('t-abil', () => useAbility()); press('t-pause', () => togglePause());
+        press('t-mine', () => { if (state === 'playing' && !player.dead) placePlayerMine(); }); press('t-abil', () => abilDown()); press('t-pause', () => togglePause());
         tz.addEventListener('contextmenu', e => e.preventDefault());
     }
 
@@ -4741,8 +4751,8 @@ body.dark #lobby.gar select,body.dark #lobby.gar textarea,body.dark #lobby.gar .
     const vsOk = () => { const n = net.roster.length, v = net.cfg.vs || 'coop'; return v === 'coop' || (v === 'ffa' && n >= 2) || (v === '2v2' && n === 4); };
     const isTeam = id => id === 'player' || id === 'ally' || /^p\d$/.test(id || '');
     const playersCount = () => net.on ? Math.max(1, net.roster.length) : 1;
-    const curDiff = () => evCur ? 2 : xmCur ? [0, 1, 1, 2][Math.min(3, playersCount() - 1)] : dailyCur ? dailyCur.diff : (sbCur ? sbCur.lv.d : (net.on ? net.cfg.diff : (prof.diff || 0)));
-    const spawnPos = sl => xmCur ? { x: Math.floor(gridCols / 2) * GRID_SIZE - 60 + sl * 40, y: Math.floor(gridRows / 2) * GRID_SIZE + 270 } : pvpSpawns[sl] ? pvpSpawns[sl] : ({ x: PLAYER_SPAWN_X + (sl % 2) * 50, y: PLAYER_SPAWN_Y + (sl >> 1) * 50 });
+    const curDiff = () => evCur ? 2 : fsCur ? 1 : xmCur ? [0, 1, 1, 2][Math.min(3, playersCount() - 1)] : dailyCur ? dailyCur.diff : (sbCur ? sbCur.lv.d : (net.on ? net.cfg.diff : (prof.diff || 0)));
+    const spawnPos = sl => fsCur ? { x: 140 + sl * 40, y: Math.floor(gridRows / 2) * GRID_SIZE + 20 } : xmCur ? { x: Math.floor(gridCols / 2) * GRID_SIZE - 60 + sl * 40, y: Math.floor(gridRows / 2) * GRID_SIZE + 270 } : pvpSpawns[sl] ? pvpSpawns[sl] : ({ x: PLAYER_SPAWN_X + (sl % 2) * 50, y: PLAYER_SPAWN_Y + (sl >> 1) * 50 });
     const alivePlayers = () => [...(player.dead ? [] : [player]), ...remotes.filter(r => !r.dead)];
     function activeTanks() { return [...alivePlayers(), ...enemies]; }
     function nearestPlayer(e) { let best = null, bd = Infinity; for (const p of alivePlayers()) { if (p.invT > 0) continue; const d = (p.x - e.x) ** 2 + (p.y - e.y) ** 2; if (d < bd) { bd = d; best = p; } } return best; }
@@ -6631,6 +6641,322 @@ yetiRadar = function () { const c = window.__yr; if (c) c.style.display = 'none'
     const oL = openLobby; openLobby = function () { yTr.length = 0; yMs.length = 0; yNew.length = 0; iceTrail.length = 0; frostFx.length = 0; return oL.apply(this, arguments); };
     const hS = evSpawnHunter; evSpawnHunter = function () { hS.apply(this, arguments); const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps && ps.enemy) { ps.enemy.baseColor = '#0d0d0d'; ps.enemy.turretColor = '#000000'; } };
     const aS = evSpawnAssassin; evSpawnAssassin = function () { aS.apply(this, arguments); const ps = pendingSpawns[pendingSpawns.length - 1]; if (ps && ps.enemy) { ps.enemy.baseColor = '#0d0d0d'; ps.enemy.turretColor = '#000000'; } };
+}
+
+/* ===================== EVENTO «EL BOSQUE ALQUÍMICO» + CLASE MATERIALISTA ===================== */
+const FS_W = 10000, FS_H = 1440;
+const FS_EL = [
+    { k: 'fuego', n: 'Fuego', ic: '🔥', col: '#ff6d00' },
+    { k: 'hielo', n: 'Hielo', ic: '❄️', col: '#4fc3f7' },
+    { k: 'rayo', n: 'Rayo', ic: '⚡', col: '#ffee58' },
+    { k: 'veneno', n: 'Veneno', ic: '☠️', col: '#9ccc65' }
+];
+const FS_ELX = k => FS_EL.find(e => e.k === k);
+const FS_NEED = { brasa: 'hielo', escarcha: 'fuego', chispa: 'veneno', espora: 'rayo' };
+const FS_ZNAME = ['🔥 Claro de las Brasas', '❄️ Pinar Helado', '⚡ Robledal Tormentoso', '☠️ Ciénaga de Esporas', '🌲 Corazón del Bosque'];
+const FS_TINT = ['rgba(255,112,67,.20)', 'rgba(79,195,247,.22)', 'rgba(255,241,118,.18)', 'rgba(156,204,101,.24)', 'rgba(27,94,32,.30)'];
+const FS_PAL = [['#33691e', '#2e7d32', '#66bb6a'], ['#37596b', '#4e8aa8', '#b3e5fc'], ['#6d5a14', '#8d7a1f', '#fff59d'], ['#2f4a1a', '#4a6b2a', '#aed581'], ['#14401a', '#1b5e20', '#43a047']];
+const FS_T = {
+    brasa: { ...ENEMY_TYPES[1], type: 'fs_brasa', fsK: 'brasa', baseColor: '#ff5722', turretColor: '#bf360c', speed: 1.9, cooldown: 120, radius: 16, hp: 2 },
+    escarcha: { ...ENEMY_TYPES[10], type: 'fs_escarcha', fsK: 'escarcha', baseColor: '#4fc3f7', turretColor: '#0277bd', speed: 0.9, bullet: 'super', rebounces: 1, cooldown: 170, radius: 20, hp: 3 },
+    chispa: { ...ENEMY_TYPES[7], type: 'fs_chispa', fsK: 'chispa', baseColor: '#fdd835', turretColor: '#f57f17', speed: 1.3, cooldown: 40, maxBullets: 3, radius: 16, hp: 2 },
+    espora: { ...ENEMY_TYPES[15], type: 'fs_espora', fsK: 'espora', baseColor: '#558b2f', turretColor: '#aed581', speed: 0.9, radius: 18, hp: 2 }
+};
+let fsCauldrons = [], fsAmmo = 0, fsElI = -1, fsT = 0, fsBolts = [], fsEmb = [], fsCp = null, fsLastZ = -1;
+const fsZone = () => Math.max(0, Math.min(4, Math.floor(player.x / (MAP_WIDTH / 5))));
+const fsPct = () => Math.max(0, Math.min(100, Math.round(player.x / (MAP_WIDTH - 200) * 100)));
+const fsHud = () => '🌲 ' + fsPct() + '% · ' + (fsAmmo > 0 && fsElI >= 0 ? FS_EL[fsElI].ic + ' ' + fsAmmo : '⚗️ 0');
+
+// Mapa larguísimo con aspecto de bosque: árboles en retícula escalonada (siempre quedan pasillos de 2 huecos)
+function generateForestMap() {
+    MAP_WIDTH = FS_W; MAP_HEIGHT = FS_H; walls = [];
+    const G = GRID_SIZE, cols = Math.floor(MAP_WIDTH / G), rows = Math.floor(MAP_HEIGHT / G);
+    const put = (c, r) => { if (c > 0 && r > 0 && c < cols - 1 && r < rows - 1) walls.push({ x: c * G, y: r * G, width: G, height: G, destructible: false, tree: true }); };
+    for (let r = 3; r < rows - 3; r += 4) {
+        const off = (((r - 3) / 4) % 2) * 2;
+        for (let c = 9 + off; c < cols - 12; c += 4) {
+            if (Math.random() < 0.12) continue;
+            put(c, r);
+            const q = Math.random();
+            if (q < 0.3) put(c + 1, r); else if (q < 0.6) put(c, r + 1);
+        }
+    }
+    walls.push({ x: 0, y: 0, width: MAP_WIDTH, height: BORDER_SIZE, destructible: false });
+    walls.push({ x: 0, y: Math.floor(MAP_HEIGHT / G) * G - BORDER_SIZE, width: MAP_WIDTH, height: BORDER_SIZE, destructible: false });
+    walls.push({ x: 0, y: 0, width: BORDER_SIZE, height: MAP_HEIGHT, destructible: false });
+    walls.push({ x: Math.floor(MAP_WIDTH / G) * G - BORDER_SIZE, y: 0, width: BORDER_SIZE, height: MAP_HEIGHT, destructible: false });
+    buildNavGrid();
+}
+
+function fsSetup() {
+    fsCauldrons = []; fsAmmo = 0; fsElI = -1; fsT = 0; fsBolts = []; fsEmb = []; fsLastZ = -1; iceTrail.length = 0; SAY.q.length = 0;
+    escapeZone = { x: MAP_WIDTH - 160, y: Math.floor(MAP_HEIGHT / 2), active: true, hidden: false, color: '#00ff00' };
+    fsCauldrons.push({ x: player.x + 110, y: player.y, bub: 0, lock: 0 }); fsCp = { x: player.x, y: player.y };
+    const kq = String(controls.mine || 'q').toUpperCase();
+    evSay('Guardabosques', '#a5d6a7', 'Los espíritus del bosque ignoran las balas normales: solo caen con el elemento que los vence.', 5200, false);
+    evSay('Guardabosques', '#a5d6a7', 'Pulsa [' + kq + '] junto a un caldero ⚗️ para preparar un elemento (otra pulsación lo cambia). Lejos de uno, [' + kq + '] coloca un caldero nuevo: será tu punto de reaparición.', 7000, false);
+    evSay('Guardabosques', '#a5d6a7', '❄️ vence a 🔥 · 🔥 vence a ❄️ · ☠️ vence a ⚡ · ⚡ vence a ☠️. ¡Llega al final del bosque!', 6000, false);
+}
+
+function fsStart(noCut) {
+    if (net.role) return;
+    const go = () => { dailyCur = null; sbCur = null; evCur = null; xmCur = null; fsCur = { nm: 'El Bosque Alquímico' }; anom = null; startNewLevel(true); };
+    if (state === 'playing') finishRun();
+    noCut ? go() : playCut('fintro', go);
+}
+function fsWin(secs) {
+    const first = !prof.fsOpen, newMat = !(prof.clsOwn && prof.clsOwn.materialista);
+    prof.fsOpen = 1; prof.clsOwn.materialista = 1; prof.fsWins = (prof.fsWins || 0) + 1; prof.coins += first ? 500 : 200; prof.xp += first ? 600 : 250; saveProf(); updateUI();
+    playCut('foutro', () => { state = 'win'; showOverlay('menu-win', '¡BOSQUE SUPERADO!', '', 'Tiempo: ' + secs + ' s · Puntos: ' + score + '\n+' + (first ? 500 : 200) + ' monedas' + (newMat ? '\n⚗️ Clase exclusiva «Materialista» desbloqueada (Garaje).' : '') + (first ? '\n🌲 El Bosque Alquímico queda desbloqueado en Eventos.' : ''), 'Volver al menú', () => openLobby('event')); });
+}
+// Entrada secreta: con la clase Arquitecto, levanta un muro pegado al borde del mapa y métete dentro
+function fsEntryCheck() {
+    if (fsCur || xmCur || evCur || dailyCur || sbCur || net.on || CUT.on || state !== 'playing' || player.dead || frameCount % 3 || curCls() !== 'arquitecto') return;
+    const G = GRID_SIZE, rx = Math.floor(MAP_WIDTH / G) * G - BORDER_SIZE, by = Math.floor(MAP_HEIGHT / G) * G - BORDER_SIZE;
+    for (const w of walls) {
+        if (!w.pw || w.own !== player.id) continue;
+        if (!(w.x <= BORDER_SIZE + 1 || w.y <= BORDER_SIZE + 1 || w.x + w.width >= rx - 1 || w.y + w.height >= by - 1)) continue;
+        if (player.x > w.x && player.x < w.x + w.width && player.y > w.y && player.y < w.y + w.height) { fsStart(); return; }
+    }
+}
+
+function fsSpawnTick() {
+    const z = fsZone(), live = enemies.filter(e => e.fsK && e.sq === undefined && !e.isAlly).length + pendingSpawns.filter(p => p.enemy && p.enemy.fsK).length;
+    if (live >= 4 + z * 2 || fsT % Math.max(70, 170 - z * 20) !== 0) return;
+    const K = ['brasa', 'escarcha', 'chispa', 'espora'], pool = K.slice(0, Math.min(4, z + 1)); if (z >= 1) pool.push(K[Math.min(3, z)]);
+    const kind = pool[Math.floor(Math.random() * pool.length)];
+    for (let i = 0; i < 14; i++) {
+        const x = Math.min(MAP_WIDTH - 220, player.x + 420 + Math.random() * 520), y = GRID_SIZE * 2 + Math.random() * (MAP_HEIGHT - GRID_SIZE * 4);
+        if (wallHit({ x, y, radius: 26 }) || Math.hypot(x - player.x, y - player.y) < 380) continue;
+        spawnAtOverride = { x, y }; spawnEnemy(FS_T[kind], false, null, null, false, false); spawnAtOverride = null; return;
+    }
+}
+function fsTick() {
+    if (objDone) return; fsT++;
+    fsSpawnTick();
+    for (const e of enemies) if (e.fsK === 'brasa' && e.sq === undefined && !e.isAlly && fsT % 45 === 0 && fsEmb.length < 70 && Math.hypot(e.x - player.x, e.y - player.y) < 1300) fsEmb.push({ x: e.x, y: e.y, t: 240 });
+    for (let i = fsEmb.length - 1; i >= 0; i--) { const m = fsEmb[i]; if (--m.t <= 0) { fsEmb.splice(i, 1); continue; } if (!player.dead && Math.hypot(m.x - player.x, m.y - player.y) < player.radius + 7) { fsEmb.splice(i, 1); playerDamage(); } }
+    for (const k of fsCauldrons) { if (k.lock > 0) k.lock--; if (k.bub > 0) k.bub--; }
+    if (fsT % 120 === 0) enemies = enemies.filter(e => !(e.fsK && e.sq === undefined && !e.isAlly && player.x - e.x > 1800));
+    const z = fsZone(); if (z !== fsLastZ) { fsLastZ = z; floatingTexts.push({ text: FS_ZNAME[z], x: player.x, y: player.y - 70, life: 160, color: '#e8f5e9' }); }
+    if (fsT % 20 === 0) updateUI();
+    if (near(player, escapeZone, 85)) objectiveDone();
+}
+// Elemento correcto → daño; cualquier otra cosa rebota sin efecto
+function fsHit(t, b) {
+    const need = FS_NEED[t.fsK];
+    if (b.el && b.el === need) {
+        t.hp -= (b.dmg || 1); createExplosion(b.x, b.y, FS_ELX(b.el).col, 22);
+        if (t.hp <= 0) { killBy = b.shooterId; killEnemy(t.id); killBy = undefined; }
+    } else {
+        createParticles(b.x, b.y, '#cfd8dc', 6);
+        if (frameCount - (t.fsMsg || 0) > 40) { t.fsMsg = frameCount; floatingTexts.push({ text: '¡Necesita ' + FS_ELX(need).ic + '!', x: t.x, y: t.y - 38, life: 40, color: '#ffffff' }); }
+    }
+}
+{
+    // Caldero en lugar de minas
+    const pM0 = placePlayerMine;
+    placePlayerMine = function () {
+        if (!fsCur || net.on) return pM0.apply(this, arguments);
+        if (state !== 'playing' || player.dead) return;
+        const k = fsCauldrons.find(q => Math.hypot(q.x - player.x, q.y - player.y) < 75);
+        if (k) {
+            if (k.lock > 0) return;
+            fsElI = (fsElI + 1) % 4; fsAmmo = 12; k.lock = 14; k.bub = 50; const el = FS_EL[fsElI];
+            createExplosion(k.x, k.y - 8, el.col, 18); floatingTexts.push({ text: el.ic + ' ' + el.n + ' · 12 balas', x: k.x, y: k.y - 44, life: 70, color: el.col }); updateUI(); return;
+        }
+        if (wallHit({ x: player.x, y: player.y, radius: 22 })) return;
+        if (fsCauldrons.length >= 3) fsCauldrons.shift();
+        fsCauldrons.push({ x: player.x, y: player.y, bub: 0, lock: 20 }); fsCp = { x: player.x, y: player.y };
+        createExplosion(player.x, player.y, '#8d6e63', 14); floatingTexts.push({ text: '⚗️ Caldero colocado · punto de reaparición', x: player.x, y: player.y - 44, life: 90, color: '#ffe0b2' });
+    };
+    // Balas elementales del jugador
+    const sh0 = shoot;
+    shoot = function (owner) {
+        const n = bullets.length, r = sh0.apply(this, arguments);
+        if (fsCur && owner === player && fsAmmo > 0 && fsElI >= 0 && bullets.length > n) {
+            const el = FS_EL[fsElI], b = bullets[bullets.length - 1]; b.el = el.k; b.color = el.col; b.radius = 5; fsAmmo--;
+            if (fsAmmo <= 0) floatingTexts.push({ text: 'Sin elemento · vuelve al caldero', x: player.x, y: player.y - 40, life: 70, color: '#ffcc80' });
+        }
+        return r;
+    };
+    // Reaparición en el último caldero
+    const pD2 = playerDamage;
+    playerDamage = function () {
+        const had = player.lives; pD2.apply(this, arguments);
+        if (fsCur && !net.on && player.lives < had && player.lives > 0 && !player.dead) {
+            const s = fsCp || spawnPos(0); player.x = s.x; player.y = s.y; player.lastX = s.x; player.lastY = s.y; player.invuln = Math.max(player.invuln || 0, 150); fsEmb.length = 0;
+            enemies = enemies.filter(e => !(e.fsK && e.sq === undefined && !e.isAlly && Math.hypot(e.x - s.x, e.y - s.y) < 380));
+        }
+    };
+    // Dibujo: fondo con color de bioma, árboles, calderos y brasas
+    const dB2 = drawBackground;
+    drawBackground = function () {
+        dB2();
+        if (!fsCur) return;
+        const zw = MAP_WIDTH / 5, dk = prof.set.bg === 'dark', GR = dk ? ['#2a3a1e', '#1d3340', '#3a3a1a', '#26391a', '#14301a'] : ['#cfdcb2', '#c9dfe8', '#e0dfae', '#bdd8a2', '#a8caa0'];
+        for (let i = 0; i < 5; i++) { const x0 = i * zw; if (x0 + zw < camera.x || x0 > camera.x + viewW) continue; ctx.fillStyle = GR[i]; ctx.fillRect(x0, 0, zw, MAP_HEIGHT); ctx.fillStyle = dk ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.05)'; for (let gx = Math.max(x0, Math.floor(camera.x / GRID_SIZE) * GRID_SIZE); gx < Math.min(x0 + zw, camera.x + viewW + GRID_SIZE); gx += GRID_SIZE) for (let gy = 0; gy < MAP_HEIGHT; gy += GRID_SIZE) if (((gx / GRID_SIZE) + (gy / GRID_SIZE)) % 2 === 0 && gy + GRID_SIZE > camera.y && gy < camera.y + viewH) ctx.fillRect(gx, gy, GRID_SIZE, GRID_SIZE); }
+        ctx.save(); ctx.textAlign = 'center'; ctx.font = 'bold 22px sans-serif'; ctx.fillStyle = '#1b5e20'; ctx.fillText('🏁 SALIDA DEL BOSQUE', escapeZone.x, escapeZone.y - 78);
+        ctx.strokeStyle = 'rgba(105,240,174,' + (0.5 + 0.4 * Math.sin(frameCount * 0.1)) + ')'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(escapeZone.x, escapeZone.y, 85, 0, 6.283); ctx.stroke(); ctx.restore();
+    };
+    const dW2 = drawWalls;
+    drawWalls = function () {
+        dW2();
+        if (!fsCur) return;
+        const G = GRID_SIZE, c0 = Math.max(0, Math.floor(camera.x / G)), c1 = Math.min(gridCols - 1, Math.floor((camera.x + viewW) / G));
+        const r0 = Math.max(0, Math.floor(camera.y / G)), r1 = Math.min(gridRows - 1, Math.floor((camera.y + viewH) / G));
+        for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
+            const w = wallGrid[r][c]; if (!w || !w.tree) continue;
+            const p = FS_PAL[Math.min(4, Math.floor(c * G / (MAP_WIDTH / 5)))], x = c * G, y = r * G;
+            ctx.fillStyle = p[0]; ctx.fillRect(x, y, G + 0.5, G + 0.5);
+            ctx.fillStyle = p[1]; ctx.beginPath(); ctx.arc(x + G / 2, y + G / 2, G * 0.47, 0, 6.283); ctx.fill();
+            ctx.fillStyle = p[2]; ctx.beginPath(); ctx.arc(x + G / 2 - 5, y + G / 2 - 6, G * 0.2, 0, 6.283); ctx.fill();
+        }
+        for (const m of fsEmb) { if (m.x < camera.x - 20 || m.x > camera.x + viewW + 20) continue; const f = 0.6 + 0.4 * Math.sin(frameCount * 0.3 + m.x); ctx.fillStyle = 'rgba(255,111,0,' + (0.35 + 0.4 * Math.min(1, m.t / 60)) + ')'; ctx.beginPath(); ctx.arc(m.x, m.y, 8 * f + 3, 0, 6.283); ctx.fill(); ctx.fillStyle = '#ffeb3b'; ctx.beginPath(); ctx.arc(m.x, m.y, 3, 0, 6.283); ctx.fill(); }
+        const el = fsElI >= 0 ? FS_EL[fsElI] : null;
+        for (const k of fsCauldrons) {
+            if (k.x < camera.x - 60 || k.x > camera.x + viewW + 60) continue;
+            const nr = Math.hypot(k.x - player.x, k.y - player.y) < 75;
+            ctx.save(); ctx.translate(k.x, k.y);
+            ctx.fillStyle = (frameCount >> 2) % 2 ? '#ff9800' : '#ff5722'; ctx.beginPath(); ctx.moveTo(-14, 16); ctx.lineTo(0, 0); ctx.lineTo(14, 16); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#263238'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(0, 4, 20, 15, 0, 0, 6.283); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = el ? el.col : '#8bc34a'; ctx.beginPath(); ctx.ellipse(0, -2, 15, 7, 0, 0, 6.283); ctx.fill();
+            for (let i = 0; i < 3; i++) { const t = (frameCount * 0.06 + i * 0.7) % 1; ctx.fillStyle = 'rgba(255,255,255,' + (0.7 * (1 - t)) + ')'; ctx.beginPath(); ctx.arc(-6 + i * 6, -2 - t * (k.bub > 0 ? 26 : 12), 2.5 + (k.bub > 0 ? 1.5 : 0), 0, 6.283); ctx.fill(); }
+            if (nr) { ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.setLineDash([5, 5]); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 75, 0, 6.283); ctx.stroke(); ctx.setLineDash([]); ctx.textAlign = 'center'; ctx.font = 'bold 13px sans-serif'; ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.7)'; const tx = '[' + String(controls.mine || 'q').toUpperCase() + '] preparar elemento'; ctx.strokeText(tx, 0, -34); ctx.fillStyle = '#fff'; ctx.fillText(tx, 0, -34); }
+            ctx.restore();
+        }
+    };
+    // Modelos de los espíritus del bosque
+    const dT2 = drawTank;
+    drawTank = function (x, y, bc, tc, ba, ta, type, isBoss, inv, vip, hp, maxHp, ally, c) {
+        if (typeof type === 'string' && type.indexOf('fs_') === 0) { drawFsTank(x, y, bc, tc, ba, ta, type, hp, maxHp, c || ctx); return; }
+        return dT2.apply(this, arguments);
+    };
+}
+function drawFsTank(x, y, bc, tc, ba, ta, type, hp, maxHp, c) {
+    const k = type.slice(3), R = k === 'escarcha' ? 20 : 16, t = frameCount;
+    c.save(); c.translate(x, y);
+    c.save(); c.rotate(ba);
+    c.fillStyle = '#37474f'; c.fillRect(-R - 2, -R - 5, R * 2 + 4, 7); c.fillRect(-R - 2, R - 2, R * 2 + 4, 7);
+    c.fillStyle = bc; c.strokeStyle = '#222'; c.lineWidth = 2; c.beginPath(); c.roundRect(-R, -R, R * 2, R * 2, 5); c.fill(); c.stroke();
+    if (k === 'brasa') { for (let i = -1; i <= 1; i++) { c.fillStyle = (i + (t >> 2)) % 2 ? '#ffeb3b' : '#ff9800'; c.beginPath(); c.moveTo(-R, i * 8 - 4); c.lineTo(-R - 9 - ((t >> 1) + i) % 4, i * 8); c.lineTo(-R, i * 8 + 4); c.closePath(); c.fill(); } }
+    else if (k === 'escarcha') { c.fillStyle = '#e1f5fe'; c.strokeStyle = '#0277bd'; c.lineWidth = 1.2; for (const s of [-1, 1]) for (let i = -1; i <= 1; i++) { c.beginPath(); c.moveTo(i * 9 - 4, s * R); c.lineTo(i * 9, s * (R + 8)); c.lineTo(i * 9 + 4, s * R); c.closePath(); c.fill(); c.stroke(); } }
+    else if (k === 'chispa') { c.strokeStyle = '#fffde7'; c.lineWidth = 2.5; c.beginPath(); c.moveTo(-R + 3, -R + 4); c.lineTo(-3, -2); c.lineTo(-R + 6, 2); c.lineTo(R - 4, R - 4); c.stroke(); if (t % 8 < 3) { c.strokeStyle = '#fff59d'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(R, -4); c.lineTo(R + 9, -8); c.lineTo(R + 5, 0); c.lineTo(R + 12, 5); c.stroke(); } }
+    else { for (const q of [[-8, -7, 4], [6, -4, 3], [-3, 6, 3.5], [9, 8, 2.5]]) { c.fillStyle = '#c5e1a5'; c.beginPath(); c.arc(q[0], q[1], q[2], 0, 6.283); c.fill(); c.fillStyle = '#33691e'; c.beginPath(); c.arc(q[0], q[1], q[2] * 0.4, 0, 6.283); c.fill(); } }
+    c.restore();
+    c.save(); c.rotate(ta);
+    c.fillStyle = '#666'; c.strokeStyle = '#222'; c.lineWidth = 2; c.fillRect(0, -3, R + 8, 6); c.strokeRect(0, -3, R + 8, 6);
+    c.fillStyle = tc; c.beginPath(); c.arc(0, 0, 9, 0, 6.283); c.fill(); c.stroke();
+    c.restore();
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.font = '15px sans-serif'; c.fillText(FS_ELX(FS_NEED[k]).ic, 0, -R - 16);
+    if (maxHp > 1) { c.fillStyle = '#263238'; c.fillRect(-14, -R - 30, 28, 4); c.fillStyle = FS_ELX(FS_NEED[k]).col; c.fillRect(-14, -R - 30, 28 * Math.max(0, hp) / maxHp, 4); }
+    c.restore();
+}
+
+/* ---------- Clase exclusiva: Materialista ---------- */
+CLASSES.materialista = { n: 'Materialista', ic: '⚗️', t: 'act', cost: 0, rk: 99, ex: 1, exn: 'Exclusiva: supera El Bosque Alquímico', cd: 480, d: 'EXCLUSIVA del evento El Bosque Alquímico. Activa sobre el enemigo más cercano a tu cursor, según el material elegido: ❄️ Hielo (lo congela 5 s), 🔥 Fuego (arde 3 s: 1 de daño por segundo), ⚡ Rayo (lo electrocuta y salta hasta a 6 enemigos cercanos, 1 de daño a cada uno), ☠️ Veneno (se vuelve tu aliado 20 s). Cambia de material manteniendo pulsada la tecla de habilidad 1,5 s. Recarga 8 s. Solo en solitario.' };
+const MAT = [
+    { k: 'hielo', n: 'Hielo', ic: '❄️', col: '#4fc3f7' },
+    { k: 'fuego', n: 'Fuego', ic: '🔥', col: '#ff6d00' },
+    { k: 'rayo', n: 'Rayo', ic: '⚡', col: '#ffee58' },
+    { k: 'veneno', n: 'Veneno', ic: '☠️', col: '#9ccc65' }
+];
+let matI = 0, matHold = { on: false, n: 0, sw: false };
+function abilDown() {
+    if (curCls() !== 'materialista') { useAbility(); return; }
+    if (matHold.on) return; matHold = { on: true, n: 0, sw: false };
+}
+function abilUp() {
+    if (!matHold.on) return; const h = matHold; matHold = { on: false, n: 0, sw: false };
+    if (!h.sw && h.n < 90 && state === 'playing') useAbility();
+}
+window.addEventListener('blur', () => { matHold = { on: false, n: 0, sw: false }; });
+window.addEventListener('pointerup', () => abilUp()); window.addEventListener('pointercancel', () => { matHold = { on: false, n: 0, sw: false }; });
+const matFoeOk = e => !e.isAlly && !e.haste && e.sq === undefined;
+function matTarget(mx, my) {
+    let best = null, bd = 220 * 220;
+    for (const e of enemies) { if (!matFoeOk(e)) continue; const d = (e.x - mx) ** 2 + (e.y - my) ** 2; if (d < bd && Math.hypot(e.x - player.x, e.y - player.y) < 900) { bd = d; best = e; } }
+    return best;
+}
+function matDmg(e, n) {
+    if (!enemies.includes(e)) return; e.hp -= n; createExplosion(e.x, e.y, '#ffffff', 6);
+    if (e.hp <= 0) { killBy = player.id; killEnemy(e.id); killBy = undefined; }
+}
+function matCast(mx, my) {
+    const q = player; if (state !== 'playing' || q.dead || (q.abilCd || 0) > 6) return false;
+    const say = (tx, col, e) => floatingTexts.push({ text: tx, x: (e || q).x, y: (e || q).y - 40, life: 70, color: col });
+    if (net.on) { say('⚗️ Solo en solitario', '#ffcc80'); return false; }
+    const m = MAT[matI], tg = matTarget(mx, my);
+    if (!tg) { say('Apunta a un enemigo cercano', '#ffcc80'); return false; }
+    if ((m.k === 'fuego' && tg.fsK === 'brasa') || (m.k === 'hielo' && tg.fsK === 'escarcha') || (m.k === 'rayo' && tg.fsK === 'chispa') || (m.k === 'veneno' && tg.fsK === 'espora')) { say(m.ic + ' ¡Inmune!', '#ffffff', tg); q.abilCd = 120; return true; }
+    if (m.k === 'hielo') {
+        const d = (tg.isBoss || tg.master || tg.krampus) ? 150 : 300;
+        tg.stun = Math.max(tg.stun || 0, d); tg.frz = 1; tg.frzImm = Math.max(tg.frzImm || 0, d + 60);
+        createExplosion(tg.x, tg.y, '#4fc3f7', 24); say('❄️ ¡Congelado 5 s!', '#81d4fa', tg);
+    } else if (m.k === 'fuego') {
+        tg.burn = { n: 3, t: 60 }; createExplosion(tg.x, tg.y, '#ff6d00', 24); say('🔥 ¡Ardiendo 3 s!', '#ffab40', tg);
+    } else if (m.k === 'rayo') {
+        const list = [tg]; let last = tg;
+        while (list.length < 7) {
+            let nx = null, nd = 240 * 240;
+            for (const e of enemies) { if (!matFoeOk(e) || list.includes(e)) continue; const d = (e.x - last.x) ** 2 + (e.y - last.y) ** 2; if (d < nd) { nd = d; nx = e; } }
+            if (!nx) break; list.push(nx); last = nx;
+        }
+        fsBolts.push({ pts: [{ x: q.x, y: q.y }, ...list.map(e => ({ x: e.x, y: e.y }))], t: 20 });
+        for (const e of list) { createExplosion(e.x, e.y, '#ffee58', 12); if (e.fsK !== 'chispa') matDmg(e, 1); }
+        say('⚡ ¡Rayo! ×' + list.length, '#fff176', tg);
+    } else {
+        if (tg.isBoss || tg.master || tg.krampus || tg.kamikaze || tg.isVip || tg.necro) { say('☠️ ¡Inmune!', '#ffffff', tg); q.abilCd = 120; return true; }
+        tg.sq = 0; tg.owner = 'player'; tg.role = 'atk'; tg.tmpAlly = frameCount + 1200; tg.ptCache = null; tg.path = []; tg.burn = null;
+        createExplosion(tg.x, tg.y, '#9ccc65', 24); say('☠️ ¡Aliado 20 s!', '#c5e1a5', tg);
+    }
+    q.abilCd = CLASSES.materialista.cd; return true;
+}
+function matTick() {
+    if (matHold.on) {
+        matHold.n++;
+        if (matHold.n >= 90 && !matHold.sw) { matHold.sw = true; matI = (matI + 1) % MAT.length; const m = MAT[matI]; floatingTexts.push({ text: m.ic + ' Material: ' + m.n, x: player.x, y: player.y - 44, life: 80, color: m.col }); createExplosion(player.x, player.y, m.col, 14); }
+    }
+    for (const e of enemies.slice()) {
+        if (e.burn) {
+            if (frameCount % 8 === 0) createParticles(e.x, e.y, '#ff6d00', 3);
+            if (--e.burn.t <= 0) { e.burn.n--; e.burn.t = 60; floatingTexts.push({ text: '🔥-1', x: e.x, y: e.y - 30, life: 40, color: '#ff9100' }); matDmg(e, 1); if (e.burn && e.burn.n <= 0) e.burn = null; }
+        }
+        if (e.tmpAlly && frameCount >= e.tmpAlly && enemies.includes(e)) { e.tmpAlly = 0; e.sq = undefined; e.owner = undefined; e.role = undefined; e.ptCache = null; e.path = []; floatingTexts.push({ text: '☠️ Vuelve a ser enemigo', x: e.x, y: e.y - 30, life: 60, color: '#c5e1a5' }); }
+    }
+    for (let i = fsBolts.length - 1; i >= 0; i--) if (--fsBolts[i].t <= 0) fsBolts.splice(i, 1);
+    if (curCls() === 'materialista' && frameCount % 6 === 0) {
+        const el = document.getElementById('ui-abil'), m = MAT[matI];
+        if (el) el.innerText = '⚗️ Materialista · ' + m.ic + ' ' + m.n + ' · ' + (player.abilCd > 0 ? Math.ceil(player.abilCd / 60) + ' s' : 'LISTO [' + String(controls.ability || 'e').toUpperCase() + ']') + ' · mantén 1,5 s: cambiar';
+    }
+}
+{
+    const cT = classTick; classTick = function () { cT.apply(this, arguments); matTick(); };
+    const cA = castAbility; castAbility = function (q, mx, my) { if (q === player && clsOf(q) === 'materialista') return matCast(mx, my); return cA.apply(this, arguments); };
+    const dCF = drawClassFx;
+    drawClassFx = function () {
+        dCF.apply(this, arguments);
+        for (const b of fsBolts) {
+            for (const [w, col, a] of [[8, '#ffee58', 0.35], [3, '#fffde7', 1]]) {
+                ctx.save(); ctx.strokeStyle = col; ctx.globalAlpha = a * Math.min(1, b.t / 10); ctx.lineWidth = w; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(b.pts[0].x, b.pts[0].y);
+                for (let i = 1; i < b.pts.length; i++) { const p0 = b.pts[i - 1], p1 = b.pts[i]; for (let s = 1; s <= 5; s++) { const f = s / 5, j = s < 5 ? (Math.random() - 0.5) * 18 : 0; ctx.lineTo(p0.x + (p1.x - p0.x) * f + j, p0.y + (p1.y - p0.y) * f + j); } }
+                ctx.stroke(); ctx.restore();
+            }
+        }
+        if (player.dead) return;
+        if (curCls() === 'materialista') {
+            const m = MAT[matI]; ctx.save(); ctx.lineWidth = 3; ctx.strokeStyle = m.col; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 9, 0, 6.283); ctx.stroke();
+            if (matHold.on && matHold.n > 8) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 20, -Math.PI / 2, -Math.PI / 2 + 6.283 * Math.min(1, matHold.n / 90)); ctx.stroke(); }
+            ctx.restore();
+        }
+        if (fsCur && fsAmmo > 0 && fsElI >= 0) { const el = FS_EL[fsElI]; ctx.save(); ctx.lineWidth = 4; ctx.strokeStyle = el.col; ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 6, -Math.PI / 2, -Math.PI / 2 + 6.283 * fsAmmo / 12); ctx.stroke(); ctx.restore(); }
+    };
+    const eH = eventHTML;
+    eventHTML = function () {
+        const open = !!prof.fsOpen, solo = !net.role;
+        return eH.apply(this, arguments) + '<div class="modes"><button class="mode ' + (open ? 'on' : '') + '" ' + (open && solo ? '' : 'disabled') + ' onclick="fsStart()"><b>🌲 El Bosque Alquímico</b><span>Cruza un bosque larguísimo lleno de espíritus de fuego, hielo, rayo y veneno. Las balas normales no les hacen nada: prepara balas elementales en calderos. Solo en solitario.</span><em>'
+            + (open ? 'Desbloqueado permanentemente · recompensa: clase «Materialista»' : 'Secreto: con la clase 🧱 Arquitecto, levanta un muro pegado al borde del mapa y entra en él.') + '</em></button></div>';
+    };
 }
 
 </script>
